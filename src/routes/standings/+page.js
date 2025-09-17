@@ -9,4 +9,5 @@ export async function load() {
         standingsData,
         leagueTeamManagersData,
     };
+console.log("Standings fetched:", standingsData);
 }
