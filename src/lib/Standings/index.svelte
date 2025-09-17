@@ -76,9 +76,21 @@
         overflow-x: scroll;
         margin: 0.5em 0 5em;
     }
+    .standings-title {
+        font-size: 1.4rem;
+        font-weight: bold;
+        margin: 1rem 0 1.5rem;
+        text-align: center;
+    }
+
+
+
+
 </style>
 
-<h1>{year ?? ''} {leagueName} Standings</h1>
+<!--h1>{year ?? ''} {leagueName} Standings</h1--> <!--Changed to h2 to match the standings card on the homepage-->
+
+<h2 class="standings-title">{year ?? ''} {leagueName} Standings</h2>
 
 {#if loading}
     <!-- promise is pending -->
