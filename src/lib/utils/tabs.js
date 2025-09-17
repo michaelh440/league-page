@@ -1,4 +1,7 @@
-import {leagueID} from '$lib/utils/leagueInfo';
+/*import {leagueID} from '$lib/utils/leagueInfo';
+
+const seasons = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]; // add/remove as needed
+
 
 export const tabs = [
     {
@@ -21,12 +24,19 @@ export const tabs = [
     },
     {
         icon: 'article',
-        label: 'Blog',
-        dest: '/blog',
-        key: 'blog',
+        label: 'Previous years',
+        dest: '/previous_years',
+        key: 'previous_years',
     },
     {
-        icon: 'view_comfy',
+        icon: 'swap_horiz',
+        label: '2015',
+        dest: '/seasons/2015',
+        key: 'season_2015',
+    },
+    
+    {
+        icon: 'storage',
         label: 'League Info',
         nest: true,
         key: 'league_info',
@@ -84,4 +94,44 @@ export const tabs = [
         dest: '/resources',
         key: 'resources',
     },
+];*/
+
+// src/lib/utils/tabs.js
+import { leagueID } from '$lib/utils/leagueInfo';
+
+export const tabs = [
+  { icon: 'home', label: 'Home', dest: '/', key: 'home' },
+  { icon: 'calendar_month', label: 'Current Season', dest: '/matchups', key: 'current' },
+  {
+    icon: 'storage',
+    label: 'League',
+    nest: true,
+    key: 'league',
+    children: [
+      { icon: 'article', label: 'Previous Seasons', dest: '/previous_years' },
+      { icon: 'bar_chart', label: 'All Time League Stats', dest: '/league/all_time_stats' },
+      { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' },
+      { icon: 'sports', label: 'Playoff Stats', dest: '/league/playoff_stats' },
+      { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/league/rivalries' },
+      { icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
+      { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
+    ]
+  },
+  {
+    icon: 'groups',
+    label: 'Managers',
+    nest: true,
+    key: 'managers',
+    children: [
+      { icon: 'list', label: 'List', dest: '/managers' },
+      { icon: 'person', label: 'Individual Manager Bio', dest: '/managers/bio' },
+      { icon: 'leaderboard', label: 'Manager All Time Stats', dest: '/managers/all-time_stats' },
+      { icon: 'bar_chart', label: 'Manager Regular Season Stats', dest: '/managers/reg_season_stats' },
+      { icon: 'sports', label: 'Manager Playoff Stats', dest: '/managers/playoff_stats' },
+      { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/managers/rivalries' },
+      { icon: 'emoji_events', label: 'Manager Trophy Room', dest: '/managers/trophy_room' },
+      { icon: 'history_edu', label: 'Manager Draft Room', dest: '/managers/drafts' }
+    ]
+  },
+  { icon: 'rss_feed', label: 'Blog', dest: '/blog', key: 'blog' }
 ];
