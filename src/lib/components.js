@@ -18,6 +18,7 @@ import HomePost from './BlogPosts/HomePost.svelte';
 import FullPost from './BlogPosts/FullPost.svelte';
 import Posts from './BlogPosts/Posts.svelte';
 import Standings from './Standings/index.svelte';
+import SeasonSidebar from './SeasonSidebar.svelte'; //Added to use the sidebar UI on the previous seasons each year's page
 
 export {
     Nav,
@@ -40,4 +41,5 @@ export {
     Posts,
     FullPost,
     Standings,
+    SeasonSidebar, // ✅ now exported
 };

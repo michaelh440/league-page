@@ -7,12 +7,11 @@ export const enableBlog = false; // requires VITE_CONTENTFUL_ACCESS_TOKEN and VI
 
 /*   STEP 2   */
 export const homepageText = `
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
-  <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
-  <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+  <p>It was a different time. The world and the workplace were still joking about “Left Shark” from Katy Perry’s Super Bowl halftime show, and absolutely no one was happy about Bran Stark becoming King of the Six Kingdoms.  Meanwhile, at UPS, there was one person who did nothing but talk sh!t.  In these converstions he could be heard saying “F the shark, did you see Katy? Damn! Or how can you kill the Mother of Dragons?  She could Drag on me anytime!</p>
+  <p>Mostly it was his non-stop banter about his sport knowledge that drove a group of coworker to come together with a single unwavering goal.  They would create a fantasy football league and beat this guy for good. </p> 
+<p>Now, over a decade later, managers have come and gone but the goal remains the same. Just Beat Jose!  Or at least that’s how he tells it.
+</p>
+  
 `;
 
 /*   STEP 3   */
