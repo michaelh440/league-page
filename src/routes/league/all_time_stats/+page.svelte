@@ -1,132 +1,4 @@
 <!--script>
-    import Card from '$lib/components/StatCard.svelte';
-
-    let selected = "alltimescoring"; // default to All Time Scoring
-
-    const navCards = [
-        { id: "alltimescoring", label: "All Time Scoring" },
-        { id: "blowout", label: "Largest Blowout / Narrowest Win" },
-        { id: "winloss", label: "Win/Loss Percentages" },
-        { id: "points", label: "Potential vs Actual Points" },
-        { id: "records", label: "League Records" },
-        { id: "streaks", label: "Longest Streaks" },
-        { id: "headtohead", label: "Head-to-Head Records" },
-        { id: "champions", label: "Championships" },
-        { id: "playoffs", label: "Playoff Appearances" },
-        { id: "misc", label: "Miscellaneous" }
-    ];
-
-    function selectCard(id) {
-        selected = id;
-    }
-</script>
-
-<div class="page-layout">
-    <!-- Sidebar >
-    <aside class="sidebar">
-        {#each navCards as card}
-            <button
-                class="nav-card {selected === card.id ? 'active' : ''}"
-                on:click={() => selectCard(card.id)}
-            >
-                {card.label}
-            </button>
-        {/each}
-    </aside>
-
-    <!-- Main Content >
-    <main class="content">
-        <div style="text-align: center;">
-            <h3 class="text-2xl font-bold mb-4" style="align:center;">All-Time Stats</h3>
-        </div>
-        {#if selected === "alltimescoring"}
-            <div class="content-grid">
-                <!-- Row 1 >
-                <Card size="lg" title="All Time Highest Game Score">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-                <Card size="lg" title="All Time Lowest Game Score">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-
-                <!-- Row 2 >
-                <Card size="lg" title="All Time Highest Season Score">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-                <Card size="lg" title="All Time Lowest Season Score">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-
-                <!-- Row 3 >
-                <Card size="lg" title="Largest Blowout All Time">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-                <Card size="lg" title="Closest Nailbiter All Time">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-
-                <!-- Row 4 >
-                <Card size="lg" title="Winning Percentage All Time">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-                <Card size="lg" title="Potential Points All Time">
-                    <p class="text-gray-600">Coming Soon</p>
-                </Card>
-            </div>
-        {:else}
-            <div class="content-grid">
-                <Card size="lg"><p class="text-gray-600">Coming Soon</p></Card>
-                <Card size="lg"><p class="text-gray-600">Coming Soon</p></Card>
-                <Card size="lg"><p class="text-gray-600">Coming Soon</p></Card>
-                <Card size="lg"><p class="text-gray-600">Coming Soon</p></Card>
-            </div>
-        {/if}
-    </main>
-</div>
-
-<style>
-  .page-layout {
-    display: flex;
-    gap: 2rem;
-  }
-
-  .sidebar {
-    flex: 0 0 12%; /* left column */
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    margin-left: 0.5rem;
-    margin-top: 1rem;
-  }
-
-  .nav-card {
-    display: block;
-    padding: 0.8rem;
-    text-align: center;
-    font-weight: bold;
-    text-decoration: none;
-    color: white;
-    background: linear-gradient(135deg, #007bff, #0056b3);
-    border-radius: 6px;
-    transition: background 0.2s ease, transform 0.1s ease;
-  }
-
-  .nav-card:hover { background: #0056b3; transform: translateY(-2px); }
-  .nav-card.active { background: silver; color: #222; }
-
-  .content {
-    flex: 1;
-  }
-
-  .content-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-  }
-</style-->
-
-
-<script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import StatCard from '$lib/components/StatCard.svelte';
 
@@ -148,7 +20,7 @@
 <StatsLayout title="All-Time Scoring" {navItems}>
   <div class="content-grid">
 
-    <!-- Row 1 -->
+    <!-- Row 1 >
     <StatCard size="lg">
       <table class="stats-table">
         <thead>
@@ -156,7 +28,7 @@
           <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
         </thead>
         <tbody>
-          {#each data.highestGame as row, i}
+          {#each data.highestGame.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -180,7 +52,7 @@
           <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
         </thead>
         <tbody>
-          {#each data.lowestGame as row, i}
+          {#each data.lowestGame.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -197,7 +69,7 @@
       </table>
     </StatCard>
 
-    <!-- Row 2 -->
+    <!-- Row 2 >
     <StatCard size="lg">
       <table class="stats-table">
         <thead>
@@ -205,7 +77,7 @@
           <tr><th>#</th><th>Team</th><th>Total Points</th></tr>
         </thead>
         <tbody>
-          {#each data.highestSeason as row, i}
+          {#each data.highestSeason.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -228,7 +100,7 @@
           <tr><th>#</th><th>Team</th><th>Total Points</th></tr>
         </thead>
         <tbody>
-          {#each data.lowestSeason as row, i}
+          {#each data.lowestSeason.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -244,7 +116,7 @@
       </table>
     </StatCard>
 
-    <!-- Row 3 -->
+    <!-- Row 3 >
     <StatCard size="lg">
       <table class="stats-table">
         <thead>
@@ -252,7 +124,7 @@
           <tr><th>#</th><th>Matchup</th><th>Week</th><th>Margin</th></tr>
         </thead>
         <tbody>
-          {#each data.blowout as row, i}
+          {#each data.blowout.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -281,7 +153,7 @@
           <tr><th>#</th><th>Matchup</th><th>Week</th><th>Margin</th></tr>
         </thead>
         <tbody>
-          {#each data.nailbiter as row, i}
+          {#each data.nailbiter.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -303,7 +175,7 @@
       </table>
     </StatCard>
 
-    <!-- Row 4 -->
+    <!-- Row 4 >
     <StatCard size="lg">
       <table class="stats-table">
         <thead>
@@ -311,7 +183,7 @@
           <tr><th>#</th><th>Team</th><th>Record</th><th>Win %</th></tr>
         </thead>
         <tbody>
-          {#each data.winPct as row, i}
+          {#each data.winPct.slice(0, 10) as row, i}
             <tr>
               <td>{i + 1}</td>
               <td class="team-cell">
@@ -348,33 +220,27 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 1rem;
   }
-
   .stats-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
   }
-
   .stats-table th,
   .stats-table td {
     border: 1px solid #ddd;
     padding: 0.35rem 0.5rem;
   }
-
   .stats-table th {
     text-align: center;
     background: #f5f5f5;
     font-weight: bold;
   }
-
   .stats-table td {
     text-align: left;
   }
-
   .stats-table tr:nth-child(even) {
     background: #fafafa;
   }
-
   .table-title {
     text-align: center;
     background-color: #003366;
@@ -383,20 +249,17 @@
     font-weight: bold;
     padding: 0.6rem;
   }
-
   .team-cell {
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
-
   .team-logo {
     width: 22px;
     height: 22px;
     border-radius: 50%;
     object-fit: cover;
   }
-
   .stats-table th.table-title {
     text-align: center !important;
     background-color: #003366 !important;
@@ -404,5 +267,360 @@
     font-size: 1rem;
     font-weight: bold;
     padding: 0.6rem;
-    }
+  }
+</style-->
+
+
+<script>
+  import StatsLayout from '$lib/components/StatsLayout.svelte';
+  import StatCard from '$lib/components/StatCard.svelte';
+
+  export let data;
+
+  const navItems = [
+    { label: "All Time Scoring", href: "/league/all_time_stats", active: true },
+    { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
+    { label: "Playoff Scoring", href: "/league/playoff_stats" },
+    { label: "Streaks", href: "/league/streaks" },
+    { label: "Potential Points", href: "/league/potential_points" },
+    { label: "Ranking", href: "/league/ranking" },
+    { label: "Rivalries", href: "/league/rivalries" },
+    { label: "Trophy Room", href: "/league/trophy_room" },
+    { label: "Draft Room", href: "/league/drafts" }
+  ];
+
+  // Helper function to format scores to 2 decimal places
+  function formatScore(score) {
+    return parseFloat(score).toFixed(2);
+  }
+
+  // Debug logging to check data structure
+  console.log('All-time stats data:', {
+    highestGame: data.highestGame?.slice(0,3),
+    lowestGame: data.lowestGame?.slice(0,3), 
+    highestSeason: data.highestSeason?.slice(0,3),
+    lowestSeason: data.lowestSeason?.slice(0,3),
+    blowout: data.blowout?.slice(0,3),
+    nailbiter: data.nailbiter?.slice(0,3),
+    winPct: data.winPct?.slice(0,3)
+  });
+</script>
+
+<StatsLayout title="All-Time Scoring" {navItems}>
+  <div class="content-grid">
+
+    <!-- Row 1 -->
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All-Time Highest Game Score</th></tr>
+          <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.highestGame || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                {#if row.team_logo}
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                {/if}
+                {row.team_name || 'Unknown Team'}
+              </td>
+              <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+              <td>{formatScore(row.score || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All-Time Lowest Game Score</th></tr>
+          <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.lowestGame || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                {#if row.team_logo}
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                {/if}
+                {row.team_name || 'Unknown Team'}
+              </td>
+              <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+              <td>{formatScore(row.score || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <!-- Row 2 -->
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All-Time Highest Season Score</th></tr>
+          <tr><th>#</th><th>Team</th><th>Season</th><th>Total Points</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.highestSeason || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                {#if row.team_logo}
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                {/if}
+                {row.team_name || 'Unknown Team'}
+              </td>
+              <td>{row.year || 'N/A'}</td>
+              <td>{formatScore(row.total_points || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All-Time Lowest Season Score</th></tr>
+          <tr><th>#</th><th>Team</th><th>Season</th><th>Total Points</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.lowestSeason || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                {#if row.team_logo}
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                {/if}
+                {row.team_name || 'Unknown Team'}
+              </td>
+              <td>{row.year || 'N/A'}</td>
+              <td>{formatScore(row.total_points || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <!-- Row 3 -->
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">Largest Blowout All Time</th></tr>
+          <tr><th>#</th><th>Matchup</th><th>Week</th><th>Margin</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.blowout || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                <div class="matchup-display">
+                  <div class="team-info">
+                    {#if row.team1_logo}
+                      <img src={row.team1_logo} alt={row.team1_name || 'Team 1'} class="team-logo" />
+                    {/if}
+                    {row.team1_name || 'Team 1'} ({formatScore(row.team1_score || 0)})
+                  </div>
+                  <span class="vs-text">vs</span>
+                  <div class="team-info">
+                    {#if row.team2_logo}
+                      <img src={row.team2_logo} alt={row.team2_name || 'Team 2'} class="team-logo" />
+                    {/if}
+                    {row.team2_name || 'Team 2'} ({formatScore(row.team2_score || 0)})
+                  </div>
+                </div>
+              </td>
+              <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+              <td>{formatScore(row.margin || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">Closest Nailbiter All Time</th></tr>
+          <tr><th>#</th><th>Matchup</th><th>Week</th><th>Margin</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.nailbiter || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                <div class="matchup-display">
+                  <div class="team-info">
+                    {#if row.team1_logo}
+                      <img src={row.team1_logo} alt={row.team1_name || 'Team 1'} class="team-logo" />
+                    {/if}
+                    {row.team1_name || 'Team 1'} ({formatScore(row.team1_score || 0)})
+                  </div>
+                  <span class="vs-text">vs</span>
+                  <div class="team-info">
+                    {#if row.team2_logo}
+                      <img src={row.team2_logo} alt={row.team2_name || 'Team 2'} class="team-logo" />
+                    {/if}
+                    {row.team2_name || 'Team 2'} ({formatScore(row.team2_score || 0)})
+                  </div>
+                </div>
+              </td>
+              <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+              <td>{formatScore(row.margin || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <!-- Row 4 -->
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All-Time Winning Percentage Leaders</th></tr>
+          <tr><th>#</th><th>Team</th><th>Record</th><th>Win %</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.winPct || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                {#if row.team_logo}
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                {/if}
+                {row.team_name || 'Unknown Team'}
+              </td>
+              <td>{row.wins || 0}-{row.losses || 0}-{row.ties || 0}</td>
+              <td>{((row.win_pct || 0) * 100).toFixed(1)}%</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
+    </StatCard>
+
+    <StatCard size="lg">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title">Potential Points All Time</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="text-gray-600 text-center">Coming Soon</td></tr>
+        </tbody>
+      </table>
+    </StatCard>
+  <p style="height:20px"></p>
+  </div>
+  <p style="height:20px"></p>
+</StatsLayout>
+
+<style>
+  .content-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+  
+  .stats-table th,
+  .stats-table td {
+    border: 1px solid #ddd;
+    padding: 0.35rem 0.5rem;
+  }
+  
+  .stats-table th {
+    text-align: center;
+    background: #f5f5f5;
+    font-weight: bold;
+  }
+  
+  .stats-table td {
+    text-align: left;
+  }
+  
+  .stats-table tr:nth-child(even) {
+    background: #fafafa;
+  }
+  
+  .table-title {
+    text-align: center;
+    background-color: #003366;
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    padding: 0.6rem;
+  }
+  
+  .team-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .team-logo {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .matchup-display {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.8rem;
+  }
+  
+  .team-info {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .vs-text {
+    text-align: center;
+    font-weight: bold;
+    color: #666;
+    font-size: 0.7rem;
+  }
+  
+  .text-center {
+    text-align: center;
+  }
+  
+  .text-gray-600 {
+    color: #666;
+  }
+.stats-table th.table-title {
+    text-align: center !important;
+    background-color: #003366 !important;
+    color: white !important;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.6rem;
+  }
+
 </style>
