@@ -24,7 +24,7 @@
     { label: "Manager Regular Season Stats", href: "/managers/reg_season_stats" },
     { label: "Manager Playoff Stats", href: "/managers/playoff_stats" },
     { label: "Matchups/Rivalries", href: "/managers/rivalries" },
-    { label: "Manager Trophy Room", href: "/managers/trophies" },
+    //{ label: "Manager Trophy Room", href: "/managers/trophies" },
     { label: "Manager Draft Room", href: "/managers/drafts" }
   ];
 
