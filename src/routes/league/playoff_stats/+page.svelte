@@ -8,11 +8,11 @@
     { label: "All Time Scoring", href: "/league/all_time_stats" },
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats", active: true },
-    { label: "Streaks", href: "/league/streaks" },
-    { label: "Potential Points", href: "/league/potential_points" },
+    //{ label: "Streaks", href: "/league/streaks" },
+    //{ label: "Potential Points", href: "/league/potential_points" },
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
-    { label: "Trophy Room", href: "/league/trophy_room" },
+    //{ label: "Trophy Room", href: "/league/trophy_room" },
     { label: "Draft Room", href: "/league/drafts" }
   ];
 
@@ -269,18 +269,22 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
   
   .stats-table th,
   .stats-table td {
-    border: 1px solid #ddd;
-    padding: 0.35rem 0.5rem;
+    border: 1px solid #dee2e6;
+    padding: 0.75rem 0.5rem;
   }
   
   .stats-table th {
     text-align: center;
-    background: #f5f5f5;
-    font-weight: bold;
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
   }
   
   .stats-table td {
@@ -288,16 +292,20 @@
   }
   
   .stats-table tr:nth-child(even) {
-    background: #fafafa;
+    background: #fafbfc;
+  }
+  
+  .stats-table tr:hover {
+    background: #f0f2f5;
   }
   
   .table-title {
-    text-align: center;
-    background-color: #003366;
-    color: white;
-    font-size: 1.1rem;
+    text-align: center !important;
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    font-size: 1rem;
     font-weight: bold;
-    padding: 0.6rem;
+    padding: 0.75rem;
   }
   
   .team-cell {
@@ -307,10 +315,11 @@
   }
   
   .team-logo {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     object-fit: cover;
+    border: 2px solid #e9ecef;
   }
   
   .matchup-display {
@@ -329,7 +338,7 @@
   .vs-text {
     text-align: center;
     font-weight: bold;
-    color: #666;
+    color: #6c757d;
     font-size: 0.7rem;
   }
   
@@ -338,14 +347,27 @@
   }
   
   .text-gray-600 {
-    color: #666;
+    color: #6c757d;
   }
-  .stats-table th.table-title {
-    text-align: center !important;
-    background-color: #003366 !important;
-    color: white !important;
-    font-size: 1rem;
-    font-weight: bold;
-    padding: 0.6rem;
+
+  @media (max-width: 768px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+
+    .stats-table {
+      font-size: 0.75rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.5rem 0.25rem;
+    }
+
+    .team-logo {
+      width: 20px;
+      height: 20px;
+    }
   }
 </style>
