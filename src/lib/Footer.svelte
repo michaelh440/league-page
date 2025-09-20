@@ -42,6 +42,14 @@
 
 	const year = new Date().getFullYear();
 
+    // Main navigation items
+    const mainNavItems = [
+        { label: "Home", dest: "/" },
+        { label: "Current Season", dest: "/current" },
+        { label: "League All Time Stats", dest: "/league" },
+        { label: "Manager All Time Stats", dest: "/managers" }
+    ];
+
     $: resize(el?.getBoundingClientRect(), false, innerWidth);
 </script>
 
@@ -59,6 +67,26 @@
 		padding: 30px 0 60px;
 		text-align: center;
 		color: #777;
+	}
+
+	#mainNavigation {
+		margin: 0 0 1.5em;
+		padding-bottom: 1em;
+		border-bottom: 1px solid #ddd;
+	}
+
+	#mainNavigation ul {
+		margin: 0;
+		padding: 0;
+	}
+
+	#mainNavigation ul li {
+		list-style-type: none;
+		display: inline;
+	}
+
+	#mainNavigation li:not(:first-child):before {
+		content: " | ";
 	}
 
 	#navigation {
@@ -89,11 +117,35 @@
 		color: #920505;
 	}
 
+	.mainNavLink {
+		display: inline-block;
+		cursor: pointer;
+		padding: 8px 12px;
+		font-weight: 600;
+		font-size: 1.1em;
+	}
+
+	.mainNavLink:hover {
+		color: #920505;
+	}
+
 	.updateNotice {
 		color: var(--g999);
 		font-style: italic;
 		font-size: 0.8em;
 		margin-top: 0;
+	}
+
+	.navigation-section {
+		margin-bottom: 1em;
+	}
+
+	.section-label {
+		font-size: 0.9em;
+		color: #999;
+		margin-bottom: 0.5em;
+		text-transform: uppercase;
+		letter-spacing: 1px;
 	}
 </style>
 
@@ -107,31 +159,22 @@
     {#if managersOutOfDate}
 	    <p class="updateNotice">Your managers page needs an update, <a href="https://github.com/nmelhado/league-page/blob/master/TRAINING_WHEELS.md#2-add-managers">please follow the instructions</a> to get the most up-to-date experience.</p>
     {/if}
-	<div id="navigation">
+
+	<!-- Main Navigation -->
+	<div id="mainNavigation" class="navigation-section">
+		<div class="section-label"></div>
 		<ul>
-			{#each tabs as tab}
-				{#if !tab.nest}
-					<li><div class="navLink" onclick={() => goto(tab.dest)}>{tab.label}</div></li>
-				{:else}
-					{#each tab.children as child}
-                        <!-- Shouldn't show Managers tab unless managers has been populated -->
-				        {#if child.label != "Managers" || managers.length > 0}
-							{#if child.label == "Go to Sleeper"}
-								<li><div class="navLink" onclick={() => window.location = child.dest}>{child.label}</div></li>
-							{:else}
-                            	<li><div class="navLink" onclick={() => goto(child.dest)}>{child.label}</div></li>
-							{/if}
-                        {/if}
-					{/each}
-				{/if}
+			{#each mainNavItems as navItem}
+				<li><div class="mainNavLink" onclick={() => goto(navItem.dest)}>{navItem.label}</div></li>
 			{/each}
 		</ul>
 	</div>
+
 	<!-- PLEASE DO NOT REMOVE THE COPYRIGHT -->
 	<span class="copyright">&copy; 2025 - {year} Houston Fantasy Football League </span>
 	<br />
 	<!-- PLEASE DO NOT REMOVE THE BUILT BY -->
-	<span class="creator">Original Sleeper Framework by <a href="http://www.nmelhado.com/">Nicholas Melhado</a><br /></span>
+	<span class="creator">Based on Sleeper API Work and General Site Design of <!--a href="http://www.nmelhado.com/"-->Nicholas Melhado<!--/a--><br /></span>
 	<!-- You can remove the donation link (although any donations to help
 	 maintain and enhance League Page would be greatly appreciated!) -->
 
