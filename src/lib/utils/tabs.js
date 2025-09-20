@@ -113,7 +113,7 @@ export const tabs = [
       { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' },
       { icon: 'sports', label: 'Playoff Stats', dest: '/league/playoff_stats' },
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/league/rivalries' },
-      { icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
+      //{ icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
       { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
     ]
   },
@@ -129,9 +129,9 @@ export const tabs = [
       { icon: 'bar_chart', label: 'Manager Regular Season Stats', dest: '/managers/reg_season_stats' },
       { icon: 'sports', label: 'Manager Playoff Stats', dest: '/managers/playoff_stats' },
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/managers/rivalries' },
-      { icon: 'emoji_events', label: 'Manager Trophy Room', dest: '/managers/trophy_room' },
+      //{ icon: 'emoji_events', label: 'Manager Trophy Room', dest: '/managers/trophy_room' },
       { icon: 'history_edu', label: 'Manager Draft Room', dest: '/managers/drafts' }
     ]
   },
-  { icon: 'rss_feed', label: 'Blog', dest: '/blog', key: 'blog' }
+  //{ icon: 'rss_feed', label: 'Blog', dest: '/blog', key: 'blog' }
 ];
