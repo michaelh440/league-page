@@ -15,11 +15,11 @@
     { label: "All Time Scoring", href: withMgr("/managers/all_time_stats") },
     { label: "Regular Season Scoring", href: withMgr("/managers/reg_season_stats") },
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats"), active: true },
-    { label: "Streaks", href: withMgr("/managers/streaks") },
-    { label: "Potential Points", href: withMgr("/managers/potential_points") },
-    { label: "Ranking", href: withMgr("/managers/ranking") },
+    //{ label: "Streaks", href: withMgr("/managers/streaks") },
+    //{ label: "Potential Points", href: withMgr("/managers/potential_points") },
+    //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
-    { label: "Trophy Room", href: withMgr("/managers/trophy_room") },
+    //{ label: "Trophy Room", href: withMgr("/managers/trophy_room") },
     { label: "Draft Room", href: withMgr("/managers/drafts") }
   ];
 

@@ -17,7 +17,7 @@
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },
     //{ label: "Streaks", href: withMgr("/managers/streaks") },
     //{ label: "Potential Points", href: withMgr("/managers/potential_points") },
-    { label: "Ranking", href: withMgr("/managers/ranking") },
+    //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
     //{ label: "Trophy Room", href: withMgr("/managers/trophy_room") },
     { label: "Draft Room", href: withMgr("/managers/drafts") }
