@@ -125,7 +125,7 @@ export const tabs = [
     children: [
       { icon: 'list', label: 'List', dest: '/managers' },
       { icon: 'person', label: 'Individual Manager Bio', dest: '/managers/bio' },
-      { icon: 'leaderboard', label: 'Manager All Time Stats', dest: '/managers/all-time_stats' },
+      { icon: 'leaderboard', label: 'Manager All Time Stats', dest: '/managers/all_time_stats' },
       { icon: 'bar_chart', label: 'Manager Regular Season Stats', dest: '/managers/reg_season_stats' },
       { icon: 'sports', label: 'Manager Playoff Stats', dest: '/managers/playoff_stats' },
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/managers/rivalries' },
