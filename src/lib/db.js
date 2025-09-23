@@ -1,6 +1,6 @@
 
 //Comment out below when not Connecting to Local Postgress
-import pkg from 'pg';
+/*import pkg from 'pg';
 const { Pool } = pkg;
 
 // Create a connection pool
@@ -16,11 +16,11 @@ export const pool = new Pool({
 export async function query(text, params) {
   const res = await pool.query(text, params);
   return res;
-}
+}*/
 
 
 //Uncomment below for Connecting to Neon
-/*import pg from 'pg';
+import pg from 'pg';
 
 const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
@@ -28,6 +28,10 @@ const pool = new pg.Pool({
     rejectUnauthorized: false
   }
 });
+
+
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+
 
 export async function query(text, params) {
   const client = await pool.connect();
@@ -37,4 +41,4 @@ export async function query(text, params) {
   } finally {
     client.release();
   }
-}*/
+}
