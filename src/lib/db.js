@@ -47,7 +47,7 @@ export async function query(text, params) {
 }*/
 
 
-// src/lib/db.js - Fixed for Neon connection
+// src/lib/db.js - Simple Neon connection without search_path options
 import pg from 'pg';
 import { dev } from '$app/environment';
 
@@ -55,9 +55,8 @@ const pool = new pg.Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: dev ? false : {
     rejectUnauthorized: false
-  },
-  // Set search path to public schema
-  options: '-c search_path=public'
+  }
+  // NO search_path options - Neon pooled connections don't support this
 });
 
 // Log connection details (only in development)
@@ -69,9 +68,6 @@ if (dev) {
 export async function query(text, params) {
   const client = await pool.connect();
   try {
-    // Set search path to ensure we look in the public schema
-    await client.query('SET search_path TO public');
-    
     console.log('Executing query:', text.substring(0, 100) + '...');
     const result = await client.query(text, params);
     console.log('Query successful, rows returned:', result.rows.length);
