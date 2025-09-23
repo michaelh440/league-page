@@ -20,99 +20,72 @@ export async function load() {
   };
 }*/
 
-// src/routes/league/reg_season_stats/+page.server.js - With debugging
-import { query, testConnection } from '$lib/db';
+// src/routes/league/reg_season_stats/+page.server.js - Debug connection
+import { query } from '$lib/db';
 
 export async function load() {
   try {
-    // Test connection first
-    console.log('Testing database connection...');
-    const connectionTest = await testConnection();
-    if (!connectionTest) {
-      throw new Error('Database connection test failed');
-    }
-
-    console.log('Loading reg season stats...');
+    console.log('=== DATABASE CONNECTION DEBUG ===');
     
-    // Test each query individually to identify which one fails
-    let highestGame, lowestGame, highestSeason, lowestSeason, blowout, nailbiter, winPct;
+    // Check what database we're actually connected to
+    const dbInfo = await query(`
+      SELECT 
+        current_database() as database_name,
+        current_schema() as schema_name,
+        current_user as user_name,
+        inet_server_addr() as server_ip,
+        inet_server_port() as server_port
+    `);
+    console.log('Database connection info:', dbInfo.rows[0]);
     
+    // Check if the view exists in the current schema
+    const viewCheck = await query(`
+      SELECT schemaname, viewname 
+      FROM pg_views 
+      WHERE viewname LIKE '%highest_game%'
+    `);
+    console.log('Views containing "highest_game":', viewCheck.rows);
+    
+    // Check all views in current schema
+    const allViews = await query(`
+      SELECT schemaname, viewname 
+      FROM pg_views 
+      WHERE schemaname = current_schema()
+      ORDER BY viewname
+    `);
+    console.log('All views in current schema:', allViews.rows);
+    
+    // Check if the view exists in the public schema specifically
+    const publicViewCheck = await query(`
+      SELECT viewname 
+      FROM pg_views 
+      WHERE schemaname = 'public' AND viewname = 'vw_reg_season_highest_game'
+    `);
+    console.log('vw_reg_season_highest_game in public schema:', publicViewCheck.rows);
+    
+    // Try to access the view with explicit schema
     try {
-      console.log('Querying vw_reg_season_highest_game...');
-      highestGame = (await query(`SELECT * FROM vw_reg_season_highest_game`)).rows;
-      console.log('✓ highestGame loaded:', highestGame.length, 'rows');
+      const explicitSchemaQuery = await query(`SELECT COUNT(*) FROM public.vw_reg_season_highest_game`);
+      console.log('Explicit public schema access works:', explicitSchemaQuery.rows[0]);
     } catch (error) {
-      console.error('✗ Error loading highestGame:', error.message);
-      throw error;
+      console.log('Explicit public schema access failed:', error.message);
     }
     
-    try {
-      console.log('Querying vw_reg_season_lowest_game...');
-      lowestGame = (await query(`SELECT * FROM vw_reg_season_lowest_game`)).rows;
-      console.log('✓ lowestGame loaded:', lowestGame.length, 'rows');
-    } catch (error) {
-      console.error('✗ Error loading lowestGame:', error.message);
-      throw error;
-    }
+    // Check search_path
+    const searchPath = await query(`SHOW search_path`);
+    console.log('Current search_path:', searchPath.rows[0]);
     
-    try {
-      console.log('Querying vw_reg_season_highest_season...');
-      highestSeason = (await query(`SELECT * FROM vw_reg_season_highest_season`)).rows;
-      console.log('✓ highestSeason loaded:', highestSeason.length, 'rows');
-    } catch (error) {
-      console.error('✗ Error loading highestSeason:', error.message);
-      throw error;
-    }
-    
-    try {
-      console.log('Querying vw_reg_season_lowest_season...');
-      lowestSeason = (await query(`SELECT * FROM vw_reg_season_lowest_season`)).rows;
-      console.log('✓ lowestSeason loaded:', lowestSeason.length, 'rows');
-    } catch (error) {
-      console.error('✗ Error loading lowestSeason:', error.message);
-      throw error;
-    }
-    
-    try {
-      console.log('Querying vw_reg_season_largest_blowout...');
-      blowout = (await query(`SELECT * FROM vw_reg_season_largest_blowout`)).rows;
-      console.log('✓ blowout loaded:', blowout.length, 'rows');
-    } catch (error) {
-      console.error('✗ Error loading blowout:', error.message);
-      throw error;
-    }
-    
-    try {
-      console.log('Querying vw_reg_season_closest_nailbiter...');
-      nailbiter = (await query(`SELECT * FROM vw_reg_season_closest_nailbiter`)).rows;
-      console.log('✓ nailbiter loaded:', nailbiter.length, 'rows');
-    } catch (error) {
-      console.error('✗ Error loading nailbiter:', error.message);
-      throw error;
-    }
-    
-    try {
-      console.log('Querying vw_reg_season_win_pct...');
-      winPct = (await query(`SELECT * FROM vw_reg_season_win_pct`)).rows;
-      console.log('✓ winPct loaded:', winPct.length, 'rows');
-    } catch (error) {
-      console.error('✗ Error loading winPct:', error.message);
-      throw error;
-    }
-
-    console.log('All reg season stats loaded successfully!');
-
     return {
-      highestGame,
-      lowestGame,
-      highestSeason,
-      lowestSeason,
-      blowout,
-      nailbiter,
-      winPct
+      debug: 'Check Vercel logs for connection details',
+      dbInfo: dbInfo.rows[0],
+      viewCheck: viewCheck.rows,
+      allViews: allViews.rows
     };
+    
   } catch (error) {
-    console.error('Error in load function:', error);
-    throw error;
+    console.error('Debug error:', error);
+    return {
+      error: error.message
+    };
   }
 }
