@@ -8,6 +8,9 @@ export async function load() {
   const standingsData = await getLeagueStandings();
   const leagueTeamManagersData = await getLeagueTeamManagers();
 
+
+/* // Commented out to change to use the ranking table after the move to neon
+
   // Add champions data from database
   const champions = (await query(`
     SELECT 
@@ -23,6 +26,32 @@ export async function load() {
     WHERE hr.final_rank = 1
     ORDER BY hr.season_year DESC
   `)).rows;
+*/
+
+// Add champions data from database - Updated to use existing tables
+  const champions = (await query(`
+    SELECT 
+      s.season_year,
+      m.manager_id,
+      tr.final_rank,
+      tr.reg_season_rank as regular_season_rank,
+      m.username,
+      m.real_name,
+      m.logo_url
+    FROM public.team_rankings tr
+    JOIN public.teams t ON tr.team_id = t.team_id
+    JOIN public.seasons s ON tr.season_id = s.season_id
+    JOIN public.managers m ON t.manager_id = m.manager_id
+    WHERE tr.final_rank = 1
+      AND tr.week = (
+          SELECT MAX(tr2.week) 
+          FROM public.team_rankings tr2 
+          WHERE tr2.season_id = tr.season_id 
+          AND tr2.final_rank IS NOT NULL
+      )
+    ORDER BY s.season_year DESC
+  `)).rows;
+
 
   const managersByCountRaw = (await query(`
     SELECT 
