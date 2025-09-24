@@ -323,10 +323,9 @@
   import { page } from '$app/state';
   import { leagueName } from '$lib/utils/helper';
   import { enableBlog, managers } from '$lib/utils/leagueInfo';
-  import { browser } from '$app/environment'; // ✅ import browser
+  import { browser } from '$app/environment';
 
   let active = $state(page.url.pathname);
-
   let open = $state(false);
 
   const selectTab = (tab) => {
@@ -334,98 +333,277 @@
     goto(tab.dest);
   };
 
-  // ✅ Example of guarding browser-only logic
+  // Close menu on escape key
   if (browser) {
-    // anything using document/window goes here
-    // for example, you might add global key handlers later
+    const handleKeydown = (e) => {
+      if (e.key === 'Escape' && open) {
+        open = false;
+      }
+    };
+    document.addEventListener('keydown', handleKeydown);
   }
 </script>
 
 <style>
-  :global(.menuIcon) {
-    position: absolute;
+  .menu-icon {
+    position: fixed;
     top: 15px;
     left: 15px;
     font-size: 2em;
-    color: #888;
-    padding: 6px;
+    color: #666;
+    padding: 8px;
     cursor: pointer;
+    z-index: 10;
+    background: rgba(255, 255, 255, 0.9);
+    border-radius: 50%;
+    backdrop-filter: blur(5px);
+    transition: all 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  :global(.menuIcon:hover) {
+  .menu-icon:hover {
     color: #00316b;
+    background: rgba(255, 255, 255, 1);
+    transform: scale(1.05);
   }
 
-  :global(.nav-drawer) {
-    z-index: 9;
-    top: 0;
-    left: 0;
+  .menu-icon:active {
+    transform: scale(0.95);
   }
 
-  :global(.nav-item) {
-    color: #858585 !important;
-  }
-
-  .nav-back {
+  .nav-overlay {
     position: fixed;
     z-index: 8;
     width: 100vw;
     height: 100vh;
     top: 0;
     left: 0;
-    background-color: rgba(0, 0, 0, 0.32);
-    transition: all 0.7s;
+    background-color: rgba(0, 0, 0, 0.4);
+    transition: all 0.3s ease;
+    backdrop-filter: blur(2px);
+  }
+
+  .nav-drawer {
+    position: fixed;
+    z-index: 9;
+    top: 0;
+    width: 280px;
+    height: 100vh;
+    background: linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%);
+    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.15);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow-y: auto;
+  }
+
+  .nav-drawer.closed {
+    transform: translateX(-100%);
+  }
+
+  .nav-drawer.open {
+    transform: translateX(0);
+  }
+
+  .nav-header {
+    padding: 1.5rem 1rem;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: #003366;
+    border-bottom: 2px solid #e9ecef;
+    background: linear-gradient(135deg, #003366 0%, #00316b 100%);
+    color: white;
+    margin-bottom: 0.5rem;
+  }
+
+  .nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    color: #495057;
+    transition: all 0.2s ease;
+    border-left: 3px solid transparent;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+
+  .nav-item:hover {
+    background: rgba(0, 123, 255, 0.08);
+    color: #00316b;
+    border-left-color: rgba(0, 123, 255, 0.3);
+  }
+
+  .nav-item:active {
+    background: rgba(0, 123, 255, 0.15);
+  }
+
+  .nav-item.active {
+    background: rgba(0, 123, 255, 0.1);
+    color: #00316b;
+    border-left-color: #007bff;
+    font-weight: 600;
+  }
+
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    right: 1rem;
+    width: 6px;
+    height: 6px;
+    background: #007bff;
+    border-radius: 50%;
+  }
+
+  .nav-item-icon {
+    margin-right: 12px;
+    font-size: 1.2rem;
+    width: 24px;
+    text-align: center;
+    color: inherit;
+  }
+
+  .nav-item-text {
+    font-size: 0.95rem;
+    color: inherit;
+  }
+
+  .nav-section {
+    padding: 1rem 1rem 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 1px solid #e9ecef;
+    margin-top: 0.5rem;
+  }
+
+  .nav-section:first-of-type {
+    border-top: none;
+    margin-top: 0;
+  }
+
+  /* Mobile specific improvements */
+  @media (max-width: 768px) {
+    .nav-drawer {
+      width: 100vw;
+      max-width: 320px;
+    }
+
+    .nav-item {
+      padding: 1rem;
+      min-height: 48px; /* Better touch targets */
+    }
+
+    .nav-item-icon {
+      font-size: 1.3rem;
+      margin-right: 16px;
+    }
+
+    .nav-item-text {
+      font-size: 1rem;
+    }
+  }
+
+  /* Safe area for notched phones */
+  @media (max-width: 768px) and (orientation: portrait) {
+    .nav-header {
+      padding-top: max(1.5rem, env(safe-area-inset-top));
+    }
   }
 </style>
 
-<!-- menu button -->
-<span class="material-icons menuIcon" on:click={() => open = true}>menu</span>
+<!-- Menu button -->
+<button 
+  class="menu-icon material-icons" 
+  on:click={() => open = true}
+  aria-label="Open navigation menu"
+>
+  menu
+</button>
 
-<!-- overlay -->
-<div
-  class="nav-back"
-  style="pointer-events: {open ? 'auto' : 'none'}; opacity: {open ? 1 : 0};"
-  on:click={() => open = false}>
-</div>
+<!-- Overlay -->
+{#if open}
+  <div
+    class="nav-overlay"
+    on:click={() => open = false}
+    on:keydown={() => {}}
+    role="button"
+    tabindex="-1"
+    aria-label="Close navigation menu"
+  ></div>
+{/if}
 
-<!-- slide-in drawer -->
+<!-- Navigation drawer -->
 {#if browser}
-  <div class="nav-drawer" style="position: fixed; top: 0; left: {open ? '0' : '-260px'}; width: 260px; height: 100vh; background: white; transition: left 0.3s;">
-    <header style="padding: 1rem; font-weight: bold;">{leagueName}</header>
-    <ul style="list-style: none; padding: 0; margin: 0;">
+  <nav class="nav-drawer {open ? 'open' : 'closed'}" role="navigation" aria-label="Main navigation">
+    <header class="nav-header">
+      {leagueName}
+    </header>
+    
+    <ul class="nav-list">
+      <!-- Main navigation items -->
       {#each tabs as tab}
         {#if !tab.nest && (tab.label != 'Blog' || (tab.label == 'Blog' && enableBlog))}
-          <li style="padding: 0.75rem 1rem; cursor: pointer; background: {active == tab.dest ? '#f0f0f0' : 'transparent'};"
+          <li>
+            <div
+              class="nav-item {active == tab.dest ? 'active' : ''}"
               on:click={() => selectTab(tab)}
               on:touchstart={() => preloadData(tab.dest)}
-              on:mouseover={() => preloadData(tab.dest)}>
-            <span class="material-icons" style="margin-right: 8px; vertical-align: middle;">{tab.icon}</span>
-            <span>{tab.label}</span>
+              on:mouseover={() => preloadData(tab.dest)}
+              on:keydown={(e) => e.key === 'Enter' && selectTab(tab)}
+              role="button"
+              tabindex="0"
+            >
+              <span class="material-icons nav-item-icon">{tab.icon}</span>
+              <span class="nav-item-text">{tab.label}</span>
+            </div>
           </li>
         {/if}
       {/each}
 
+      <!-- Nested sections -->
       {#each tabs as tab}
         {#if tab.nest}
-          <li style="padding: 0.75rem 1rem; font-weight: bold;">{tab.label}</li>
+          <li class="nav-section">{tab.label}</li>
           {#each tab.children as subTab}
             {#if subTab.label == 'Managers' && managers.length}
-              <li style="padding: 0.75rem 1rem; cursor: pointer; background: {active == subTab.dest ? '#f0f0f0' : 'transparent'};"
-                  on:click={() => selectTab(subTab)}>
-                <span class="material-icons" style="margin-right: 8px; vertical-align: middle;">{subTab.icon}</span>
-                <span>{subTab.label}</span>
+              <li>
+                <div
+                  class="nav-item {active == subTab.dest ? 'active' : ''}"
+                  on:click={() => selectTab(subTab)}
+                  on:keydown={(e) => e.key === 'Enter' && selectTab(subTab)}
+                  role="button"
+                  tabindex="0"
+                >
+                  <span class="material-icons nav-item-icon">{subTab.icon}</span>
+                  <span class="nav-item-text">{subTab.label}</span>
+                </div>
               </li>
             {:else if subTab.label != 'Managers'}
-              <li style="padding: 0.75rem 1rem; cursor: pointer; background: {active == subTab.dest ? '#f0f0f0' : 'transparent'};"
-                  on:click={() => selectTab(subTab)}>
-                <span class="material-icons" style="margin-right: 8px; vertical-align: middle;">{subTab.icon}</span>
-                <span>{subTab.label}</span>
+              <li>
+                <div
+                  class="nav-item {active == subTab.dest ? 'active' : ''}"
+                  on:click={() => selectTab(subTab)}
+                  on:keydown={(e) => e.key === 'Enter' && selectTab(subTab)}
+                  role="button"
+                  tabindex="0"
+                >
+                  <span class="material-icons nav-item-icon">{subTab.icon}</span>
+                  <span class="nav-item-text">{subTab.label}</span>
+                </div>
               </li>
             {/if}
           {/each}
         {/if}
       {/each}
     </ul>
-  </div>
+  </nav>
 {/if}
-
