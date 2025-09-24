@@ -69,7 +69,6 @@
   }
 </style-->
 
-
 <script>
   export let title = "";
   export let navItems = []; // [{label, href, active}]
@@ -196,9 +195,6 @@
       font-size: 0.9rem;
     }
   }
-</style>
-
-<style>
   .page-layout {
     display: flex;
     gap: 2rem;
