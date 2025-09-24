@@ -101,11 +101,33 @@ export async function load() {
   const standingsData = await getLeagueStandings();
   const leagueTeamManagersData = await getLeagueTeamManagers();
 
+  // Debug database connection
+  try {
+    const dbDebug = await query(`
+      SELECT 
+        current_database() as database_name,
+        current_user as user_name,
+        current_schema() as schema_name
+    `);
+    console.log('App is connected to:', dbDebug.rows[0]);
+    
+    const tableCheck = await query(`
+      SELECT COUNT(*) as table_exists 
+      FROM information_schema.tables 
+      WHERE table_name = 'historical_rankings' AND table_schema = 'public'
+    `);
+    console.log('historical_rankings table exists from app perspective:', tableCheck.rows[0]);
+  } catch (error) {
+    console.error('Debug connection error:', error);
+  }
+
   // Add champions data from database with error handling
   let champions = [];
   let managersByCountRaw = [];
 
   try {
+    console.log('Attempting to load championship data...');
+    
     champions = (await query(`
       SELECT 
         hr.season_year,
@@ -120,6 +142,8 @@ export async function load() {
       WHERE hr.final_rank = 1
       ORDER BY hr.season_year DESC
     `)).rows;
+    
+    console.log('Champions loaded successfully:', champions.length, 'records');
 
     managersByCountRaw = (await query(`
       SELECT 
@@ -135,9 +159,14 @@ export async function load() {
       GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url
       ORDER BY championship_count DESC, MIN(hr.season_year) ASC
     `)).rows;
+    
+    console.log('Managers by count loaded successfully:', managersByCountRaw.length, 'records');
+    
   } catch (error) {
     console.error('Error loading championship data:', error.message);
-    console.log('Championship data will be empty until historical_rankings table is created');
+    console.error('Full error:', error);
+    console.log('Championship data will be empty until database connection issue is resolved');
+    
     // Return empty arrays so the site doesn't crash
     champions = [];
     managersByCountRaw = [];
@@ -155,6 +184,11 @@ export async function load() {
     manager_name: manager.username || manager.real_name || `Manager ${manager.manager_id}`,
     avatar_url: manager.logo_url
   }));
+
+  console.log('Final data being returned:', {
+    championsCount: processedChampions.length,
+    managersByCountCount: managersByCount.length
+  });
 
   return {
     standingsData,
