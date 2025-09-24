@@ -101,36 +101,47 @@ export async function load() {
   const standingsData = await getLeagueStandings();
   const leagueTeamManagersData = await getLeagueTeamManagers();
 
-  // Add champions data from database
-  const champions = (await query(`
-    SELECT 
-      hr.season_year,
-      hr.manager_id,
-      hr.final_rank,
-      hr.regular_season_rank,
-      m.username,
-      m.real_name,
-      m.logo_url
-    FROM public.historical_rankings hr
-    JOIN public.managers m ON hr.manager_id = m.manager_id
-    WHERE hr.final_rank = 1
-    ORDER BY hr.season_year DESC
-  `)).rows;
+  // Add champions data from database with error handling
+  let champions = [];
+  let managersByCountRaw = [];
 
-  const managersByCountRaw = (await query(`
-    SELECT 
-      hr.manager_id,
-      m.username,
-      m.real_name,
-      m.logo_url,
-      COUNT(hr.season_year) as championship_count,
-      ARRAY_AGG(hr.season_year ORDER BY hr.season_year DESC) as championship_years
-    FROM public.historical_rankings hr
-    JOIN public.managers m ON hr.manager_id = m.manager_id
-    WHERE hr.final_rank = 1
-    GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url
-    ORDER BY championship_count DESC, MIN(hr.season_year) ASC
-  `)).rows;
+  try {
+    champions = (await query(`
+      SELECT 
+        hr.season_year,
+        hr.manager_id,
+        hr.final_rank,
+        hr.regular_season_rank,
+        m.username,
+        m.real_name,
+        m.logo_url
+      FROM public.historical_rankings hr
+      JOIN public.managers m ON hr.manager_id = m.manager_id
+      WHERE hr.final_rank = 1
+      ORDER BY hr.season_year DESC
+    `)).rows;
+
+    managersByCountRaw = (await query(`
+      SELECT 
+        hr.manager_id,
+        m.username,
+        m.real_name,
+        m.logo_url,
+        COUNT(hr.season_year) as championship_count,
+        ARRAY_AGG(hr.season_year ORDER BY hr.season_year DESC) as championship_years
+      FROM public.historical_rankings hr
+      JOIN public.managers m ON hr.manager_id = m.manager_id
+      WHERE hr.final_rank = 1
+      GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url
+      ORDER BY championship_count DESC, MIN(hr.season_year) ASC
+    `)).rows;
+  } catch (error) {
+    console.error('Error loading championship data:', error.message);
+    console.log('Championship data will be empty until historical_rankings table is created');
+    // Return empty arrays so the site doesn't crash
+    champions = [];
+    managersByCountRaw = [];
+  }
 
   // Process champions data
   const processedChampions = champions.map(champ => ({
