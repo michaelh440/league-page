@@ -9,7 +9,6 @@ export async function load() {
     philosophy,
     signature_moves,
     year_joined,
-    team_name_2025
   FROM managers
   ORDER BY manager_id
 `)).rows;
