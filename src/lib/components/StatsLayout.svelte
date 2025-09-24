@@ -73,25 +73,6 @@
 <script>
   export let title = "";
   export let navItems = []; // [{label, href, active}]
-  
-  import { browser } from '$app/environment';
-  import { onMount } from 'svelte';
-  
-  let showMobileNav = false;
-  let isMobile = false;
-  
-  onMount(() => {
-    const checkMobile = () => {
-      isMobile = window.innerWidth <= 768;
-    };
-    
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile);
-    };
-  });
 </script>
 
 <div class="page-layout">
@@ -107,50 +88,6 @@
     {/each}
   </aside>
 
-  <!-- Mobile Navigation Toggle -->
-  {#if browser}
-    <button 
-      class="mobile-nav-toggle"
-      class:open={showMobileNav}
-      on:click={() => showMobileNav = !showMobileNav}
-      aria-label="Toggle navigation menu"
-    >
-      <span class="hamburger-line"></span>
-      <span class="hamburger-line"></span>
-      <span class="hamburger-line"></span>
-    </button>
-
-    <!-- Mobile Navigation Overlay -->
-    {#if showMobileNav}
-      <div class="mobile-nav-overlay" on:click={() => showMobileNav = false}></div>
-    {/if}
-
-    <!-- Mobile Navigation Menu -->
-    <nav class="mobile-nav {showMobileNav ? 'open' : 'closed'}">
-      <div class="mobile-nav-header">
-        <span class="mobile-nav-title">Navigation</span>
-        <button 
-          class="close-mobile-nav" 
-          on:click={() => showMobileNav = false}
-          aria-label="Close navigation"
-        >
-          ×
-        </button>
-      </div>
-      <div class="mobile-nav-items">
-        {#each navItems as item}
-          <a
-            href={item.href}
-            class="mobile-nav-card {item.active ? 'active' : ''}"
-            on:click={() => showMobileNav = false}
-          >
-            {item.label}
-          </a>
-        {/each}
-      </div>
-    </nav>
-  {/if}
-
   <!-- Main Content -->
   <main class="content">
     <div class="content-header">
@@ -161,6 +98,105 @@
     <slot />
   </main>
 </div>
+
+<style>
+  .page-layout {
+    display: flex;
+    gap: 2rem;
+    min-height: 100vh;
+  }
+
+  /* Desktop Sidebar */
+  .sidebar {
+    flex: 0 0 12%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-left: 0.5rem;
+    margin-top: 1rem;
+  }
+  
+  .nav-card {
+    display: block;
+    padding: 0.8rem;
+    text-align: center;
+    font-weight: bold;
+    text-decoration: none;
+    color: white;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border-radius: 6px;
+    transition: background 0.2s ease, transform 0.1s ease;
+  }
+
+  .nav-card:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+  }
+
+  .nav-card.active {
+    background: silver;
+    color: #222;
+  }
+
+  .content {
+    flex: 1;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .content-header {
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .page-title {
+    font-size: 1.75rem;
+    font-weight: bold;
+    color: #212529;
+    margin: 0;
+  }
+
+  /* Mobile Styles */
+  @media (max-width: 768px) {
+    .page-layout {
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .desktop-only {
+      display: none;
+    }
+
+    .content {
+      padding: 1rem;
+      margin-top: 0;
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+    }
+
+    .page-title {
+      font-size: 1.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .content-header {
+      margin-bottom: 1rem;
+    }
+  }
+
+  /* Tablet Styles */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .sidebar {
+      flex: 0 0 15%;
+    }
+    
+    .nav-card {
+      padding: 0.7rem;
+      font-size: 0.9rem;
+    }
+  }
+</style>
 
 <style>
   .page-layout {
