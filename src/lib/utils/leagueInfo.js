@@ -7,8 +7,11 @@ export const enableBlog = false; // requires VITE_CONTENTFUL_ACCESS_TOKEN and VI
 
 /*   STEP 2   */
 export const homepageText = `
-  <p>It was a different time. The world and the workplace were still joking about “Left Shark” from Katy Perry’s Super Bowl halftime show, and absolutely no one was happy about Bran Stark becoming King of the Six Kingdoms.  Meanwhile, at UPS, there was one person who did nothing but talk sh!t.  In these converstions he could be heard saying “F the shark, did you see Katy? Damn! Or how can you kill the Mother of Dragons?  She could Drag on me anytime!</p>
-  <p>Mostly it was his non-stop banter about his sport knowledge that drove a group of coworker to come together with a single unwavering goal.  They would create a fantasy football league and beat this guy for good. </p> 
+  <p>2015 was a different time. Uptown Funk rang out on the air waves while Better Call Saul ruled the small screen.  The world and the workplace were still joking about “Left Shark” from Katy Perry’s Super Bowl halftime show, and absolutely no one was happy about Bran Stark becoming King of the Six Kingdoms.  Honestly, we're all still pissed about that one.  
+  In the midst of all of this in Houston, at UPS, there was trouble brewing.  Talk inside the Houston offices centered around brown.  Not the UPS trademark brown, but the worst kind.  There was one person who did nothing but talk sh!t.  Truly epic shit talk to the point it dominated hallway conversations.  He could be heard saying “F the shark, did you see Katy? Damn! 
+  Or how can you kill the Mother of Dragons?  She could Drag-on me anytime!</p>
+  <p>Mostly though it was his non-stop banter about his sport knowledge that drove a group of his coworkers the most crazy.  Something has to be done they said.....to shut him up.  
+  Drastic measures were considered.  Finally they decided to come together with a single unwavering goal.  They would create a fantasy football league and beat this guy for good. </p> 
 <p>Now, over a decade later, managers have come and gone but the goal remains the same. Just Beat Jose!  Or at least that’s how he tells it.
 </p>
   
