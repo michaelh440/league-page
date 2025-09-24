@@ -8,8 +8,8 @@ export async function load() {
     logo_url,
     philosophy,
     signature_moves,
-    year_joined,
-  FROM managers
+    year_joined
+    FROM managers
   ORDER BY manager_id
 `)).rows;
 
