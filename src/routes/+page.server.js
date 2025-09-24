@@ -9,7 +9,7 @@ export async function load() {
   const leagueTeamManagersData = await getLeagueTeamManagers();
 
 
-/* // Commented out to change to use the ranking table after the move to neon
+ // Commented out to change to use the ranking table after the move to neon
 
   // Add champions data from database
   const champions = (await query(`
@@ -26,8 +26,8 @@ export async function load() {
     WHERE hr.final_rank = 1
     ORDER BY hr.season_year DESC
   `)).rows;
-*/
 
+/*
 // Add champions data from database - Updated to use existing tables
   const champions = (await query(`
     SELECT 
@@ -51,7 +51,7 @@ export async function load() {
       )
     ORDER BY s.season_year DESC
   `)).rows;
-
+*/
 
   const managersByCountRaw = (await query(`
     SELECT 
