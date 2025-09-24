@@ -65,10 +65,10 @@
                   {#if row.team_logo}
                     <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
                   {/if}
-                  {row.team_name || 'Unknown Team'}
+                  <span class="team-name">{row.team_name || 'Unknown Team'}</span>
                 </td>
-                <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
-                <td>{formatScore(row.score || 0)}</td>
+                <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+                <td class="points-cell">{formatScore(row.score || 0)}</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -91,10 +91,10 @@
                   {#if row.team_logo}
                     <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
                   {/if}
-                  {row.team_name || 'Unknown Team'}
+                  <span class="team-name">{row.team_name || 'Unknown Team'}</span>
                 </td>
-                <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
-                <td>{formatScore(row.score || 0)}</td>
+                <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+                <td class="points-cell">{formatScore(row.score || 0)}</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -118,10 +118,10 @@
                   {#if row.team_logo}
                     <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
                   {/if}
-                  {row.team_name || 'Unknown Team'}
+                  <span class="team-name">{row.team_name || 'Unknown Team'}</span>
                 </td>
-                <td>{row.year || 'N/A'}</td>
-                <td>{formatScore(row.total_points || 0)}</td>
+                <td class="season-cell">{row.year || 'N/A'}</td>
+                <td class="points-cell">{formatScore(row.total_points || 0)}</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -144,10 +144,10 @@
                   {#if row.team_logo}
                     <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
                   {/if}
-                  {row.team_name || 'Unknown Team'}
+                  <span class="team-name">{row.team_name || 'Unknown Team'}</span>
                 </td>
-                <td>{row.year || 'N/A'}</td>
-                <td>{formatScore(row.total_points || 0)}</td>
+                <td class="season-cell">{row.year || 'N/A'}</td>
+                <td class="points-cell">{formatScore(row.total_points || 0)}</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -167,25 +167,27 @@
             {#each (data.blowout || []).slice(0, 10) as row, i}
               <tr>
                 <td>{i + 1}</td>
-                <td class="team-cell">
+                <td class="matchup-cell">
                   <div class="matchup-display">
                     <div class="team-info">
                       {#if row.team1_logo}
                         <img src={row.team1_logo} alt={row.team1_name || 'Team 1'} class="team-logo" />
                       {/if}
-                      {row.team1_name || 'Team 1'} ({formatScore(row.team1_score || 0)})
+                      <span class="team-name">{row.team1_name || 'Team 1'}</span>
+                      <span class="score">({formatScore(row.team1_score || 0)})</span>
                     </div>
                     <span class="vs-text">vs</span>
                     <div class="team-info">
                       {#if row.team2_logo}
                         <img src={row.team2_logo} alt={row.team2_name || 'Team 2'} class="team-logo" />
                       {/if}
-                      {row.team2_name || 'Team 2'} ({formatScore(row.team2_score || 0)})
+                      <span class="team-name">{row.team2_name || 'Team 2'}</span>
+                      <span class="score">({formatScore(row.team2_score || 0)})</span>
                     </div>
                   </div>
                 </td>
-                <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
-                <td>{formatScore(row.margin || 0)}</td>
+                <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+                <td class="margin-cell">{formatScore(row.margin || 0)}</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -204,25 +206,27 @@
             {#each (data.nailbiter || []).slice(0, 10) as row, i}
               <tr>
                 <td>{i + 1}</td>
-                <td class="team-cell">
+                <td class="matchup-cell">
                   <div class="matchup-display">
                     <div class="team-info">
                       {#if row.team1_logo}
                         <img src={row.team1_logo} alt={row.team1_name || 'Team 1'} class="team-logo" />
                       {/if}
-                      {row.team1_name || 'Team 1'} ({formatScore(row.team1_score || 0)})
+                      <span class="team-name">{row.team1_name || 'Team 1'}</span>
+                      <span class="score">({formatScore(row.team1_score || 0)})</span>
                     </div>
                     <span class="vs-text">vs</span>
                     <div class="team-info">
                       {#if row.team2_logo}
                         <img src={row.team2_logo} alt={row.team2_name || 'Team 2'} class="team-logo" />
                       {/if}
-                      {row.team2_name || 'Team 2'} ({formatScore(row.team2_score || 0)})
+                      <span class="team-name">{row.team2_name || 'Team 2'}</span>
+                      <span class="score">({formatScore(row.team2_score || 0)})</span>
                     </div>
                   </div>
                 </td>
-                <td>{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
-                <td>{formatScore(row.margin || 0)}</td>
+                <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+                <td class="margin-cell">{formatScore(row.margin || 0)}</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -246,10 +250,10 @@
                   {#if row.team_logo}
                     <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
                   {/if}
-                  {row.team_name || 'Unknown Team'}
+                  <span class="team-name">{row.team_name || 'Unknown Team'}</span>
                 </td>
-                <td>{row.wins || 0}-{row.losses || 0}-{row.ties || 0}</td>
-                <td>{((row.win_pct || 0) * 100).toFixed(1)}%</td>
+                <td class="record-cell">{row.wins || 0}-{row.losses || 0}-{row.ties || 0}</td>
+                <td class="percentage-cell">{((row.win_pct || 0) * 100).toFixed(1)}%</td>
               </tr>
             {:else}
               <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -335,46 +339,64 @@
     border-radius: 8px;
     border: 1px solid #e9ecef;
   }
-  
+
   .content-grid {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
   }
   
   .stats-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.85rem;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: white;
   }
   
   .stats-table th,
   .stats-table td {
-    border: 1px solid #ddd;
-    padding: 0.35rem 0.5rem;
+    border: 1px solid #dee2e6;
+    padding: 0.75rem 0.5rem;
+    color: #212529;
   }
   
   .stats-table th {
     text-align: center;
-    background: #f5f5f5;
-    font-weight: bold;
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.9rem;
   }
   
   .stats-table td {
     text-align: left;
+    background: white;
+    color: #212529;
   }
   
-  .stats-table tr:nth-child(even) {
-    background: #fafafa;
+  .stats-table tbody tr:nth-child(odd) {
+    background: white;
+  }
+  
+  .stats-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+  }
+  
+  .stats-table tr:hover {
+    background: #e3f2fd !important;
   }
   
   .table-title {
-    text-align: center;
-    background-color: #003366;
-    color: white;
-    font-size: 1.1rem;
+    text-align: center !important;
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    font-size: 1rem;
     font-weight: bold;
-    padding: 0.6rem;
+    padding: 0.75rem;
   }
   
   .team-cell {
@@ -384,10 +406,19 @@
   }
   
   .team-logo {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     object-fit: cover;
+    border: 2px solid #e9ecef;
+    flex-shrink: 0;
+  }
+  
+  .team-name {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   
   .matchup-display {
@@ -402,12 +433,18 @@
     align-items: center;
     gap: 0.25rem;
   }
+
+  .score {
+    color: #666;
+    font-size: 0.85em;
+  }
   
   .vs-text {
     text-align: center;
     font-weight: bold;
-    color: #666;
+    color: #6c757d;
     font-size: 0.7rem;
+    margin: 0.1rem 0;
   }
   
   .text-center {
@@ -415,14 +452,175 @@
   }
   
   .text-gray-600 {
-    color: #666;
+    color: #6c757d;
   }
-  .stats-table th.table-title {
-    text-align: center !important;
-    background-color: #003366 !important;
-    color: white !important;
-    font-size: 1rem;
-    font-weight: bold;
-    padding: 0.6rem;
+
+  /* Mobile Styles */
+  @media (max-width: 768px) {
+    .toolbar {
+      flex-direction: column;
+      gap: 0.5rem;
+      padding: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .manager-select {
+      min-width: 160px;
+      font-size: 0.9rem;
+      padding: 0.4rem 0.75rem;
+    }
+
+    .content-grid {
+      grid-template-columns: 1fr; /* Single column on mobile */
+      gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 0 0.5rem;
+    }
+
+    .stats-table {
+      font-size: 0.8rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.6rem 0.4rem;
+      color: #212529;
+      line-height: 1.4;
+    }
+
+    .stats-table th {
+      font-size: 0.85rem;
+      background: #e9ecef;
+      color: #495057;
+      font-weight: 700;
+    }
+
+    .stats-table tbody tr:nth-child(odd) {
+      background: white;
+    }
+    
+    .stats-table tbody tr:nth-child(even) {
+      background: #f1f3f4;
+    }
+
+    .table-title {
+      font-size: 0.95rem;
+      padding: 0.75rem;
+      background: linear-gradient(135deg, #003366, #004080) !important;
+      color: white !important;
+    }
+
+    .team-logo {
+      width: 22px;
+      height: 22px;
+    }
+
+    .team-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #212529;
+    }
+
+    .team-cell {
+      gap: 0.4rem;
+    }
+
+    .matchup-display {
+      font-size: 0.75rem;
+    }
+
+    .team-info {
+      gap: 0.3rem;
+    }
+
+    .score {
+      font-size: 0.8em;
+      color: #495057;
+      font-weight: 500;
+    }
+
+    .vs-text {
+      font-size: 0.7rem;
+      color: #6c757d;
+      font-weight: 600;
+      margin: 0.15rem 0;
+    }
+
+    .points-cell,
+    .margin-cell,
+    .percentage-cell {
+      font-weight: 600;
+      color: #007bff;
+    }
+
+    .record-cell {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    /* Keep important columns visible */
+    .week-cell,
+    .season-cell {
+      font-size: 0.75rem;
+      color: #6c757d;
+    }
+
+    .hint {
+      font-size: 1rem;
+      padding: 1.5rem;
+      margin-top: 0.5rem;
+    }
+  }
+
+  /* Tablet styles */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .content-grid {
+      gap: 1rem;
+    }
+
+    .stats-table {
+      font-size: 0.8rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.6rem 0.4rem;
+    }
+  }
+
+  /* Very small mobile screens */
+  @media (max-width: 480px) {
+    .stats-table {
+      font-size: 0.7rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.4rem 0.2rem;
+    }
+
+    .team-logo {
+      width: 18px;
+      height: 18px;
+    }
+
+    .table-title {
+      font-size: 0.85rem;
+      padding: 0.5rem;
+    }
+
+    .matchup-display {
+      font-size: 0.65rem;
+    }
+
+    .manager-select {
+      min-width: 140px;
+      font-size: 0.85rem;
+    }
+
+    .toolbar {
+      padding: 0.5rem;
+    }
   }
 </style>
