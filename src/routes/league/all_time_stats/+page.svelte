@@ -363,7 +363,6 @@
 </style-->
 
 
-
 <script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import StatCard from '$lib/components/StatCard.svelte';
@@ -631,12 +630,14 @@
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: white;
   }
   
   .stats-table th,
   .stats-table td {
     border: 1px solid #dee2e6;
     padding: 0.75rem 0.5rem;
+    color: #212529;
   }
   
   .stats-table th {
@@ -644,18 +645,25 @@
     background: #f8f9fa;
     font-weight: 600;
     color: #495057;
+    font-size: 0.9rem;
   }
   
   .stats-table td {
     text-align: left;
+    background: white;
+    color: #212529;
   }
   
-  .stats-table tr:nth-child(even) {
-    background: #fafbfc;
+  .stats-table tbody tr:nth-child(odd) {
+    background: white;
+  }
+  
+  .stats-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
   }
   
   .stats-table tr:hover {
-    background: #f0f2f5;
+    background: #e3f2fd !important;
   }
   
   .table-title {
@@ -729,57 +737,96 @@
       grid-template-columns: 1fr; /* Single column on mobile */
       gap: 1rem;
       margin-bottom: 1rem;
+      padding: 0 0.5rem;
     }
 
     .stats-table {
-      font-size: 0.75rem;
+      font-size: 0.8rem;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     }
 
     .stats-table th,
     .stats-table td {
-      padding: 0.5rem 0.3rem;
+      padding: 0.6rem 0.4rem;
+      color: #212529;
+      line-height: 1.4;
+    }
+
+    .stats-table th {
+      font-size: 0.85rem;
+      background: #e9ecef;
+      color: #495057;
+      font-weight: 700;
+    }
+
+    .stats-table tbody tr:nth-child(odd) {
+      background: white;
+    }
+    
+    .stats-table tbody tr:nth-child(even) {
+      background: #f1f3f4;
     }
 
     .table-title {
-      font-size: 0.9rem;
-      padding: 0.6rem;
+      font-size: 0.95rem;
+      padding: 0.75rem;
+      background: linear-gradient(135deg, #003366, #004080) !important;
+      color: white !important;
     }
 
     .team-logo {
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
     }
 
     .team-name {
-      font-size: 0.8rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #212529;
+    }
+
+    .team-cell {
+      gap: 0.4rem;
     }
 
     .matchup-display {
-      font-size: 0.7rem;
+      font-size: 0.75rem;
     }
 
     .team-info {
-      gap: 0.2rem;
+      gap: 0.3rem;
     }
 
     .score {
-      font-size: 0.75em;
+      font-size: 0.8em;
+      color: #495057;
+      font-weight: 500;
     }
 
     .vs-text {
-      font-size: 0.65rem;
+      font-size: 0.7rem;
+      color: #6c757d;
+      font-weight: 600;
+      margin: 0.15rem 0;
     }
 
-    /* Hide some columns on very small screens */
+    .points-cell,
+    .margin-cell,
+    .percentage-cell {
+      font-weight: 600;
+      color: #007bff;
+    }
+
+    .record-cell {
+      font-weight: 500;
+      color: #495057;
+    }
+
+    /* Keep important columns visible */
     .week-cell,
     .season-cell {
-      display: none;
-    }
-
-    /* Adjust column headers for mobile */
-    .stats-table th:nth-child(3) {
-      display: none;
+      font-size: 0.75rem;
+      color: #6c757d;
     }
   }
 
