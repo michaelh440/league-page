@@ -107,7 +107,7 @@
                 <span class="team-name">{row.team_name || 'Unknown Team'}</span>
               </td>
               <td class="season-cell">{row.year || 'N/A'}</td>
-              <td class="points-cell">{formatScore(row.total_points || 0)}</td>
+              <td class="points-cell">{formatScore(row.total_playoff_points || 0)}</td>
             </tr>
           {:else}
             <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
@@ -133,7 +133,7 @@
                 <span class="team-name">{row.team_name || 'Unknown Team'}</span>
               </td>
               <td class="season-cell">{row.year || 'N/A'}</td>
-              <td class="points-cell">{formatScore(row.total_points || 0)}</td>
+              <td class="points-cell">{formatScore(row.total_playoff_points || 0)}</td>
             </tr>
           {:else}
             <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
