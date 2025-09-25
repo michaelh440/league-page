@@ -153,7 +153,7 @@ export async function load({ url }) {
         `, [managerId]),
 
         // Season by season history with playoff info
-        query(`
+        /*query(`
           WITH season_stats AS (
             SELECT 
               s.season_year,
@@ -212,7 +212,89 @@ export async function load({ url }) {
           LEFT JOIN playoff_info pi ON pi.season_year = ss.season_year
           LEFT JOIN final_rankings fr ON fr.season_year = ss.season_year
           ORDER BY ss.season_year DESC
-        `, [managerId])
+        `, [managerId])*/
+        // Replace the seasonHistory query with this corrected version:
+query(`
+  WITH season_stats AS (
+    SELECT 
+      s.season_year,
+      t.team_id,
+      -- Win/Loss calculation from matchups only
+      COUNT(CASE 
+        WHEN (m.team1_id = t.team_id AND m.team1_score > m.team2_score) OR 
+             (m.team2_id = t.team_id AND m.team2_score > m.team1_score) 
+        THEN 1 
+      END) as wins,
+      COUNT(CASE 
+        WHEN (m.team1_id = t.team_id AND m.team1_score < m.team2_score) OR 
+             (m.team2_id = t.team_id AND m.team2_score < m.team1_score) 
+        THEN 1 
+      END) as losses,
+      COUNT(CASE 
+        WHEN (m.team1_id = t.team_id OR m.team2_id = t.team_id) AND 
+             m.team1_score = m.team2_score 
+        THEN 1 
+      END) as ties
+    FROM seasons s
+    JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
+    LEFT JOIN matchups m ON (m.team1_id = t.team_id OR m.team2_id = t.team_id)
+      AND m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
+    GROUP BY s.season_year, t.team_id
+  ),
+  scoring_stats AS (
+    SELECT 
+      s.season_year,
+      t.team_id,
+      AVG(ws.team_score) as avg_points,
+      -- Calculate average points against from matchups
+      AVG(CASE 
+        WHEN m.team1_id = t.team_id THEN m.team2_score
+        WHEN m.team2_id = t.team_id THEN m.team1_score
+      END) as avg_points_against
+    FROM seasons s
+    JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
+    LEFT JOIN weekly_scoring ws ON ws.team_id = t.team_id AND ws.season_id = s.season_id
+    LEFT JOIN matchups m ON (m.team1_id = t.team_id OR m.team2_id = t.team_id)
+      AND m.season_id = s.season_id
+      AND m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
+    GROUP BY s.season_year, t.team_id
+  ),
+  playoff_info AS (
+    SELECT 
+      s.season_year,
+      COUNT(p.playoff_id) > 0 as made_playoffs
+    FROM seasons s
+    JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
+    LEFT JOIN playoffs p ON (p.team1_id = t.team_id OR p.team2_id = t.team_id)
+      AND p.season_id = s.season_id
+    GROUP BY s.season_year
+  ),
+  final_rankings AS (
+    SELECT 
+      hr.season_year,
+      hr.final_rank
+    FROM historical_rankings hr
+    WHERE hr.manager_id = $1
+  )
+  SELECT 
+    ss.season_year as year,
+    ss.wins,
+    ss.losses,
+    ss.ties,
+    pi.made_playoffs,
+    ROUND(sc.avg_points, 2) as avg_points,
+    ROUND(sc.avg_points_against, 2) as avg_points_against,
+    COALESCE(fr.final_rank, 99) as finish
+  FROM season_stats ss
+  LEFT JOIN scoring_stats sc ON sc.season_year = ss.season_year AND sc.team_id = ss.team_id
+  LEFT JOIN playoff_info pi ON pi.season_year = ss.season_year
+  LEFT JOIN final_rankings fr ON fr.season_year = ss.season_year
+  ORDER BY ss.season_year DESC
+`, [managerId])
+
+
+
+
       ]);
 
       const winPctData = regularSeasonWinPct.rows[0];
