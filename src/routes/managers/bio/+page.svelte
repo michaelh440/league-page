@@ -545,11 +545,7 @@
       <section class="header-section">
         <div class="manager-header">
           <div class="left-section">
-            <div class="joined-year">
-              <span class="joined-label">JOINED</span>
-              <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
-            </div>
-            
+                     
             <div class="manager-avatar">
               <img 
                 src={selectedManager.logo_url || '/default-avatar.png'} 
@@ -563,7 +559,10 @@
                 </div>
               {/if}
             </div>
-            
+            <div class="joined-year">
+              <span class="joined-label">JOINED</span>
+              <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
+            </div>
             <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
           </div>
           
