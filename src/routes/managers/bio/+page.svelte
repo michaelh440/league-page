@@ -562,8 +562,8 @@
             <div class="joined-year">
               <span class="joined-label">JOINED</span>
               <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
+              <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
             </div>
-            <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
           </div>
           
           <div class="right-section">
@@ -573,7 +573,7 @@
               </div>
             {/if}
             
-            <div class="header-stats">
+            <!--div class="header-stats">
               <div class="header-stat">
                 <span class="stat-label">CHAMPIONSHIPS</span>
                 <span class="stat-value">{selectedManager.championships || 0}</span>
@@ -584,16 +584,8 @@
                   <span class="stat-value">{selectedManager.favorite_team}</span>
                 </div>
               {/if}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Manager Info Section -->
-      <section class="manager-info-section">
-        <h2 class="section-title">Manager Info</h2>
-        
-        <div class="info-grid">
+            </div-->
+            <div class="info-grid">
           {#if selectedManager.signature_moves}
             <StatCard size="lg">
               <div class="info-card">
@@ -604,6 +596,26 @@
               </div>
             </StatCard>
           {/if}
+
+          </div>
+        </div>
+      </section>
+
+      <!-- Manager Info Section -->
+      <section class="manager-info-section">
+        <h2 class="section-title">Manager Info</h2>
+        
+        <div class="info-grid">
+          <!--{#if selectedManager.signature_moves}
+            <StatCard size="lg">
+              <div class="info-card">
+                <h3>Signature Moves</h3>
+                <div class="info-content">
+                  {@html formatText(selectedManager.signature_moves)}
+                </div>
+              </div>
+            </StatCard>
+          {/if}-->
 
           <div class="strengths-weaknesses">
             {#if selectedManager.strengths}
