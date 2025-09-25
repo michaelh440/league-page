@@ -557,14 +557,14 @@
                   <span class="count">{selectedManager.championships}</span>
                 </div>
               {/if}
-            </div>
+            </div> <!--"manager-avatar"-->
             <div class="joined-year">
               <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
               <span class="joined-label">JOINED</span>
               <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
             </div>
                         
-          </div>
+          </div> <!--"left-section"-->
           
           <div class="right-section">
             {#if selectedManager.philosophy}
@@ -583,20 +583,10 @@
                     </div>
                   </div>
                 </StatCard>
-              <!--{/if}
-              <div class="header-stat">
-                <span class="stat-label">CHAMPIONSHIPS</span>
-                <span class="stat-value">{selectedManager.championships || 0}</span>
-              </div>
-              {#if selectedManager.favorite_team}
-                <div class="header-stat">
-                  <span class="stat-label">FAVORITE TEAM</span>
-                  <span class="stat-value">{selectedManager.favorite_team}</span>
-                </div>
-              {/if}-->
-            </div>
-          </div>
-        </div>
+              {/if}
+            </div><!--"info-grid"-->
+          </div><!--"right-section"-->
+        </div><!--"manager-header"-->
       </section>
 
       <!-- Manager Info Section -->
