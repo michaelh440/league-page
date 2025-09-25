@@ -561,8 +561,8 @@
             </div>
             <div class="joined-year">
               <span class="joined-label">JOINED</span>
-              <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
               <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
+              <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
             </div>
           </div>
           
@@ -573,37 +573,24 @@
               </div>
             {/if}
             
-            <!--div class="header-stats">
-              <div class="header-stat">
-                <span class="stat-label">CHAMPIONSHIPS</span>
-                <span class="stat-value">{selectedManager.championships || 0}</span>
-              </div>
-              {#if selectedManager.favorite_team}
-                <div class="header-stat">
-                  <span class="stat-label">FAVORITE TEAM</span>
-                  <span class="stat-value">{selectedManager.favorite_team}</span>
-                </div>
-              {/if}
-            </div-->
             <div class="info-grid">
-          {#if selectedManager.signature_moves}
-            <StatCard size="lg">
-              <div class="info-card">
-                <h3>Signature Moves</h3>
-                <div class="info-content">
-                  {@html formatText(selectedManager.signature_moves)}
-                </div>
-              </div>
-            </StatCard>
-          {/if}
-
-          </div>
+              {#if selectedManager.signature_moves}
+                <StatCard size="lg">
+                  <div class="info-card">
+                    <h3>Signature Moves</h3>
+                    <div class="info-content">
+                      {@html formatText(selectedManager.signature_moves)}
+                    </div>
+                  </div>
+                </StatCard>
+              {/if}
+            </div>
         </div>
       </section>
 
       <!-- Manager Info Section -->
       <section class="manager-info-section">
-        <h2 class="section-title">Manager Info</h2>
+        <h3 class="section-title">Manager Info</h3>
         
         <div class="info-grid">
           <!--{#if selectedManager.signature_moves}
@@ -666,7 +653,7 @@
       <!-- Career Stats Section -->
       {#if careerStats}
       <section class="career-stats-section">
-        <h2 class="section-title">Career Stats</h2>
+        <h3 class="section-title">Career Stats</h3>
         
         <div class="stats-overview">
           <div class="stat-box">
@@ -746,7 +733,7 @@
       <!-- Playoff Stats Section -->
       {#if playoffStats}
       <section class="playoff-stats-section">
-        <h2 class="section-title">Playoff Stats</h2>
+        <h3 class="section-title">Playoff Stats</h3>
         
         <div class="stats-overview">
           <div class="stat-box">
