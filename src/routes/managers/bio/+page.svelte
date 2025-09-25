@@ -544,38 +544,44 @@
       <!-- Header Section -->
       <section class="header-section">
         <div class="manager-header">
-          <div class="manager-avatar">
-            <img 
-              src={selectedManager.logo_url || '/default-avatar.png'} 
-              alt={selectedManager.username || selectedManager.real_name} 
-              class="manager-logo" 
-            />
-            {#if selectedManager.championships > 0}
-              <div class="championship-badge">
-                <span class="trophy">🏆</span>
-                <span class="count">{selectedManager.championships}</span>
-              </div>
-            {/if}
+          <div class="left-section">
+            <div class="joined-year">
+              <span class="joined-label">JOINED</span>
+              <span class="joined-value">{selectedManager.year_joined || 'Unknown'}</span>
+            </div>
+            
+            <div class="manager-avatar">
+              <img 
+                src={selectedManager.logo_url || '/default-avatar.png'} 
+                alt={selectedManager.username || selectedManager.real_name} 
+                class="manager-logo" 
+              />
+              {#if selectedManager.championships > 0}
+                <div class="championship-badge">
+                  <span class="trophy">🏆</span>
+                  <span class="count">{selectedManager.championships}</span>
+                </div>
+              {/if}
+            </div>
+            
+            <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
           </div>
           
-          <div class="manager-info">
-            <h1 class="manager-name">{selectedManager.username || selectedManager.real_name}</h1>
-            {#if selectedManager.team_alias}
-              <p class="team-alias">"{selectedManager.team_alias}"</p>
+          <div class="right-section">
+            {#if selectedManager.philosophy}
+              <div class="philosophy-quote">
+                "{selectedManager.philosophy}"
+              </div>
             {/if}
             
-            <div class="manager-quick-stats">
-              <div class="quick-stat">
-                <span class="stat-label">Joined</span>
-                <span class="stat-value">{selectedManager.year_joined || 'Unknown'}</span>
-              </div>
-              <div class="quick-stat">
-                <span class="stat-label">Championships</span>
+            <div class="header-stats">
+              <div class="header-stat">
+                <span class="stat-label">CHAMPIONSHIPS</span>
                 <span class="stat-value">{selectedManager.championships || 0}</span>
               </div>
               {#if selectedManager.favorite_team}
-                <div class="quick-stat">
-                  <span class="stat-label">Favorite Team</span>
+                <div class="header-stat">
+                  <span class="stat-label">FAVORITE TEAM</span>
                   <span class="stat-value">{selectedManager.favorite_team}</span>
                 </div>
               {/if}
@@ -589,19 +595,6 @@
         <h2 class="section-title">Manager Info</h2>
         
         <div class="info-grid">
-          {#if selectedManager.philosophy}
-            <StatCard size="lg">
-              <div class="info-card philosophy-card">
-                <h3>Philosophy</h3>
-                <div class="philosophy-content">
-                  <span class="quote-mark">"</span>
-                  <span class="quote-text">{selectedManager.philosophy}</span>
-                  <span class="quote-mark">"</span>
-                </div>
-              </div>
-            </StatCard>
-          {/if}
-
           {#if selectedManager.signature_moves}
             <StatCard size="lg">
               <div class="info-card">
@@ -909,12 +902,42 @@
 
   .manager-header {
     display: flex;
+    align-items: flex-start;
+    gap: 3rem;
+  }
+
+  .left-section {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 2rem;
+    text-align: center;
+  }
+
+  .joined-year {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  .joined-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+  }
+
+  .joined-value {
+    font-size: 1rem;
+    color: #1f2937;
+    font-weight: 600;
   }
 
   .manager-avatar {
     position: relative;
+    margin-bottom: 1rem;
   }
 
   .manager-logo {
@@ -956,26 +979,34 @@
   }
 
   .manager-name {
-    margin: 0 0 0.5rem 0;
+    margin: 0;
     color: #1f2937;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: bold;
   }
 
-  .team-alias {
-    font-style: italic;
-    color: #6b7280;
-    font-size: 1.4rem;
-    margin: 0 0 1.5rem 0;
+  .right-section {
+    flex: 1;
+    padding-top: 1rem;
   }
 
-  .manager-quick-stats {
+  .philosophy-quote {
+    font-style: italic;
+    color: #4b5563;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 2rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid #d1d5db;
+  }
+
+  .header-stats {
     display: flex;
     gap: 2rem;
     flex-wrap: wrap;
   }
 
-  .quick-stat {
+  .header-stat {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
@@ -1019,26 +1050,6 @@
     color: #374151;
     line-height: 1.7;
     font-size: 1rem;
-  }
-
-  .philosophy-card {
-    background: linear-gradient(135deg, #f0f9ff, #e0f2fe);
-    border-left: 4px solid #0284c7;
-  }
-
-  .philosophy-content {
-    font-style: italic;
-    position: relative;
-  }
-
-  .quote-mark {
-    font-size: 1.5rem;
-    color: #0284c7;
-    font-weight: bold;
-  }
-
-  .quote-text {
-    margin: 0 0.5rem;
   }
 
   .strengths-weaknesses {
@@ -1236,6 +1247,18 @@
 
     .manager-header {
       flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 2rem;
+    }
+
+    .left-section {
+      order: 1;
+    }
+
+    .right-section {
+      order: 2;
+      padding-top: 0;
       text-align: center;
     }
 
@@ -1248,7 +1271,12 @@
       font-size: 2rem;
     }
 
-    .manager-quick-stats {
+    .philosophy-quote {
+      font-size: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .header-stats {
       justify-content: center;
       gap: 1rem;
     }
