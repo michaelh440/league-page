@@ -594,17 +594,7 @@
         <h2 class="section-title">Manager Info</h2>
         
         <div class="info-grid">
-          {#if selectedManager.signature_moves}
-            <StatCard size="lg">
-              <div class="info-card">
-                <h3>Signature Moves</h3>
-                <div class="info-content">
-                  {@html formatText(selectedManager.signature_moves)}
-                </div>
-              </div>
-            </StatCard>
-          {/if}
-
+        
           <div class="strengths-weaknesses">
             {#if selectedManager.strengths}
               <StatCard size="lg">
