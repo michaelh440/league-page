@@ -306,6 +306,7 @@
       font-size: 1.4rem;
       margin: 0.5rem 0 1rem 0;
       text-align: center;
+      color: white !important;
     }
 
     .season-nav {
@@ -426,6 +427,7 @@
 
     h3 {
       font-size: 1.2rem;
+      color: white !important;
     }
 
     .season-btn {
