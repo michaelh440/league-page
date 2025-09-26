@@ -20,43 +20,15 @@
 
   <!-- Main Content -->
   <main class="content">
-    <h3 style="text-align: center; color:white;">{season} Season</h3>
+    <h3 style="text-align: center;">{season} Season</h3>
 
     <nav class="season-nav">
       <a href="/seasons/{season}" class="season-btn active">Regular Season</a>
       <a href="/seasons/{season}/playoffs" class="season-btn">Playoffs</a>
     </nav>
 
-    <!--table class="stats-table">
-        <thead>
-          <tr><th class="table-title" colspan="4">All-Time Lowest Game Score</th></tr>
-          <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
-        </thead>
-        <tbody>
-          {#each (data.lowestGame || []).slice(0, 10) as row, i}
-            <tr>
-              <td>{i + 1}</td>
-              <td class="team-cell">
-                {#if row.team_logo}
-                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
-                {/if}
-                <span class="team-name">{row.team_name || 'Unknown Team'}</span>
-              </td>
-              <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
-              <td class="points-cell">{formatScore(row.score || 0)}</td>
-            </tr>
-          {:else}
-            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
-          {/each}
-        </tbody>
-      </table-->
-
-
-
-
     <div class="season-container">
       {#each weeks as week}
-        <!--h4>Week {week.week}</h4-->
         <table class="matchups-table">
           <thead>
             <tr><th class="table-title" colspan="4">Week {week.week}</th></tr>
@@ -205,6 +177,15 @@
     background-color: #004085;
     color: white;
     font-weight: 600;
+  }
+
+  .table-title {
+    text-align: center !important;
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.75rem;
   }
 
   .matchups-table td {
@@ -375,6 +356,13 @@
       color: #495057;
     }
 
+    .table-title {
+      font-size: 0.95rem;
+      padding: 0.75rem;
+      background: linear-gradient(135deg, #003366, #004080) !important;
+      color: white !important;
+    }
+
     .matchups-table td {
       background: white;
       color: #212529;
@@ -464,6 +452,13 @@
       background: #e9ecef;
       color: #495057;
       font-weight: 700;
+    }
+
+    .table-title {
+      font-size: 0.85rem;
+      padding: 0.5rem;
+      background: linear-gradient(135deg, #003366, #004080) !important;
+      color: white !important;
     }
 
     .team-logo {
