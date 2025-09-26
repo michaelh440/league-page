@@ -127,7 +127,13 @@ export async function load({ url }) {
                 WHEN (m.team1_id = t.manager_id OR m.team2_id = t.manager_id) AND 
                      m.team1_score = m.team2_score 
                 THEN 1 
-              END) as ties
+              END) as ties,
+              -- Count total games to filter out seasons without data
+              COUNT(CASE 
+                WHEN (m.team1_id = t.manager_id OR m.team2_id = t.manager_id) AND 
+                     m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
+                THEN 1 
+              END) as total_games
             FROM seasons s
             JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
             LEFT JOIN matchups m ON (m.team1_id = t.manager_id OR m.team2_id = t.manager_id)
@@ -140,11 +146,12 @@ export async function load({ url }) {
               s.season_year,
               t.team_id,
               t.manager_id,
-              AVG(ws.team_score) as avg_points,
+              -- Get average points from weekly_scoring table
+              AVG(CASE WHEN ws.team_score IS NOT NULL THEN ws.team_score END) as avg_points,
               -- Calculate average points against from matchups using manager_id AND season_id
               AVG(CASE 
-                WHEN m.team1_id = t.manager_id THEN m.team2_score
-                WHEN m.team2_id = t.manager_id THEN m.team1_score
+                WHEN m.team1_id = t.manager_id AND m.team2_score IS NOT NULL THEN m.team2_score
+                WHEN m.team2_id = t.manager_id AND m.team1_score IS NOT NULL THEN m.team1_score
               END) as avg_points_against
             FROM seasons s
             JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
@@ -157,12 +164,16 @@ export async function load({ url }) {
           playoff_info AS (
             SELECT 
               s.season_year,
-              COUNT(p.playoff_id) > 0 as made_playoffs
+              -- Check if they made playoffs based on final ranking (1-4 = playoffs, 5-8 = consolation)
+              CASE 
+                WHEN hr.final_rank BETWEEN 1 AND 4 THEN true
+                WHEN hr.final_rank BETWEEN 5 AND 8 THEN true  
+                ELSE false 
+              END as made_playoffs
             FROM seasons s
             JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
-            LEFT JOIN playoffs p ON (p.team1_id = t.manager_id OR p.team2_id = t.manager_id)
-              AND p.season_id = s.season_id
-            GROUP BY s.season_year
+            LEFT JOIN historical_rankings hr ON hr.manager_id = $1 AND hr.season_year = s.season_year
+            GROUP BY s.season_year, hr.final_rank
           ),
           final_rankings AS (
             SELECT 
@@ -184,6 +195,7 @@ export async function load({ url }) {
           LEFT JOIN scoring_stats sc ON sc.season_year = ss.season_year AND sc.team_id = ss.team_id
           LEFT JOIN playoff_info pi ON pi.season_year = ss.season_year
           LEFT JOIN final_rankings fr ON fr.season_year = ss.season_year
+          WHERE ss.total_games > 0  -- Only include seasons with actual game data
           ORDER BY ss.season_year DESC
         `, [managerId])
       ]);
@@ -246,7 +258,7 @@ export async function load({ url }) {
           LIMIT 1
         `, [managerId]),
 
-        // Playoff history by year - Updated to use manager_id
+        // Playoff history by year - Updated to use manager_id and match season data
         query(`
           WITH playoff_seasons AS (
             SELECT 
@@ -263,17 +275,24 @@ export async function load({ url }) {
                 THEN 1 
               END) as losses,
               AVG(CASE 
-                WHEN p.team1_id = t.manager_id THEN p.team1_score
-                WHEN p.team2_id = t.manager_id THEN p.team2_score
+                WHEN p.team1_id = t.manager_id AND p.team1_score IS NOT NULL THEN p.team1_score
+                WHEN p.team2_id = t.manager_id AND p.team2_score IS NOT NULL THEN p.team2_score
               END) as avg_points,
               AVG(CASE 
-                WHEN p.team1_id = t.manager_id THEN p.team2_score
-                WHEN p.team2_id = t.manager_id THEN p.team1_score
-              END) as avg_points_against
+                WHEN p.team1_id = t.manager_id AND p.team2_score IS NOT NULL THEN p.team2_score
+                WHEN p.team2_id = t.manager_id AND p.team1_score IS NOT NULL THEN p.team1_score
+              END) as avg_points_against,
+              -- Count total playoff games to filter out seasons without playoff data
+              COUNT(CASE 
+                WHEN (p.team1_id = t.manager_id OR p.team2_id = t.manager_id) AND 
+                     p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
+                THEN 1 
+              END) as total_playoff_games
             FROM seasons s
             JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
-            JOIN playoffs p ON (p.team1_id = t.manager_id OR p.team2_id = t.manager_id)
+            LEFT JOIN playoffs p ON (p.team1_id = t.manager_id OR p.team2_id = t.manager_id)
               AND p.season_id = s.season_id
+              AND p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
             GROUP BY s.season_year, t.team_id
           ),
           final_rankings AS (
@@ -292,6 +311,7 @@ export async function load({ url }) {
             COALESCE(fr.final_rank, 99) as finish
           FROM playoff_seasons ps
           LEFT JOIN final_rankings fr ON fr.season_year = ps.season_year
+          WHERE ps.total_playoff_games > 0  -- Only include seasons where they actually played playoff games
           ORDER BY ps.season_year DESC
         `, [managerId]),
 
