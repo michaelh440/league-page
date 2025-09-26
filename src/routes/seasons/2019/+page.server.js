@@ -20,7 +20,7 @@ export async function load() {
     JOIN manager_team_names mt2 
       ON m.team2_id = mt2.manager_id 
      AND s.season_year = mt2.season_year
-    WHERE s.season_year = 2016
+    WHERE s.season_year = 2019
     ORDER BY m.week ASC, m.matchup_id ASC
   `);
 
