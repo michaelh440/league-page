@@ -78,14 +78,14 @@
   }
 /* Mobile page title color fix */
 @media screen and (max-width: 768px) {
-  h3 {
+  h2 {
     color: white !important;
   }
 }
 
 /* Very small screens */
 @media screen and (max-width: 480px) {
-  h3 {
+  h2 {
     color: white !important;
   }
 }
