@@ -105,14 +105,14 @@ export async function load({ url }) {
           LIMIT 1
         `, [managerId]),
 
-        // Season by season history with corrected manager_id joins
+        // Season by season history with corrected manager_id joins and season filtering
         query(`
           WITH season_stats AS (
             SELECT 
               s.season_year,
               t.team_id,
               t.manager_id,
-              -- Win/Loss calculation from matchups using manager_id
+              -- Win/Loss calculation from matchups using manager_id AND season_id
               COUNT(CASE 
                 WHEN (m.team1_id = t.manager_id AND m.team1_score > m.team2_score) OR 
                      (m.team2_id = t.manager_id AND m.team2_score > m.team1_score) 
@@ -131,6 +131,7 @@ export async function load({ url }) {
             FROM seasons s
             JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
             LEFT JOIN matchups m ON (m.team1_id = t.manager_id OR m.team2_id = t.manager_id)
+              AND m.season_id = s.season_id
               AND m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
             GROUP BY s.season_year, t.team_id, t.manager_id
           ),
@@ -140,7 +141,7 @@ export async function load({ url }) {
               t.team_id,
               t.manager_id,
               AVG(ws.team_score) as avg_points,
-              -- Calculate average points against from matchups using manager_id
+              -- Calculate average points against from matchups using manager_id AND season_id
               AVG(CASE 
                 WHEN m.team1_id = t.manager_id THEN m.team2_score
                 WHEN m.team2_id = t.manager_id THEN m.team1_score
