@@ -200,7 +200,7 @@ export async function load({ url }) {
             pi.made_playoffs,
             ROUND(sc.avg_points, 2) as avg_points,
             ROUND(sc.avg_points_against, 2) as avg_points_against,
-            -- Show 'TBD' for seasons without final rankings (like 2024)
+            -- Show NULL for seasons without final rankings (like 2024)
             CASE 
               WHEN fr.final_rank IS NOT NULL THEN fr.final_rank
               ELSE NULL 
@@ -240,20 +240,13 @@ export async function load({ url }) {
         }
       }
 
-      // Playoff Stats Queries - Updated to use manager_id in matchups
+      // Playoff Stats Queries - Calculate summary from same data as details
       const [
-        playoffWinPct,
         playoffHighGame,
         playoffLowGame,
         playoffHistory,
         trophyCount
       ] = await Promise.all([
-        // Playoff win percentage
-        query(`
-          SELECT * FROM vw_playoff_win_pct 
-          WHERE manager_id = $1
-        `, [managerId]),
-
         // Highest playoff game
         query(`
           SELECT score, year, week, team_name 
@@ -276,6 +269,7 @@ export async function load({ url }) {
         query(`
           WITH playoff_seasons AS (
             SELECT 
+              s.season_id,
               s.season_year,
               t.team_id,
               COUNT(CASE 
@@ -307,7 +301,7 @@ export async function load({ url }) {
             LEFT JOIN playoffs p ON (p.team1_id = t.manager_id OR p.team2_id = t.manager_id)
               AND p.season_id = s.season_id
               AND p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
-            GROUP BY s.season_year, t.team_id
+            GROUP BY s.season_id, s.season_year, t.team_id
           ),
           final_rankings AS (
             SELECT 
@@ -340,25 +334,35 @@ export async function load({ url }) {
         `, [managerId])
       ]);
 
-      const playoffWinPctData = playoffWinPct.rows[0];
       const trophies = trophyCount.rows[0] || { championships: 0, runner_ups: 0, third_place: 0 };
       
+      // Calculate playoff stats from the actual playoff history data instead of using the view
+      const playoffHistoryData = playoffHistory.rows || [];
+      let totalPlayoffWins = 0;
+      let totalPlayoffLosses = 0;
+      
+      if (playoffHistoryData.length > 0) {
+        totalPlayoffWins = playoffHistoryData.reduce((sum, season) => sum + (parseInt(season.wins) || 0), 0);
+        totalPlayoffLosses = playoffHistoryData.reduce((sum, season) => sum + (parseInt(season.losses) || 0), 0);
+      }
+      
       playoffStats = {
-        record: playoffWinPctData ? `${playoffWinPctData.playoff_wins}-${playoffWinPctData.playoff_losses}` : '0-0',
-        winPct: playoffWinPctData ? `${(playoffWinPctData.playoff_win_pct * 100).toFixed(1)}%` : '0.0%',
+        record: `${totalPlayoffWins}-${totalPlayoffLosses}`,
+        winPct: totalPlayoffWins + totalPlayoffLosses > 0 ? 
+          `${((totalPlayoffWins / (totalPlayoffWins + totalPlayoffLosses)) * 100).toFixed(1)}%` : '0.0%',
         avgScore: '0.0',
         avgPtsAg: '0.0',
         highScore: playoffHighGame.rows[0]?.score || 0,
         lowScore: playoffLowGame.rows[0]?.score || 0,
-        playoffHistory: playoffHistory.rows || [],
+        playoffHistory: playoffHistoryData,
         championships: parseInt(trophies.championships) || 0,
         runnerUps: parseInt(trophies.runner_ups) || 0,
         thirdPlace: parseInt(trophies.third_place) || 0
       };
 
       // Calculate playoff averages
-      if (playoffHistory.rows.length > 0) {
-        const validPlayoffSeasons = playoffHistory.rows.filter(season => 
+      if (playoffHistoryData.length > 0) {
+        const validPlayoffSeasons = playoffHistoryData.filter(season => 
           season.avg_points !== null && season.avg_points !== undefined
         );
         
