@@ -170,12 +170,18 @@
   .matchups-table td {
     border: 1px solid #dee2e6;
     padding: 0.75rem 1rem;
+    color: #212529;
   }
 
   .matchups-table th {
     background-color: #004085;
     color: white;
     font-weight: 600;
+  }
+
+  .matchups-table td {
+    background: white;
+    color: #212529;
   }
 
   .matchups-table tbody tr:nth-child(odd) {
@@ -193,6 +199,7 @@
   .win {
     background-color: #d4edda !important;
     font-weight: bold;
+    color: #212529 !important;
   }
 
   .team-info {
@@ -329,12 +336,34 @@
     .matchups-table td {
       padding: 0.5rem 0.25rem;
       font-size: 0.85rem;
+      color: #212529;
+      line-height: 1.4;
     }
 
     .matchups-table th {
       font-size: 0.8rem;
       font-weight: 700;
-      background: #004085;
+      background: #e9ecef;
+      color: #495057;
+    }
+
+    .matchups-table td {
+      background: white;
+      color: #212529;
+    }
+
+    .matchups-table tbody tr:nth-child(odd) {
+      background: white;
+    }
+    
+    .matchups-table tbody tr:nth-child(even) {
+      background: #f1f3f4;
+    }
+
+    .win {
+      background-color: #d4edda !important;
+      color: #212529 !important;
+      font-weight: 600;
     }
 
     .team-info {
@@ -353,12 +382,13 @@
       font-size: 0.8rem;
       max-width: 80px;
       font-weight: 500;
+      color: #212529;
     }
 
     .score-cell {
       font-size: 1rem;
       font-weight: 700;
-      color: #004085;
+      color: #007bff;
     }
   }
 
@@ -399,6 +429,13 @@
     .matchups-table td {
       padding: 0.4rem 0.2rem;
       font-size: 0.75rem;
+      color: #212529;
+    }
+
+    .matchups-table th {
+      background: #e9ecef;
+      color: #495057;
+      font-weight: 700;
     }
 
     .team-logo {
@@ -409,10 +446,13 @@
     .team-name {
       font-size: 0.7rem;
       max-width: 70px;
+      color: #212529;
     }
 
     .score-cell {
       font-size: 0.9rem;
+      color: #007bff;
+      font-weight: 600;
     }
   }
 
