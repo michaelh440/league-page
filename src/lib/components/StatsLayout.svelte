@@ -447,4 +447,18 @@
       font-size: 0.9rem;
     }
   }
+
+  /* Mobile page title color fix */
+@media (max-width: 768px) {
+  .page-title {
+    color: white !important;
+  }
+}
+
+/* Very small screens */
+@media (max-width: 480px) {
+  .page-title {
+    color: white !important;
+  }
+}
 </style>
