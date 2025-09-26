@@ -481,7 +481,8 @@
 
     .matchups-table {
       max-width: none;
-      margin: 0 0 1rem 0;
+      width: 90%;
+      margin: 0 auto 1rem auto;
       font-size: 0.85rem;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     }
@@ -588,6 +589,8 @@
     }
 
     .matchups-table {
+      width: 85%;
+      margin: 0 auto;
       font-size: 0.75rem;
     }
 
