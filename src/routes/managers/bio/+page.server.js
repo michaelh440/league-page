@@ -109,6 +109,7 @@ export async function load({ url }) {
         query(`
           WITH season_stats AS (
             SELECT 
+              s.season_id,
               s.season_year,
               t.team_id,
               t.manager_id,
@@ -139,10 +140,11 @@ export async function load({ url }) {
             LEFT JOIN matchups m ON (m.team1_id = t.manager_id OR m.team2_id = t.manager_id)
               AND m.season_id = s.season_id
               AND m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
-            GROUP BY s.season_year, t.team_id, t.manager_id
+            GROUP BY s.season_id, s.season_year, t.team_id, t.manager_id
           ),
           scoring_stats AS (
             SELECT 
+              s.season_id,
               s.season_year,
               t.team_id,
               t.manager_id,
@@ -166,10 +168,11 @@ export async function load({ url }) {
             LEFT JOIN matchups m ON (m.team1_id = t.manager_id OR m.team2_id = t.manager_id)
               AND m.season_id = s.season_id
               AND m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
-            GROUP BY s.season_year, t.team_id, t.manager_id
+            GROUP BY s.season_id, s.season_year, t.team_id, t.manager_id
           ),
           playoff_info AS (
             SELECT 
+              s.season_id,
               s.season_year,
               -- Check if they made playoffs based on final ranking (1-4 = playoffs, 5-8 = consolation)
               CASE 
@@ -180,7 +183,7 @@ export async function load({ url }) {
             FROM seasons s
             JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
             LEFT JOIN historical_rankings hr ON hr.manager_id = $1 AND hr.season_year = s.season_year
-            GROUP BY s.season_year, hr.final_rank
+            GROUP BY s.season_id, s.season_year, hr.final_rank
           ),
           final_rankings AS (
             SELECT 
@@ -203,8 +206,8 @@ export async function load({ url }) {
               ELSE NULL 
             END as finish
           FROM season_stats ss
-          LEFT JOIN scoring_stats sc ON sc.season_year = ss.season_year AND sc.team_id = ss.team_id
-          LEFT JOIN playoff_info pi ON pi.season_year = ss.season_year
+          LEFT JOIN scoring_stats sc ON sc.season_id = ss.season_id AND sc.team_id = ss.team_id
+          LEFT JOIN playoff_info pi ON pi.season_id = ss.season_id
           LEFT JOIN final_rankings fr ON fr.season_year = ss.season_year
           WHERE ss.total_games > 0  -- Only include seasons with actual game data
           ORDER BY ss.season_year DESC
