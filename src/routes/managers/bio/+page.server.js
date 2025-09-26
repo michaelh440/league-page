@@ -146,8 +146,15 @@ export async function load({ url }) {
               s.season_year,
               t.team_id,
               t.manager_id,
-              -- Get average points from weekly_scoring table
-              AVG(CASE WHEN ws.team_score IS NOT NULL THEN ws.team_score END) as avg_points,
+              -- Get average points from weekly_scoring table with fallback to matchups
+              COALESCE(
+                AVG(CASE WHEN ws.team_score IS NOT NULL THEN ws.team_score END),
+                -- Fallback: calculate from matchups if weekly_scoring team_ids don't match
+                AVG(CASE 
+                  WHEN m.team1_id = t.manager_id AND m.team1_score IS NOT NULL THEN m.team1_score
+                  WHEN m.team2_id = t.manager_id AND m.team2_score IS NOT NULL THEN m.team2_score
+                END)
+              ) as avg_points,
               -- Calculate average points against from matchups using manager_id AND season_id
               AVG(CASE 
                 WHEN m.team1_id = t.manager_id AND m.team2_score IS NOT NULL THEN m.team2_score
@@ -190,7 +197,11 @@ export async function load({ url }) {
             pi.made_playoffs,
             ROUND(sc.avg_points, 2) as avg_points,
             ROUND(sc.avg_points_against, 2) as avg_points_against,
-            COALESCE(fr.final_rank, 99) as finish
+            -- Show 'TBD' for seasons without final rankings (like 2024)
+            CASE 
+              WHEN fr.final_rank IS NOT NULL THEN fr.final_rank
+              ELSE NULL 
+            END as finish
           FROM season_stats ss
           LEFT JOIN scoring_stats sc ON sc.season_year = ss.season_year AND sc.team_id = ss.team_id
           LEFT JOIN playoff_info pi ON pi.season_year = ss.season_year

@@ -704,8 +704,15 @@
                       </td>
                       <td>{season.avg_points || '0.0'}</td>
                       <td>{season.avg_points_against || '0.0'}</td>
-                      <td>
+                      <!--td>
                         <span class="finish-badge rank-{season.finish}">{season.finish}</span>
+                      </td-->
+                        <td>
+                        {#if season.finish}
+                          <span class="finish-badge rank-{season.finish}">{season.finish}</span>
+                        {:else}
+                          <span class="finish-badge tbd">TBD</span>
+                        {/if}
                       </td>
                     </tr>
                   {:else}
@@ -1230,6 +1237,11 @@
     color: #9ca3af;
     font-size: 1.1rem;
     margin: 0;
+  }
+
+  .finish-badge.tbd {
+  background: #6c757d;
+  color: white;
   }
 
   /* Mobile Responsive */
