@@ -31,9 +31,9 @@
     <!-- Championship Bracket -->
     <h3 class="bracket-title">Championship Bracket</h3>
     <div class="bracket-grid">
-      <!-- Week 15 -->
+      <!-- Week 16 -->
       <div>
-        <h4 class="week-title">Week 15</h4>
+        <h4 class="week-title">Week 16</h4>
         {#each championship.week15 as game}
           <table class="matchups-table">
             <thead>
@@ -72,9 +72,9 @@
         {/each}
       </div>
 
-      <!-- Week 16 -->
+      <!-- Week 17 -->
       <div>
-        <h4 class="week-title">Week 16</h4>
+        <h4 class="week-title">Week 17</h4>
         {#each championship.week16 as game}
           <table class="matchups-table">
             <thead>
@@ -117,9 +117,9 @@
     <!-- Consolation Bracket -->
     <h3 class="bracket-title">Consolation Bracket</h3>
     <div class="bracket-grid">
-      <!-- Week 15 -->
+      <!-- Week 16 -->
       <div>
-        <h4 class="week-title">Week 15</h4>
+        <h4 class="week-title">Week 16</h4>
         {#each consolation.week15 as game}
           <table class="matchups-table">
             <thead>
@@ -158,9 +158,9 @@
         {/each}
       </div>
 
-      <!-- Week 16 -->
+      <!-- Week 17 -->
       <div>
-        <h4 class="week-title">Week 16</h4>
+        <h4 class="week-title">Week 17</h4>
         {#each consolation.week16 as game}
           <table class="matchups-table">
             <thead>
