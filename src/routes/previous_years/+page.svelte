@@ -76,4 +76,18 @@
     margin: 0;
     color: #e0e0e0;
   }
+/* Mobile page title color fix */
+@media screen and (max-width: 768px) {
+  h3 {
+    color: white !important;
+  }
+}
+
+/* Very small screens */
+@media screen and (max-width: 480px) {
+  h3 {
+    color: white !important;
+  }
+}
+
 </style>
