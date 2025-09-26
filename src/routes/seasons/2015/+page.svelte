@@ -20,19 +20,47 @@
 
   <!-- Main Content -->
   <main class="content">
-    <h3 style="text-align: center;">{season} Season</h3>
+    <h3 style="text-align: center; color:white;">{season} Season</h3>
 
     <nav class="season-nav">
       <a href="/seasons/{season}" class="season-btn active">Regular Season</a>
       <a href="/seasons/{season}/playoffs" class="season-btn">Playoffs</a>
     </nav>
 
+    <!--table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All-Time Lowest Game Score</th></tr>
+          <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
+        </thead>
+        <tbody>
+          {#each (data.lowestGame || []).slice(0, 10) as row, i}
+            <tr>
+              <td>{i + 1}</td>
+              <td class="team-cell">
+                {#if row.team_logo}
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                {/if}
+                <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+              </td>
+              <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
+              <td class="points-cell">{formatScore(row.score || 0)}</td>
+            </tr>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table-->
+
+
+
+
     <div class="season-container">
       {#each weeks as week}
-        <h4>Week {week.week}</h4>
+        <!--h4>Week {week.week}</h4-->
         <table class="matchups-table">
           <thead>
-            <tr>
+            <tr><th class="table-title" colspan="4">Week {week.week}</th></tr>
+              <tr>
               <th>Team 1</th>
               <th>Score</th>
               <th>Team 2</th>
