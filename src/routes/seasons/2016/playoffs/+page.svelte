@@ -140,9 +140,6 @@
                 <td class="score-cell" class:win={game.score1 > game.score2}>{game.score1}</td>
               </tr>
               <tr>
-                <td height="20px;"></td>
-              </tr>
-              <tr>
                 <td class:win={game.score2 > game.score1}>
                   <div class="team-info">
                     {#if game.team2_logo}
@@ -155,6 +152,7 @@
               </tr>
             </tbody>
           </table>
+          <div style="height:20px;"></div>
         {/each}
       </div>
 
@@ -183,9 +181,6 @@
                 <td class="score-cell" class:win={game.score1 > game.score2}>{game.score1}</td>
               </tr>
               <tr>
-                <td height="20px;"></td>
-              </tr>
-              <tr>
                 <td class:win={game.score2 > game.score1}>
                   <div class="team-info">
                     {#if game.team2_logo}
@@ -198,6 +193,7 @@
               </tr>
             </tbody>
           </table>
+          <div style="height:20px;"></div>
         {/each}
       </div>
     </div>
