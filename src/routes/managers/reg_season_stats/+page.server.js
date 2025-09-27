@@ -117,12 +117,13 @@ export async function load({ url }) {
       -- Get team name for this manager from their team in this season
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1),
+        COALESCE(mgr_self.team_alias, mgr_self.real_name, mgr_self.username)
       ) as team_name,
       -- Get team logo for this manager
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT mgr.logo_url FROM managers mgr WHERE mgr.manager_id = $1)
+        mgr_self.logo_url
       ) as team_logo,
       CASE 
         WHEN m.team1_id = $1 THEN m.team1_score
@@ -147,6 +148,7 @@ export async function load({ url }) {
       END as result
     FROM matchups m
     JOIN seasons s ON m.season_id = s.season_id
+    JOIN managers mgr_self ON mgr_self.manager_id = $1
     LEFT JOIN managers m1 ON m.team1_id = m1.manager_id
     LEFT JOIN managers m2 ON m.team2_id = m2.manager_id
     WHERE (m.team1_id = $1 OR m.team2_id = $1)
@@ -164,12 +166,13 @@ export async function load({ url }) {
       -- Get team name for this manager from their team in this season
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1),
+        COALESCE(mgr_self.team_alias, mgr_self.real_name, mgr_self.username)
       ) as team_name,
       -- Get team logo for this manager
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT mgr.logo_url FROM managers mgr WHERE mgr.manager_id = $1)
+        mgr_self.logo_url
       ) as team_logo,
       CASE 
         WHEN m.team1_id = $1 THEN m.team1_score
@@ -194,6 +197,7 @@ export async function load({ url }) {
       END as result
     FROM matchups m
     JOIN seasons s ON m.season_id = s.season_id
+    JOIN managers mgr_self ON mgr_self.manager_id = $1
     LEFT JOIN managers m1 ON m.team1_id = m1.manager_id
     LEFT JOIN managers m2 ON m.team2_id = m2.manager_id
     WHERE (m.team1_id = $1 OR m.team2_id = $1)
