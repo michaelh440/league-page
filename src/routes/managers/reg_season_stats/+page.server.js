@@ -109,43 +109,48 @@ export async function load({ url }) {
     LIMIT 10
   `, [managerId])).rows;
 
-  // 5. BLOWOUTS - Use matchups with team1_id/team2_id as manager_ids
+  // 5. BLOWOUTS - Match the structure from bio page exactly
   const blowout = (await query(`
     SELECT 
       s.season_year as year,
+      m.season_id,
       m.week,
-      -- Get team name for this manager from their team in this season
+      $1 as team1_manager_id,
+      -- Get team name for this manager
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1),
         COALESCE(mgr_self.team_alias, mgr_self.real_name, mgr_self.username)
-      ) as team_name,
-      -- Get team logo for this manager
+      ) as team1_name,
+      -- Get team logo for this manager  
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         mgr_self.logo_url
-      ) as team_logo,
+      ) as team1_logo,
       CASE 
         WHEN m.team1_id = $1 THEN m.team1_score
         ELSE m.team2_score 
-      END as my_score,
+      END as team1_score,
+      -- Opponent info
+      CASE 
+        WHEN m.team1_id = $1 THEN m2.manager_id
+        ELSE m1.manager_id
+      END as team2_manager_id,
       CASE 
         WHEN m.team1_id = $1 THEN 
           COALESCE(m2.team_alias, m2.real_name, m2.username)
         ELSE 
           COALESCE(m1.team_alias, m1.real_name, m1.username)
-      END as opponent_name,
+      END as team2_name,
+      CASE 
+        WHEN m.team1_id = $1 THEN m2.logo_url
+        ELSE m1.logo_url
+      END as team2_logo,
       CASE 
         WHEN m.team1_id = $1 THEN m.team2_score
         ELSE m.team1_score 
-      END as opponent_score,
-      ABS(m.team1_score - m.team2_score) as margin,
-      CASE 
-        WHEN (m.team1_id = $1 AND m.team1_score > m.team2_score) OR 
-             (m.team2_id = $1 AND m.team2_score > m.team1_score) 
-        THEN 'W' 
-        ELSE 'L' 
-      END as result
+      END as team2_score,
+      ABS(m.team1_score - m.team2_score) as margin
     FROM matchups m
     JOIN seasons s ON m.season_id = s.season_id
     JOIN managers mgr_self ON mgr_self.manager_id = $1
@@ -158,43 +163,48 @@ export async function load({ url }) {
     LIMIT 10
   `, [managerId])).rows;
 
-  // 6. NAILBITERS - Same as blowouts but ordered by smallest margin
+  // 6. NAILBITERS - Match the structure from bio page exactly
   const nailbiter = (await query(`
     SELECT 
       s.season_year as year,
+      m.season_id,
       m.week,
-      -- Get team name for this manager from their team in this season
+      $1 as team1_manager_id,
+      -- Get team name for this manager
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1),
         COALESCE(mgr_self.team_alias, mgr_self.real_name, mgr_self.username)
-      ) as team_name,
-      -- Get team logo for this manager
+      ) as team1_name,
+      -- Get team logo for this manager  
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         mgr_self.logo_url
-      ) as team_logo,
+      ) as team1_logo,
       CASE 
         WHEN m.team1_id = $1 THEN m.team1_score
         ELSE m.team2_score 
-      END as my_score,
+      END as team1_score,
+      -- Opponent info
+      CASE 
+        WHEN m.team1_id = $1 THEN m2.manager_id
+        ELSE m1.manager_id
+      END as team2_manager_id,
       CASE 
         WHEN m.team1_id = $1 THEN 
           COALESCE(m2.team_alias, m2.real_name, m2.username)
         ELSE 
           COALESCE(m1.team_alias, m1.real_name, m1.username)
-      END as opponent_name,
+      END as team2_name,
+      CASE 
+        WHEN m.team1_id = $1 THEN m2.logo_url
+        ELSE m1.logo_url
+      END as team2_logo,
       CASE 
         WHEN m.team1_id = $1 THEN m.team2_score
         ELSE m.team1_score 
-      END as opponent_score,
-      ABS(m.team1_score - m.team2_score) as margin,
-      CASE 
-        WHEN (m.team1_id = $1 AND m.team1_score > m.team2_score) OR 
-             (m.team2_id = $1 AND m.team2_score > m.team1_score) 
-        THEN 'W' 
-        ELSE 'L' 
-      END as result
+      END as team2_score,
+      ABS(m.team1_score - m.team2_score) as margin
     FROM matchups m
     JOIN seasons s ON m.season_id = s.season_id
     JOIN managers mgr_self ON mgr_self.manager_id = $1
