@@ -82,67 +82,81 @@ export async function load({ url }) {
 
   // 3. HIGHEST PLAYOFF SEASONS - Aggregate playoff points by season
   const highestSeason = (await query(`
-    SELECT 
-      s.season_year as year,
-      COALESCE(
-        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
-      ) as team_name,
-      COALESCE(
-        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        mgr.logo_url
-      ) as team_logo,
-      SUM(CASE 
+    WITH season_totals AS (
+      SELECT 
+        s.season_year,
+        s.season_id,
+        SUM(CASE 
+          WHEN p.team1_id = $1 THEN p.team1_score 
+          WHEN p.team2_id = $1 THEN p.team2_score 
+          ELSE 0 
+        END) as total_points
+      FROM playoffs p
+      JOIN seasons s ON p.season_id = s.season_id
+      WHERE (p.team1_id = $1 OR p.team2_id = $1)
+        AND p.team1_score IS NOT NULL 
+        AND p.team2_score IS NOT NULL
+      GROUP BY s.season_year, s.season_id
+      HAVING SUM(CASE 
         WHEN p.team1_id = $1 THEN p.team1_score 
         WHEN p.team2_id = $1 THEN p.team2_score 
         ELSE 0 
-      END) as total_points
-    FROM playoffs p
-    JOIN seasons s ON p.season_id = s.season_id
+      END) > 0
+    )
+    SELECT 
+      st.season_year as year,
+      COALESCE(
+        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = st.season_id LIMIT 1)
+      ) as team_name,
+      COALESCE(
+        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
+        mgr.logo_url
+      ) as team_logo,
+      st.total_points
+    FROM season_totals st
     JOIN managers mgr ON mgr.manager_id = $1
-    WHERE (p.team1_id = $1 OR p.team2_id = $1)
-      AND p.team1_score IS NOT NULL 
-      AND p.team2_score IS NOT NULL
-    GROUP BY s.season_year, mgr.logo_url
-    HAVING SUM(CASE 
-      WHEN p.team1_id = $1 THEN p.team1_score 
-      WHEN p.team2_id = $1 THEN p.team2_score 
-      ELSE 0 
-    END) > 0
-    ORDER BY total_points DESC
+    ORDER BY st.total_points DESC
     LIMIT 10
   `, [managerId])).rows;
 
   // 4. LOWEST PLAYOFF SEASONS
   const lowestSeason = (await query(`
-    SELECT 
-      s.season_year as year,
-      COALESCE(
-        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
-      ) as team_name,
-      COALESCE(
-        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        mgr.logo_url
-      ) as team_logo,
-      SUM(CASE 
+    WITH season_totals AS (
+      SELECT 
+        s.season_year,
+        s.season_id,
+        SUM(CASE 
+          WHEN p.team1_id = $1 THEN p.team1_score 
+          WHEN p.team2_id = $1 THEN p.team2_score 
+          ELSE 0 
+        END) as total_points
+      FROM playoffs p
+      JOIN seasons s ON p.season_id = s.season_id
+      WHERE (p.team1_id = $1 OR p.team2_id = $1)
+        AND p.team1_score IS NOT NULL 
+        AND p.team2_score IS NOT NULL
+      GROUP BY s.season_year, s.season_id
+      HAVING SUM(CASE 
         WHEN p.team1_id = $1 THEN p.team1_score 
         WHEN p.team2_id = $1 THEN p.team2_score 
         ELSE 0 
-      END) as total_points
-    FROM playoffs p
-    JOIN seasons s ON p.season_id = s.season_id
+      END) > 0
+    )
+    SELECT 
+      st.season_year as year,
+      COALESCE(
+        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = st.season_id LIMIT 1)
+      ) as team_name,
+      COALESCE(
+        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
+        mgr.logo_url
+      ) as team_logo,
+      st.total_points
+    FROM season_totals st
     JOIN managers mgr ON mgr.manager_id = $1
-    WHERE (p.team1_id = $1 OR p.team2_id = $1)
-      AND p.team1_score IS NOT NULL 
-      AND p.team2_score IS NOT NULL
-    GROUP BY s.season_year, mgr.logo_url
-    HAVING SUM(CASE 
-      WHEN p.team1_id = $1 THEN p.team1_score 
-      WHEN p.team2_id = $1 THEN p.team2_score 
-      ELSE 0 
-    END) > 0
-    ORDER BY total_points ASC
+    ORDER BY st.total_points ASC
     LIMIT 10
   `, [managerId])).rows;
 
