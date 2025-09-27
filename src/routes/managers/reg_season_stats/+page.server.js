@@ -26,7 +26,7 @@ export async function load({ url }) {
     };
   }
 
-  // 1. HIGHEST SINGLE GAMES - Get from weekly_scoring for this manager
+  // 1. HIGHEST SINGLE GAMES - Use weekly_scoring with proper team/manager joins
   const highestGame = (await query(`
     SELECT 
       s.season_year as year,
@@ -66,7 +66,7 @@ export async function load({ url }) {
     LIMIT 10
   `, [managerId])).rows;
 
-  // 3. HIGHEST SEASONS - Season totals for this manager
+  // 3. HIGHEST SEASONS - Aggregate weekly_scoring by season
   const highestSeason = (await query(`
     SELECT 
       s.season_year as year,
@@ -109,128 +109,122 @@ export async function load({ url }) {
     LIMIT 10
   `, [managerId])).rows;
 
-  // 5. BLOWOUTS - Join through teams table to get proper manager association
+  // 5. BLOWOUTS - Use matchups with team1_id/team2_id as manager_ids
   const blowout = (await query(`
     SELECT 
       s.season_year as year,
-      mat.week,
+      m.week,
+      -- Get team name for this manager from their team in this season
+      COALESCE(
+        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
+      ) as team_name,
+      -- Get team logo for this manager
+      COALESCE(
+        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
+        (SELECT mgr.logo_url FROM managers mgr WHERE mgr.manager_id = $1)
+      ) as team_logo,
       CASE 
-        WHEN t1.manager_id = $1 THEN COALESCE(mtn1.team_name, t1.team_name)
-        ELSE COALESCE(mtn2.team_name, t2.team_name)
-      END as team_name,
-      CASE 
-        WHEN t1.manager_id = $1 THEN COALESCE(mtn1.logo_url, m1.logo_url)
-        ELSE COALESCE(mtn2.logo_url, m2.logo_url)
-      END as team_logo,
-      CASE 
-        WHEN t1.manager_id = $1 THEN mat.team1_score
-        ELSE mat.team2_score 
+        WHEN m.team1_id = $1 THEN m.team1_score
+        ELSE m.team2_score 
       END as my_score,
       CASE 
-        WHEN t1.manager_id = $1 THEN COALESCE(m2.team_alias, m2.real_name, m2.username)
-        ELSE COALESCE(m1.team_alias, m1.real_name, m1.username)
+        WHEN m.team1_id = $1 THEN 
+          COALESCE(m2.team_alias, m2.real_name, m2.username)
+        ELSE 
+          COALESCE(m1.team_alias, m1.real_name, m1.username)
       END as opponent_name,
       CASE 
-        WHEN t1.manager_id = $1 THEN mat.team2_score
-        ELSE mat.team1_score 
+        WHEN m.team1_id = $1 THEN m.team2_score
+        ELSE m.team1_score 
       END as opponent_score,
-      ABS(mat.team1_score - mat.team2_score) as margin,
+      ABS(m.team1_score - m.team2_score) as margin,
       CASE 
-        WHEN (t1.manager_id = $1 AND mat.team1_score > mat.team2_score) OR 
-             (t2.manager_id = $1 AND mat.team2_score > mat.team1_score) 
+        WHEN (m.team1_id = $1 AND m.team1_score > m.team2_score) OR 
+             (m.team2_id = $1 AND m.team2_score > m.team1_score) 
         THEN 'W' 
         ELSE 'L' 
       END as result
-    FROM matchups mat
-    JOIN seasons s ON mat.season_id = s.season_id
-    JOIN teams t1 ON mat.team1_id = t1.team_id
-    JOIN teams t2 ON mat.team2_id = t2.team_id
-    JOIN managers m1 ON t1.manager_id = m1.manager_id
-    JOIN managers m2 ON t2.manager_id = m2.manager_id
-    LEFT JOIN manager_team_names mtn1 ON m1.manager_id = mtn1.manager_id 
-      AND mtn1.season_year = s.season_year
-    LEFT JOIN manager_team_names mtn2 ON m2.manager_id = mtn2.manager_id 
-      AND mtn2.season_year = s.season_year
-    WHERE (t1.manager_id = $1 OR t2.manager_id = $1)
-      AND mat.team1_score IS NOT NULL 
-      AND mat.team2_score IS NOT NULL
+    FROM matchups m
+    JOIN seasons s ON m.season_id = s.season_id
+    LEFT JOIN managers m1 ON m.team1_id = m1.manager_id
+    LEFT JOIN managers m2 ON m.team2_id = m2.manager_id
+    WHERE (m.team1_id = $1 OR m.team2_id = $1)
+      AND m.team1_score IS NOT NULL 
+      AND m.team2_score IS NOT NULL
     ORDER BY margin DESC 
     LIMIT 10
   `, [managerId])).rows;
 
-  // 6. NAILBITERS - Same logic as blowouts but ordered by smallest margin
+  // 6. NAILBITERS - Same as blowouts but ordered by smallest margin
   const nailbiter = (await query(`
     SELECT 
       s.season_year as year,
-      mat.week,
+      m.week,
+      -- Get team name for this manager from their team in this season
+      COALESCE(
+        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
+      ) as team_name,
+      -- Get team logo for this manager
+      COALESCE(
+        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
+        (SELECT mgr.logo_url FROM managers mgr WHERE mgr.manager_id = $1)
+      ) as team_logo,
       CASE 
-        WHEN t1.manager_id = $1 THEN COALESCE(mtn1.team_name, t1.team_name)
-        ELSE COALESCE(mtn2.team_name, t2.team_name)
-      END as team_name,
-      CASE 
-        WHEN t1.manager_id = $1 THEN COALESCE(mtn1.logo_url, m1.logo_url)
-        ELSE COALESCE(mtn2.logo_url, m2.logo_url)
-      END as team_logo,
-      CASE 
-        WHEN t1.manager_id = $1 THEN mat.team1_score
-        ELSE mat.team2_score 
+        WHEN m.team1_id = $1 THEN m.team1_score
+        ELSE m.team2_score 
       END as my_score,
       CASE 
-        WHEN t1.manager_id = $1 THEN COALESCE(m2.team_alias, m2.real_name, m2.username)
-        ELSE COALESCE(m1.team_alias, m1.real_name, m1.username)
+        WHEN m.team1_id = $1 THEN 
+          COALESCE(m2.team_alias, m2.real_name, m2.username)
+        ELSE 
+          COALESCE(m1.team_alias, m1.real_name, m1.username)
       END as opponent_name,
       CASE 
-        WHEN t1.manager_id = $1 THEN mat.team2_score
-        ELSE mat.team1_score 
+        WHEN m.team1_id = $1 THEN m.team2_score
+        ELSE m.team1_score 
       END as opponent_score,
-      ABS(mat.team1_score - mat.team2_score) as margin,
+      ABS(m.team1_score - m.team2_score) as margin,
       CASE 
-        WHEN (t1.manager_id = $1 AND mat.team1_score > mat.team2_score) OR 
-             (t2.manager_id = $1 AND mat.team2_score > mat.team1_score) 
+        WHEN (m.team1_id = $1 AND m.team1_score > m.team2_score) OR 
+             (m.team2_id = $1 AND m.team2_score > m.team1_score) 
         THEN 'W' 
         ELSE 'L' 
       END as result
-    FROM matchups mat
-    JOIN seasons s ON mat.season_id = s.season_id
-    JOIN teams t1 ON mat.team1_id = t1.team_id
-    JOIN teams t2 ON mat.team2_id = t2.team_id
-    JOIN managers m1 ON t1.manager_id = m1.manager_id
-    JOIN managers m2 ON t2.manager_id = m2.manager_id
-    LEFT JOIN manager_team_names mtn1 ON m1.manager_id = mtn1.manager_id 
-      AND mtn1.season_year = s.season_year
-    LEFT JOIN manager_team_names mtn2 ON m2.manager_id = mtn2.manager_id 
-      AND mtn2.season_year = s.season_year
-    WHERE (t1.manager_id = $1 OR t2.manager_id = $1)
-      AND mat.team1_score IS NOT NULL 
-      AND mat.team2_score IS NOT NULL
+    FROM matchups m
+    JOIN seasons s ON m.season_id = s.season_id
+    LEFT JOIN managers m1 ON m.team1_id = m1.manager_id
+    LEFT JOIN managers m2 ON m.team2_id = m2.manager_id
+    WHERE (m.team1_id = $1 OR m.team2_id = $1)
+      AND m.team1_score IS NOT NULL 
+      AND m.team2_score IS NOT NULL
     ORDER BY margin ASC 
     LIMIT 10
   `, [managerId])).rows;
 
-  // 7. WIN PERCENTAGE - Calculate across all seasons for this manager
+  // 7. WIN PERCENTAGE - Calculate from matchups using manager_id directly
   const winPct = (await query(`
     WITH manager_games AS (
       SELECT 
         CASE 
-          WHEN t1.manager_id = $1 AND mat.team1_score > mat.team2_score THEN 1
-          WHEN t2.manager_id = $1 AND mat.team2_score > mat.team1_score THEN 1
+          WHEN m.team1_id = $1 AND m.team1_score > m.team2_score THEN 1
+          WHEN m.team2_id = $1 AND m.team2_score > m.team1_score THEN 1
           ELSE 0
         END as wins,
         CASE 
-          WHEN t1.manager_id = $1 AND mat.team1_score < mat.team2_score THEN 1
-          WHEN t2.manager_id = $1 AND mat.team2_score < mat.team1_score THEN 1
+          WHEN m.team1_id = $1 AND m.team1_score < m.team2_score THEN 1
+          WHEN m.team2_id = $1 AND m.team2_score < m.team1_score THEN 1
           ELSE 0
         END as losses,
         CASE 
-          WHEN (t1.manager_id = $1 OR t2.manager_id = $1) AND mat.team1_score = mat.team2_score THEN 1
+          WHEN (m.team1_id = $1 OR m.team2_id = $1) AND m.team1_score = m.team2_score THEN 1
           ELSE 0
         END as ties
-      FROM matchups mat
-      JOIN teams t1 ON mat.team1_id = t1.team_id
-      JOIN teams t2 ON mat.team2_id = t2.team_id
-      WHERE (t1.manager_id = $1 OR t2.manager_id = $1)
-        AND mat.team1_score IS NOT NULL 
-        AND mat.team2_score IS NOT NULL
+      FROM matchups m
+      WHERE (m.team1_id = $1 OR m.team2_id = $1)
+        AND m.team1_score IS NOT NULL 
+        AND m.team2_score IS NOT NULL
     )
     SELECT 
       mgr.manager_id,
