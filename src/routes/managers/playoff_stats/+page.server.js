@@ -26,7 +26,7 @@ export async function load({ url }) {
     };
   }
 
-  // 1. HIGHEST PLAYOFF GAMES - Direct query using playoffs table
+  // 1. HIGHEST PLAYOFF GAMES - Extract individual scores from playoff history
   const highestGame = (await query(`
     SELECT 
       s.season_year as year,
@@ -80,99 +80,99 @@ export async function load({ url }) {
     LIMIT 10
   `, [managerId])).rows;
 
-  // 3. HIGHEST PLAYOFF SEASONS - Aggregate playoff points by season
+  // 3. HIGHEST PLAYOFF SEASONS - Use the exact same logic as bio page
   const highestSeason = (await query(`
-    WITH season_totals AS (
+    WITH playoff_seasons AS (
       SELECT 
-        s.season_year,
         s.season_id,
+        s.season_year,
         SUM(CASE 
-          WHEN p.team1_id = $1 THEN p.team1_score 
-          WHEN p.team2_id = $1 THEN p.team2_score 
-          ELSE 0 
-        END) as total_points
-      FROM playoffs p
-      JOIN seasons s ON p.season_id = s.season_id
-      WHERE (p.team1_id = $1 OR p.team2_id = $1)
-        AND p.team1_score IS NOT NULL 
-        AND p.team2_score IS NOT NULL
-      GROUP BY s.season_year, s.season_id
-      HAVING SUM(CASE 
-        WHEN p.team1_id = $1 THEN p.team1_score 
-        WHEN p.team2_id = $1 THEN p.team2_score 
-        ELSE 0 
-      END) > 0
+          WHEN p.team1_id = $1 AND p.team1_score IS NOT NULL THEN p.team1_score
+          WHEN p.team2_id = $1 AND p.team2_score IS NOT NULL THEN p.team2_score
+          ELSE 0
+        END) as total_playoff_points,
+        COUNT(CASE 
+          WHEN (p.team1_id = $1 OR p.team2_id = $1) AND 
+               p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
+          THEN 1 
+        END) as total_playoff_games
+      FROM seasons s
+      JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
+      LEFT JOIN playoffs p ON (p.team1_id = $1 OR p.team2_id = $1)
+        AND p.season_id = s.season_id
+        AND p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
+      GROUP BY s.season_id, s.season_year
     )
     SELECT 
-      st.season_year as year,
+      ps.season_year as year,
       COALESCE(
-        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = st.season_id LIMIT 1)
+        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = ps.season_year),
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = ps.season_id LIMIT 1)
       ) as team_name,
       COALESCE(
-        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
+        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = ps.season_year),
         mgr.logo_url
       ) as team_logo,
-      st.total_points
-    FROM season_totals st
+      ps.total_playoff_points
+    FROM playoff_seasons ps
     JOIN managers mgr ON mgr.manager_id = $1
-    ORDER BY st.total_points DESC
+    WHERE ps.total_playoff_games > 0  -- Only include seasons where they actually played playoff games
+    ORDER BY ps.total_playoff_points DESC
     LIMIT 10
   `, [managerId])).rows;
 
-  // 4. LOWEST PLAYOFF SEASONS
+  // 4. LOWEST PLAYOFF SEASONS - Same logic as highest but ASC order
   const lowestSeason = (await query(`
-    WITH season_totals AS (
+    WITH playoff_seasons AS (
       SELECT 
-        s.season_year,
         s.season_id,
+        s.season_year,
         SUM(CASE 
-          WHEN p.team1_id = $1 THEN p.team1_score 
-          WHEN p.team2_id = $1 THEN p.team2_score 
-          ELSE 0 
-        END) as total_points
-      FROM playoffs p
-      JOIN seasons s ON p.season_id = s.season_id
-      WHERE (p.team1_id = $1 OR p.team2_id = $1)
-        AND p.team1_score IS NOT NULL 
-        AND p.team2_score IS NOT NULL
-      GROUP BY s.season_year, s.season_id
-      HAVING SUM(CASE 
-        WHEN p.team1_id = $1 THEN p.team1_score 
-        WHEN p.team2_id = $1 THEN p.team2_score 
-        ELSE 0 
-      END) > 0
+          WHEN p.team1_id = $1 AND p.team1_score IS NOT NULL THEN p.team1_score
+          WHEN p.team2_id = $1 AND p.team2_score IS NOT NULL THEN p.team2_score
+          ELSE 0
+        END) as total_playoff_points,
+        COUNT(CASE 
+          WHEN (p.team1_id = $1 OR p.team2_id = $1) AND 
+               p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
+          THEN 1 
+        END) as total_playoff_games
+      FROM seasons s
+      JOIN teams t ON t.season_id = s.season_id AND t.manager_id = $1
+      LEFT JOIN playoffs p ON (p.team1_id = $1 OR p.team2_id = $1)
+        AND p.season_id = s.season_id
+        AND p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
+      GROUP BY s.season_id, s.season_year
     )
     SELECT 
-      st.season_year as year,
+      ps.season_year as year,
       COALESCE(
-        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = st.season_id LIMIT 1)
+        (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = ps.season_year),
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = ps.season_id LIMIT 1)
       ) as team_name,
       COALESCE(
-        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = st.season_year),
+        (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = ps.season_year),
         mgr.logo_url
       ) as team_logo,
-      st.total_points
-    FROM season_totals st
+      ps.total_playoff_points
+    FROM playoff_seasons ps
     JOIN managers mgr ON mgr.manager_id = $1
-    ORDER BY st.total_points ASC
+    WHERE ps.total_playoff_games > 0  -- Only include seasons where they actually played playoff games
+    ORDER BY ps.total_playoff_points ASC
     LIMIT 10
   `, [managerId])).rows;
 
-  // 5. PLAYOFF BLOWOUTS - Use playoffs table with team1_id/team2_id as manager_ids
+  // 5. PLAYOFF BLOWOUTS - Use exact same structure as bio page
   const blowout = (await query(`
     SELECT 
       s.season_year as year,
       p.season_id,
       p.week,
       $1 as team1_manager_id,
-      -- Get team name for this manager
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
       ) as team1_name,
-      -- Get team logo for this manager  
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         mgr_self.logo_url
@@ -181,12 +181,10 @@ export async function load({ url }) {
         WHEN p.team1_id = $1 THEN p.team1_score
         ELSE p.team2_score 
       END as team1_score,
-      -- Opponent info
       CASE 
         WHEN p.team1_id = $1 THEN m2.manager_id
         ELSE m1.manager_id
       END as team2_manager_id,
-      -- Get opponent team name - prioritize manager_team_names
       CASE 
         WHEN p.team1_id = $1 THEN 
           COALESCE(
@@ -229,12 +227,10 @@ export async function load({ url }) {
       p.season_id,
       p.week,
       $1 as team1_manager_id,
-      -- Get team name for this manager
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
       ) as team1_name,
-      -- Get team logo for this manager  
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         mgr_self.logo_url
@@ -243,12 +239,10 @@ export async function load({ url }) {
         WHEN p.team1_id = $1 THEN p.team1_score
         ELSE p.team2_score 
       END as team1_score,
-      -- Opponent info
       CASE 
         WHEN p.team1_id = $1 THEN m2.manager_id
         ELSE m1.manager_id
       END as team2_manager_id,
-      -- Get opponent team name - prioritize manager_team_names
       CASE 
         WHEN p.team1_id = $1 THEN 
           COALESCE(
@@ -284,7 +278,7 @@ export async function load({ url }) {
     LIMIT 10
   `, [managerId])).rows;
 
-  // 7. PLAYOFF WIN PERCENTAGE - Calculate from playoffs using manager_id directly
+  // 7. PLAYOFF WIN PERCENTAGE - Use bio page logic
   const winPct = (await query(`
     WITH playoff_games AS (
       SELECT 
@@ -315,8 +309,8 @@ export async function load({ url }) {
       SUM(pg.losses) as losses,
       SUM(pg.ties) as ties,
       CASE 
-        WHEN COUNT(*) = 0 THEN 0::numeric
-        ELSE ROUND((SUM(pg.wins)::numeric / COUNT(*)::numeric), 4)
+        WHEN COUNT(*) = 0 THEN NULL::numeric
+        ELSE (SUM(pg.wins)::numeric / COUNT(*)::numeric)
       END as win_pct
     FROM playoff_games pg, managers mgr
     WHERE mgr.manager_id = $1
