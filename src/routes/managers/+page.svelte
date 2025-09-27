@@ -28,9 +28,9 @@
     { label: "Manager Draft Room", href: "/managers/drafts" }
   ];
 
-  // Function to navigate to manager's all-time stats
-  function viewManagerStats(managerId) {
-    window.location.href = `/managers/all_time_stats?managerId=${managerId}`;
+  // Function to navigate to manager's bio page
+  function viewManagerBio(managerId) {
+    window.location.href = `/managers/bio?manager_id=${managerId}`;
   }
 
   // Function to parse signature moves from asterisk-delimited string to array
@@ -106,10 +106,10 @@
             <div class="card-actions">
               <button 
                 class="view-stats-btn" 
-                on:click={() => viewManagerStats(m.manager_id)}
+                on:click={() => viewManagerBio(m.manager_id)}
                 disabled={inactiveManagers.has(m.manager_id)}
               >
-                View Stats
+                View Bio
               </button>
             </div>
           </div>
