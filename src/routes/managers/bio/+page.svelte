@@ -442,6 +442,7 @@
     margin: 0 0 1rem 0;
     border-bottom: 2px solid #e5e7eb;
     padding-bottom: 0.5rem;
+    text-align: center;
   }
 
   /* Header Section */
