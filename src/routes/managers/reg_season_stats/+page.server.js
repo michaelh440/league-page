@@ -116,11 +116,10 @@ export async function load({ url }) {
       m.season_id,
       m.week,
       $1 as team1_manager_id,
-      -- Get team name for this manager
+      -- Get team name for this manager - prioritize manager_team_names
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1),
-        COALESCE(mgr_self.team_alias, mgr_self.real_name, mgr_self.username)
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
       ) as team1_name,
       -- Get team logo for this manager  
       COALESCE(
@@ -136,11 +135,20 @@ export async function load({ url }) {
         WHEN m.team1_id = $1 THEN m2.manager_id
         ELSE m1.manager_id
       END as team2_manager_id,
+      -- Get opponent team name - also prioritize manager_team_names
       CASE 
         WHEN m.team1_id = $1 THEN 
-          COALESCE(m2.team_alias, m2.real_name, m2.username)
+          COALESCE(
+            (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
+            (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
+            COALESCE(m2.real_name, m2.username)
+          )
         ELSE 
-          COALESCE(m1.team_alias, m1.real_name, m1.username)
+          COALESCE(
+            (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
+            (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
+            COALESCE(m1.real_name, m1.username)
+          )
       END as team2_name,
       CASE 
         WHEN m.team1_id = $1 THEN m2.logo_url
@@ -170,11 +178,10 @@ export async function load({ url }) {
       m.season_id,
       m.week,
       $1 as team1_manager_id,
-      -- Get team name for this manager
+      -- Get team name for this manager - prioritize manager_team_names
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
-        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1),
-        COALESCE(mgr_self.team_alias, mgr_self.real_name, mgr_self.username)
+        (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
       ) as team1_name,
       -- Get team logo for this manager  
       COALESCE(
@@ -190,11 +197,20 @@ export async function load({ url }) {
         WHEN m.team1_id = $1 THEN m2.manager_id
         ELSE m1.manager_id
       END as team2_manager_id,
+      -- Get opponent team name - also prioritize manager_team_names
       CASE 
         WHEN m.team1_id = $1 THEN 
-          COALESCE(m2.team_alias, m2.real_name, m2.username)
+          COALESCE(
+            (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
+            (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
+            COALESCE(m2.real_name, m2.username)
+          )
         ELSE 
-          COALESCE(m1.team_alias, m1.real_name, m1.username)
+          COALESCE(
+            (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
+            (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
+            COALESCE(m1.real_name, m1.username)
+          )
       END as team2_name,
       CASE 
         WHEN m.team1_id = $1 THEN m2.logo_url
