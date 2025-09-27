@@ -808,6 +808,12 @@
       font-size: 1.5rem;
     }
 
+    .season-history h3,
+    .playoff-history h3,
+    .trophies h3 {
+      color: white !important;
+    }
+
     .manager-header {
       flex-direction: column;
       align-items: center;
