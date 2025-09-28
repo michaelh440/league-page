@@ -190,6 +190,15 @@
 .league-description h2 {
   color: #1f2937; /* Ensure header is also dark on mobile*/
 }
+/* Ensure all text in cards is readable on mobile */
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  color: #1f2937; /* Add explicit text color to all cards */
+}
 </style>
 
 <div class="page-container">
