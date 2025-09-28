@@ -571,7 +571,6 @@
                         {#each week.games as game, ix}
                             {@const matchupId = `${week.week}-${ix}`}
                             {@const winner = getWinner(game.score1, game.score2)}
-                            {console.log(`Week ${week.week}, Game ${ix}: ${game.team1} (${game.score1}, ${typeof game.score1}) vs ${game.team2} (${game.score2}, ${typeof game.score2}) - Winner: ${winner}`)}
                             <div class="matchup">
                                 <div class="header" on:click={() => expandClose(matchupId)}>
                                     <div class="opponent home" class:homeGlow={winner === 'home'}>
@@ -758,7 +757,7 @@
         background-color: #485566;
     }
 
-    .home.homeGlow {
+    .homeGlow {
         box-shadow: 0 0 6px 4px #3279cf;
         background-color: #00316b !important;
     }
@@ -770,7 +769,7 @@
         background-color: #8b6969;
     }
 
-    .away.awayGlow {
+    .awayGlow {
         box-shadow: 0 0 6px 4px #d15454;
         background-color: #920505 !important;
     }
