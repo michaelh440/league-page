@@ -579,7 +579,7 @@
                                         <div class="name">{game.team1}</div>
                                         <div class="totalPoints totalPointsR">{game.score1}</div>
                                     </div>
-                                    <img class="divider" src="/{winner}Divider.jpg" alt="divider" />
+                                    <div class="divider-placeholder"></div>
                                     <div class="opponent away {winner === 'away' ? 'awayGlow' : ''}">
                                         <div class="totalPoints totalPointsL">{game.score2}</div>
                                         <div class="name">{game.team2}</div>
@@ -749,6 +749,17 @@
         width: 15px;
     }
 
+    .divider-placeholder {
+        position: absolute;
+        z-index: 3;
+        transform: translateX(-50%);
+        top: 0;
+        left: 50%;
+        height: 100%;
+        width: 2px;
+        background-color: #ccc;
+    }
+
     .home {
         justify-content: flex-start;
         left: 0;
@@ -757,8 +768,9 @@
     }
 
     .home.homeGlow {
-        box-shadow: 0 0 6px 4px #3279cf;
+        box-shadow: 0 0 10px 6px #3279cf !important;
         background-color: #00316b !important;
+        border: 2px solid #3279cf !important;
     }
 
     .away {
@@ -769,8 +781,9 @@
     }
 
     .away.awayGlow {
-        box-shadow: 0 0 6px 4px #d15454;
+        box-shadow: 0 0 10px 6px #d15454 !important;
         background-color: #920505 !important;
+        border: 2px solid #d15454 !important;
     }
 
     .name {
