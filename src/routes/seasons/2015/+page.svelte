@@ -670,15 +670,14 @@
     border-radius: 8px;
     overflow: hidden;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    table-layout: fixed;
   }
 
   .matchups-table th,
   .matchups-table td {
+    border: 1px solid #dee2e6;
     padding: 0.75rem 1rem;
     color: #212529;
     position: relative;
-    width: 25%;
   }
 
   .matchups-table th {
@@ -701,57 +700,54 @@
     position: relative;
   }
 
-  .matchup-row::before {
+  .matchup-row::after {
     content: '';
     position: absolute;
     top: 0;
     left: 50%;
     bottom: 0;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.3);
-    transform: translateX(-50%) skewX(-20deg);
+    width: 3px;
+    background: linear-gradient(45deg, #333 25%, transparent 25%, transparent 75%, #333 75%);
+    background-size: 8px 8px;
+    transform: translateX(-50%) skewX(-15deg);
     z-index: 1;
   }
 
-  /* Team styling - Left side */
+  /* Team styling - Left side (steel grey) */
   .team-left {
-    background-color: #5A6B78 !important;
+    background-color: #708090 !important;
     color: white !important;
-    border: none !important;
+    border-right: none;
   }
 
   .score-left {
-    background-color: #5A6B78 !important;
+    background-color: #708090 !important;
     color: white !important;
-    border: none !important;
-    font-weight: 700;
-    font-size: 1.2em;
+    border-left: none;
   }
 
-  /* Team styling - Right side */
+  /* Team styling - Right side (dark pink) */
   .team-right {
-    background-color: #7A4159 !important;
+    background-color: #C14572 !important;
     color: white !important;
-    border: none !important;
+    border-left: none;
   }
 
   .score-right {
-    background-color: #7A4159 !important;
+    background-color: #C14572 !important;
     color: white !important;
-    border: none !important;
-    font-weight: 700;
-    font-size: 1.2em;
+    border-right: none;
   }
 
   /* Winner highlighting */
   .winner-left {
-    background-color: #4A90E2 !important;
+    background-color: #0066FF !important;
     color: white !important;
     font-weight: bold;
   }
 
   .winner-right {
-    background-color: #C54545 !important;
+    background-color: #8B0000 !important;
     color: white !important;
     font-weight: bold;
   }
@@ -910,39 +906,33 @@
 
     /* Mobile team colors */
     .team-left {
-      background-color: #5A6B78 !important;
+      background-color: #708090 !important;
       color: white !important;
-      border: none !important;
     }
 
     .score-left {
-      background-color: #5A6B78 !important;
+      background-color: #708090 !important;
       color: white !important;
-      border: none !important;
-      font-weight: 700;
     }
 
     .team-right {
-      background-color: #7A4159 !important;
+      background-color: #C14572 !important;
       color: white !important;
-      border: none !important;
     }
 
     .score-right {
-      background-color: #7A4159 !important;
+      background-color: #C14572 !important;
       color: white !important;
-      border: none !important;
-      font-weight: 700;
     }
 
     .winner-left {
-      background-color: #4A90E2 !important;
+      background-color: #0066FF !important;
       color: white !important;
       font-weight: 600;
     }
 
     .winner-right {
-      background-color: #C54545 !important;
+      background-color: #8B0000 !important;
       color: white !important;
       font-weight: 600;
     }
@@ -973,9 +963,9 @@
     }
 
     /* Mobile diagonal line */
-    .matchup-row::before {
-      width: 1px;
-      background: rgba(255, 255, 255, 0.2);
+    .matchup-row::after {
+      width: 2px;
+      background-size: 6px 6px;
     }
   }
 
