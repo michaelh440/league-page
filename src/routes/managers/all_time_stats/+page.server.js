@@ -458,8 +458,8 @@ export async function load({ url }) {
     )
     SELECT 
       m.manager_id,
-      COALESCE(m.team_alias, m.real_name, m.username) as manager_name,
-      COALESCE(m.team_alias, m.real_name, m.username) as team_name,  -- Frontend expects team_name
+      COALESCE(m.real_name, m.username) as manager_name,
+      COALESCE(m.real_name, m.username) as team_name,  -- Use real_name/username instead of team_alias
       m.logo_url as team_logo,
       COUNT(ag.result) as games_played,
       SUM(CASE WHEN ag.result = 1 THEN 1 ELSE 0 END) as wins,
@@ -472,7 +472,7 @@ export async function load({ url }) {
     FROM managers m
     LEFT JOIN all_games ag ON TRUE
     WHERE m.manager_id = $1
-    GROUP BY m.manager_id, m.team_alias, m.real_name, m.username, m.logo_url
+    GROUP BY m.manager_id, m.real_name, m.username, m.logo_url
   `, [managerId])).rows;
 
   return {
