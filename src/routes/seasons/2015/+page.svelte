@@ -898,6 +898,20 @@
             width: 100%;
         }
 
+        h3 {
+            font-size: 1.4rem;
+            margin: 0.5rem 0 1rem 0;
+            text-align: center;
+            color: white !important;
+        }
+
+        h4 {
+            font-size: 1.2rem;
+            margin: 0.5rem 0;
+            color: white !important;
+            font-weight: 600;
+        }
+
         .name {
             font-size: 0.8em;
         }
