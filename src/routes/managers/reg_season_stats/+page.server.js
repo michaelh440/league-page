@@ -258,7 +258,8 @@ export async function load({ url }) {
     )
     SELECT 
       mgr.manager_id,
-      COALESCE(mgr.team_alias, mgr.real_name, mgr.username) as manager_name,
+      COALESCE(mgr.real_name, mgr.username) as manager_name,
+      COALESCE(mgr.real_name, mgr.username) as team_name,  -- Use real_name/username instead of team_alias
       mgr.logo_url as team_logo,
       SUM(mg.wins) as wins,
       SUM(mg.losses) as losses,
@@ -269,7 +270,7 @@ export async function load({ url }) {
       END as win_pct
     FROM manager_games mg, managers mgr
     WHERE mgr.manager_id = $1
-    GROUP BY mgr.manager_id, mgr.team_alias, mgr.real_name, mgr.username, mgr.logo_url
+    GROUP BY mgr.manager_id, mgr.real_name, mgr.username, mgr.logo_url
   `, [managerId])).rows;
 
   return {
