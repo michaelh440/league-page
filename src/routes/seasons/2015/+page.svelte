@@ -505,6 +505,7 @@
 </style-->
 
 
+
 <script>
     import { Icon } from '@smui/tab';
     import { goto } from '$app/navigation';
@@ -570,9 +571,10 @@
                         {#each week.games as game, ix}
                             {@const matchupId = `${week.week}-${ix}`}
                             {@const winner = getWinner(game.score1, game.score2)}
+                            {console.log(`Week ${week.week}, Game ${ix}: ${game.team1} (${game.score1}, ${typeof game.score1}) vs ${game.team2} (${game.score2}, ${typeof game.score2}) - Winner: ${winner}`)}
                             <div class="matchup">
                                 <div class="header" on:click={() => expandClose(matchupId)}>
-                                    <div class="opponent home {winner === 'home' ? 'homeGlow' : ''}">
+                                    <div class="opponent home" class:homeGlow={winner === 'home'}>
                                         {#if game.team1_logo}
                                             <img class="avatar" src={game.team1_logo} alt="{game.team1}" />
                                         {/if}
@@ -580,7 +582,7 @@
                                         <div class="totalPoints totalPointsR">{game.score1}</div>
                                     </div>
                                     <img class="divider" src="/{winner}Divider.jpg" alt="divider" />
-                                    <div class="opponent away {winner === 'away' ? 'awayGlow' : ''}">
+                                    <div class="opponent away" class:awayGlow={winner === 'away'}>
                                         <div class="totalPoints totalPointsL">{game.score2}</div>
                                         <div class="name">{game.team2}</div>
                                         {#if game.team2_logo}
