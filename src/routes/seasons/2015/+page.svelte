@@ -504,6 +504,9 @@
   }
 </style-->
 
+
+
+
 <script>
     import { Icon } from '@smui/tab';
     import { goto } from '$app/navigation';
@@ -514,20 +517,27 @@
 
     const seasons = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023];
 
-    let displayWeek = 1;
     let active = null;
 
     onMount(() => {
-        // Initialize to first week
-        displayWeek = 1;
+        // Initialize component
     });
 
-    const expandClose = (matchupId) => {
-        active = active === matchupId ? null : matchupId;
+    function getWinner(score1, score2) {
+        const num1 = Number(score1);
+        const num2 = Number(score2);
+        
+        if (isNaN(num1) || isNaN(num2)) {
+            // Fallback to string comparison if conversion fails
+            return score1 > score2 ? 'home' : score2 > score1 ? 'away' : 'tied';
+        }
+        
+        return num1 > num2 ? 'home' : num2 > num1 ? 'away' : 'tied';
     }
 
-    $: currentWeekData = weeks.find(week => week.week === displayWeek);
-    $: matchupArray = currentWeekData ? currentWeekData.games : [];
+    function expandClose(matchupId) {
+        active = active === matchupId ? null : matchupId;
+    }
 </script>
 
 <div class="page-layout">
@@ -536,7 +546,8 @@
         {#each seasons as yr}
             <a 
                 href="/seasons/{yr}" 
-                class="season-card {season === yr ? 'active' : ''}"
+                class="season-card"
+                class:active={season === yr}
             >
                 {yr}
             </a>
@@ -559,17 +570,19 @@
                     <h4>Week {week.week}</h4>
                     <div class="matchups">
                         {#each week.games as game, ix}
+                            {@const matchupId = `${week.week}-${ix}`}
+                            {@const winner = getWinner(game.score1, game.score2)}
                             <div class="matchup">
-                                <div class="header" onclick={() => expandClose(`${week.week}-${ix}`)}>
-                                    <div class="opponent home{parseFloat(game.score1) > parseFloat(game.score2) ? ' homeGlow' : ''}">
+                                <div class="header" on:click={() => expandClose(matchupId)}>
+                                    <div class="opponent home" class:homeGlow={winner === 'home'}>
                                         {#if game.team1_logo}
                                             <img class="avatar" src={game.team1_logo} alt="{game.team1}" />
                                         {/if}
                                         <div class="name">{game.team1}</div>
                                         <div class="totalPoints totalPointsR">{game.score1}</div>
                                     </div>
-                                    <img class="divider" src="/{parseFloat(game.score1) > parseFloat(game.score2) ? 'home' : parseFloat(game.score2) > parseFloat(game.score1) ? 'away' : 'tied'}Divider.jpg" alt="divider" />
-                                    <div class="opponent away{parseFloat(game.score2) > parseFloat(game.score1) ? ' awayGlow' : ''}">
+                                    <img class="divider" src="/{winner}Divider.jpg" alt="divider" />
+                                    <div class="opponent away" class:awayGlow={winner === 'away'}>
                                         <div class="totalPoints totalPointsL">{game.score2}</div>
                                         <div class="name">{game.team2}</div>
                                         {#if game.team2_logo}
@@ -579,12 +592,12 @@
                                 </div>
 
                                 <!-- Placeholder for expandable content -->
-                                <div class="rosters" style="max-height: {active === `${week.week}-${ix}` ? '200px' : '0'}; {active !== `${week.week}-${ix}` ? 'border: none' : ''};">
+                                <div class="rosters" style:max-height={active === matchupId ? '200px' : '0'} style:border={active !== matchupId ? 'none' : ''}>
                                     <div class="placeholder-content">
                                         <p>Game details for {game.team1} vs {game.team2}</p>
                                         <p>Final Score: {game.score1} - {game.score2}</p>
                                     </div>
-                                    <div class="close" onclick={() => expandClose(`${week.week}-${ix}`)}>Close Matchup</div>
+                                    <div class="close" on:click={() => expandClose(matchupId)}>Close Matchup</div>
                                 </div>
                             </div>
                         {/each}
@@ -694,7 +707,7 @@
 
     /* Matchups styling (from live matchups) */
     .matchups {
-        margin: 2em 0 6em;
+        margin: 2em 0;
     }
 
     .matchup {
@@ -745,7 +758,7 @@
         background-color: #485566;
     }
 
-    :global(.homeGlow) {
+    .home.homeGlow {
         box-shadow: 0 0 6px 4px #3279cf;
         background-color: #00316b !important;
     }
@@ -757,7 +770,7 @@
         background-color: #8b6969;
     }
 
-    :global(.awayGlow) {
+    .away.awayGlow {
         box-shadow: 0 0 6px 4px #d15454;
         background-color: #920505 !important;
     }
@@ -802,7 +815,7 @@
     /* Expandable content */
     .rosters {
         position: relative;
-        background-color: var(--fff);
+        background-color: #fff;
         border-radius: 8px;
         overflow: hidden;
         border-left: 1px solid #bbb;
@@ -820,7 +833,7 @@
     .close {
         display: block;
         width: 100%;
-        background-color: var(--eee);
+        background-color: #eee;
         text-align: center;
         cursor: pointer;
         z-index: 2;
@@ -829,7 +842,7 @@
     }
 
     .close:hover {
-        background-color: var(--ddd);
+        background-color: #ddd;
     }
 
     h3 {
@@ -887,10 +900,6 @@
             width: 100%;
         }
 
-        .weekText {
-            font-size: 1.6em;
-        }
-
         .name {
             font-size: 0.8em;
         }
@@ -901,10 +910,6 @@
     }
 
     @media (max-width: 500px) {
-        .weekText {
-            font-size: 1.3em;
-        }
-
         .name {
             font-size: 0.7em;
         }
@@ -915,10 +920,6 @@
     }
 
     @media (max-width: 410px) {
-        .weekText {
-            font-size: 1.2em;
-        }
-
         .name {
             font-size: 0.5em;
         }
