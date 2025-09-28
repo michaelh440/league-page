@@ -561,15 +561,15 @@
                         {#each week.games as game, ix}
                             <div class="matchup">
                                 <div class="header" onclick={() => expandClose(`${week.week}-${ix}`)}>
-                                    <div class="opponent home{game.score1 > game.score2 ? ' homeGlow' : ''}">
+                                    <div class="opponent home{parseFloat(game.score1) > parseFloat(game.score2) ? ' homeGlow' : ''}">
                                         {#if game.team1_logo}
                                             <img class="avatar" src={game.team1_logo} alt="{game.team1}" />
                                         {/if}
                                         <div class="name">{game.team1}</div>
                                         <div class="totalPoints totalPointsR">{game.score1}</div>
                                     </div>
-                                    <img class="divider" src="/{game.score1 > game.score2 ? 'home' : game.score2 > game.score1 ? 'away' : 'tied'}Divider.jpg" alt="divider" />
-                                    <div class="opponent away{game.score2 > game.score1 ? ' awayGlow' : ''}">
+                                    <img class="divider" src="/{parseFloat(game.score1) > parseFloat(game.score2) ? 'home' : parseFloat(game.score2) > parseFloat(game.score1) ? 'away' : 'tied'}Divider.jpg" alt="divider" />
+                                    <div class="opponent away{parseFloat(game.score2) > parseFloat(game.score1) ? ' awayGlow' : ''}">
                                         <div class="totalPoints totalPointsL">{game.score2}</div>
                                         <div class="name">{game.team2}</div>
                                         {#if game.team2_logo}
