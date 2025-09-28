@@ -392,17 +392,18 @@
         }
 
         h3 {
-            font-size: 1.4rem;
-            margin: 0.5rem 0 1rem 0;
-            text-align: center;
+            font-size: 1.4rem !important;
+            margin: 0.5rem 0 1rem 0 !important;
+            text-align: center !important;
             color: white !important;
         }
 
         h4 {
-            font-size: 1.2rem;
-            margin: 0.5rem 0;
+            font-size: 1.2rem !important;
+            margin: 0.5rem 0 !important;
             color: white !important;
-            font-weight: 600;
+            font-weight: 600 !important;
+            text-align: center !important;
         }
 
         .name {
