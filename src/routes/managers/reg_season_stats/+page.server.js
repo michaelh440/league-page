@@ -43,7 +43,7 @@ export async function load({ url }) {
     WHERE m.manager_id = $1 
       AND ws.team_score IS NOT NULL
     ORDER BY ws.team_score DESC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 2. LOWEST SINGLE GAMES
@@ -63,7 +63,7 @@ export async function load({ url }) {
     WHERE m.manager_id = $1 
       AND ws.team_score IS NOT NULL
     ORDER BY ws.team_score ASC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 3. HIGHEST SEASONS - Aggregate weekly_scoring by season
@@ -84,7 +84,7 @@ export async function load({ url }) {
     GROUP BY s.season_year, COALESCE(mtn.team_name, t.team_name), 
              COALESCE(mtn.logo_url, m.logo_url)
     ORDER BY total_points DESC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 4. LOWEST SEASONS
@@ -106,7 +106,7 @@ export async function load({ url }) {
              COALESCE(mtn.logo_url, m.logo_url)
     HAVING SUM(ws.team_score) > 500
     ORDER BY total_points ASC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 5. BLOWOUTS - Match the structure from bio page exactly
@@ -168,7 +168,7 @@ export async function load({ url }) {
       AND m.team1_score IS NOT NULL 
       AND m.team2_score IS NOT NULL
     ORDER BY margin DESC 
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 6. NAILBITERS - Match the structure from bio page exactly
@@ -230,7 +230,7 @@ export async function load({ url }) {
       AND m.team1_score IS NOT NULL 
       AND m.team2_score IS NOT NULL
     ORDER BY margin ASC 
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 7. WIN PERCENTAGE - Calculate from matchups using manager_id directly
