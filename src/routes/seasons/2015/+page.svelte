@@ -548,7 +548,7 @@
           <tbody>
             {#each week.games as game}
               <tr class="matchup-row">
-                <td class="team-left {game.score1 > game.score2 ? 'winner-left' : ''}">
+                <td class="team-left">
                   <div class="team-info">
                     {#if game.team1_logo}
                       <img src={game.team1_logo} alt="{game.team1}" class="team-logo" />
@@ -556,8 +556,8 @@
                     <span class="team-name">{game.team1}</span>
                   </div>
                 </td>
-                <td class="score-cell score-left {game.score1 > game.score2 ? 'winner-left' : ''}">{game.score1}</td>
-                <td class="team-right {game.score2 > game.score1 ? 'winner-right' : ''}">
+                <td class="score-cell score-left">{game.score1}</td>
+                <td class="team-right">
                   <div class="team-info">
                     {#if game.team2_logo}
                       <img src={game.team2_logo} alt="{game.team2}" class="team-logo" />
@@ -565,7 +565,7 @@
                     <span class="team-name">{game.team2}</span>
                   </div>
                 </td>
-                <td class="score-cell score-right {game.score2 > game.score1 ? 'winner-right' : ''}">{game.score2}</td>
+                <td class="score-cell score-right">{game.score2}</td>
               </tr>
             {/each}
           </tbody>
@@ -713,43 +713,30 @@
     z-index: 1;
   }
 
-  /* Team styling - Left side (steel grey) */
+  /* Team styling - Left side */
   .team-left {
-    background-color: #708090 !important;
+    background-color: #5A6B78 !important;
     color: white !important;
     border-right: none;
   }
 
   .score-left {
-    background-color: #708090 !important;
+    background-color: #5A6B78 !important;
     color: white !important;
     border-left: none;
   }
 
-  /* Team styling - Right side (dark pink) */
+  /* Team styling - Right side */
   .team-right {
-    background-color: #C14572 !important;
+    background-color: #7A4159 !important;
     color: white !important;
     border-left: none;
   }
 
   .score-right {
-    background-color: #C14572 !important;
+    background-color: #7A4159 !important;
     color: white !important;
     border-right: none;
-  }
-
-  /* Winner highlighting */
-  .winner-left {
-    background-color: #0066FF !important;
-    color: white !important;
-    font-weight: bold;
-  }
-
-  .winner-right {
-    background-color: #8B0000 !important;
-    color: white !important;
-    font-weight: bold;
   }
 
   .team-info {
@@ -906,35 +893,23 @@
 
     /* Mobile team colors */
     .team-left {
-      background-color: #708090 !important;
+      background-color: #5A6B78 !important;
       color: white !important;
     }
 
     .score-left {
-      background-color: #708090 !important;
+      background-color: #5A6B78 !important;
       color: white !important;
     }
 
     .team-right {
-      background-color: #C14572 !important;
+      background-color: #7A4159 !important;
       color: white !important;
     }
 
     .score-right {
-      background-color: #C14572 !important;
+      background-color: #7A4159 !important;
       color: white !important;
-    }
-
-    .winner-left {
-      background-color: #0066FF !important;
-      color: white !important;
-      font-weight: 600;
-    }
-
-    .winner-right {
-      background-color: #8B0000 !important;
-      color: white !important;
-      font-weight: 600;
     }
 
     .team-info {
