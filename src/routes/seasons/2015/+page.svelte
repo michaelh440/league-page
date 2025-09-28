@@ -667,14 +667,15 @@
     max-width: 800px;
     text-align: center;
     background: white;
-    border-radius: 8px;
+    border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border: none;
   }
 
   .matchups-table th,
   .matchups-table td {
-    border: 1px solid #dee2e6;
+    border: none;
     padding: 0.75rem 1rem;
     color: #212529;
     position: relative;
@@ -698,56 +699,63 @@
   /* Enhanced matchup row styling */
   .matchup-row {
     position: relative;
+    background: linear-gradient(135deg, #6B7D8A 50%, #8B4A6B 50%);
+    border: none;
   }
 
-  .matchup-row::after {
+  .matchup-row::before {
     content: '';
     position: absolute;
     top: 0;
     left: 50%;
     bottom: 0;
-    width: 3px;
-    background: linear-gradient(45deg, #333 25%, transparent 25%, transparent 75%, #333 75%);
-    background-size: 8px 8px;
-    transform: translateX(-50%) skewX(-15deg);
+    width: 1px;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateX(-50%) skewX(-20deg);
     z-index: 1;
   }
 
   /* Team styling - Left side (steel grey) */
   .team-left {
-    background-color: #708090 !important;
+    background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
     color: white !important;
-    border-right: none;
+    border: none !important;
+    position: relative;
   }
 
   .score-left {
-    background-color: #708090 !important;
+    background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
     color: white !important;
-    border-left: none;
+    border: none !important;
+    font-weight: 700;
+    font-size: 1.2em;
   }
 
   /* Team styling - Right side (dark pink) */
   .team-right {
-    background-color: #C14572 !important;
+    background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
     color: white !important;
-    border-left: none;
+    border: none !important;
+    position: relative;
   }
 
   .score-right {
-    background-color: #C14572 !important;
+    background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
     color: white !important;
-    border-right: none;
+    border: none !important;
+    font-weight: 700;
+    font-size: 1.2em;
   }
 
   /* Winner highlighting */
   .winner-left {
-    background-color: #0066FF !important;
+    background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
     color: white !important;
     font-weight: bold;
   }
 
   .winner-right {
-    background-color: #8B0000 !important;
+    background: linear-gradient(135deg, #C54545 0%, #A73C3C 100%) !important;
     color: white !important;
     font-weight: bold;
   }
@@ -906,33 +914,39 @@
 
     /* Mobile team colors */
     .team-left {
-      background-color: #708090 !important;
+      background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
       color: white !important;
+      border: none !important;
     }
 
     .score-left {
-      background-color: #708090 !important;
+      background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
       color: white !important;
+      border: none !important;
+      font-weight: 700;
     }
 
     .team-right {
-      background-color: #C14572 !important;
+      background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
       color: white !important;
+      border: none !important;
     }
 
     .score-right {
-      background-color: #C14572 !important;
+      background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
       color: white !important;
+      border: none !important;
+      font-weight: 700;
     }
 
     .winner-left {
-      background-color: #0066FF !important;
+      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
       color: white !important;
       font-weight: 600;
     }
 
     .winner-right {
-      background-color: #8B0000 !important;
+      background: linear-gradient(135deg, #C54545 0%, #A73C3C 100%) !important;
       color: white !important;
       font-weight: 600;
     }
@@ -963,9 +977,9 @@
     }
 
     /* Mobile diagonal line */
-    .matchup-row::after {
-      width: 2px;
-      background-size: 6px 6px;
+    .matchup-row::before {
+      width: 1px;
+      background: rgba(255, 255, 255, 0.2);
     }
   }
 
