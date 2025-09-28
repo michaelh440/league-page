@@ -181,6 +181,15 @@
       flex-direction: column;
     }
   }
+.league-description p {
+  color: #1f2937; /* Dark gray text */
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.league-description h2 {
+  color: #1f2937; /* Ensure header is also dark on mobile*/
+}
 </style>
 
 <div class="page-container">
