@@ -50,7 +50,7 @@ export async function load({ url }) {
       AND p.team1_score IS NOT NULL 
       AND p.team2_score IS NOT NULL
     ORDER BY score DESC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 2. LOWEST PLAYOFF GAMES
@@ -77,7 +77,7 @@ export async function load({ url }) {
       AND p.team1_score IS NOT NULL 
       AND p.team2_score IS NOT NULL
     ORDER BY score ASC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 3. HIGHEST PLAYOFF SEASONS - Simplified direct approach
@@ -118,7 +118,7 @@ export async function load({ url }) {
     FROM playoff_totals pt
     JOIN managers mgr ON mgr.manager_id = $1
     ORDER BY pt.total_points DESC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 4. LOWEST PLAYOFF SEASONS - Same simplified approach
@@ -159,7 +159,7 @@ export async function load({ url }) {
     FROM playoff_totals pt
     JOIN managers mgr ON mgr.manager_id = $1
     ORDER BY pt.total_points ASC
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 5. PLAYOFF BLOWOUTS - Use exact same structure as bio page
@@ -217,7 +217,7 @@ export async function load({ url }) {
       AND p.team1_score IS NOT NULL 
       AND p.team2_score IS NOT NULL
     ORDER BY margin DESC 
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 6. PLAYOFF NAILBITERS - Same as blowouts but ordered by smallest margin
@@ -275,7 +275,7 @@ export async function load({ url }) {
       AND p.team1_score IS NOT NULL 
       AND p.team2_score IS NOT NULL
     ORDER BY margin ASC 
-    LIMIT 10
+    LIMIT 5
   `, [managerId])).rows;
 
   // 7. PLAYOFF WIN PERCENTAGE - Use bio page logic
