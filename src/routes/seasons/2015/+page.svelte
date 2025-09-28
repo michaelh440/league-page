@@ -667,18 +667,18 @@
     max-width: 800px;
     text-align: center;
     background: white;
-    border-radius: 12px;
+    border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    table-layout: fixed;
   }
 
   .matchups-table th,
   .matchups-table td {
-    border: none;
     padding: 0.75rem 1rem;
     color: #212529;
     position: relative;
+    width: 25%;
   }
 
   .matchups-table th {
@@ -699,8 +699,6 @@
   /* Enhanced matchup row styling */
   .matchup-row {
     position: relative;
-    background: linear-gradient(135deg, #6B7D8A 50%, #8B4A6B 50%);
-    border: none;
   }
 
   .matchup-row::before {
@@ -715,32 +713,30 @@
     z-index: 1;
   }
 
-  /* Team styling - Left side (steel grey) */
+  /* Team styling - Left side */
   .team-left {
-    background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
+    background-color: #5A6B78 !important;
     color: white !important;
     border: none !important;
-    position: relative;
   }
 
   .score-left {
-    background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
+    background-color: #5A6B78 !important;
     color: white !important;
     border: none !important;
     font-weight: 700;
     font-size: 1.2em;
   }
 
-  /* Team styling - Right side (dark pink) */
+  /* Team styling - Right side */
   .team-right {
-    background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
+    background-color: #7A4159 !important;
     color: white !important;
     border: none !important;
-    position: relative;
   }
 
   .score-right {
-    background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
+    background-color: #7A4159 !important;
     color: white !important;
     border: none !important;
     font-weight: 700;
@@ -749,13 +745,13 @@
 
   /* Winner highlighting */
   .winner-left {
-    background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
+    background-color: #4A90E2 !important;
     color: white !important;
     font-weight: bold;
   }
 
   .winner-right {
-    background: linear-gradient(135deg, #C54545 0%, #A73C3C 100%) !important;
+    background-color: #C54545 !important;
     color: white !important;
     font-weight: bold;
   }
@@ -914,39 +910,39 @@
 
     /* Mobile team colors */
     .team-left {
-      background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
+      background-color: #5A6B78 !important;
       color: white !important;
       border: none !important;
     }
 
     .score-left {
-      background: linear-gradient(135deg, #6B7D8A 0%, #5A6B78 100%) !important;
+      background-color: #5A6B78 !important;
       color: white !important;
       border: none !important;
       font-weight: 700;
     }
 
     .team-right {
-      background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
+      background-color: #7A4159 !important;
       color: white !important;
       border: none !important;
     }
 
     .score-right {
-      background: linear-gradient(135deg, #8B4A6B 0%, #7A4159 100%) !important;
+      background-color: #7A4159 !important;
       color: white !important;
       border: none !important;
       font-weight: 700;
     }
 
     .winner-left {
-      background: linear-gradient(135deg, #4A90E2 0%, #357ABD 100%) !important;
+      background-color: #4A90E2 !important;
       color: white !important;
       font-weight: 600;
     }
 
     .winner-right {
-      background: linear-gradient(135deg, #C54545 0%, #A73C3C 100%) !important;
+      background-color: #C54545 !important;
       color: white !important;
       font-weight: 600;
     }
