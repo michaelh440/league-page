@@ -5,6 +5,11 @@
   
   $: ({ year, standings, availableYears } = data);
   
+  // Debug: Log the data
+  $: console.log('Year:', year);
+  $: console.log('Standings:', standings);
+  $: console.log('Available Years:', availableYears);
+  
   function changeYear(event) {
     const newYear = event.target.value;
     goto(`/standings/${newYear}`);
@@ -27,6 +32,14 @@
   <title>{year} Season Standings</title>
 </svelte:head>
 
+<!-- Debug info at top -->
+<div style="background: #fee; padding: 10px; margin: 10px; border: 2px solid red;">
+  <strong>DEBUG INFO:</strong><br>
+  Year: {year}<br>
+  Standings Count: {standings?.length || 0}<br>
+  Available Years: {availableYears?.join(', ') || 'none'}
+</div>
+
 <div class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white p-4">
   <!-- Header -->
   <div class="max-w-6xl mx-auto mb-8">
@@ -42,7 +55,7 @@
           on:change={changeYear}
           class="appearance-none bg-slate-800 border-2 border-slate-600 rounded-lg px-6 py-3 pr-12 text-xl font-semibold cursor-pointer hover:border-blue-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          {#each availableYears as yr}
+          {#each availableYears || [] as yr}
             <option value={yr}>{yr} Season</option>
           {/each}
         </select>
@@ -55,7 +68,7 @@
 
   <!-- Standings Table -->
   <div class="max-w-6xl mx-auto">
-    {#if standings.length === 0}
+    {#if !standings || standings.length === 0}
       <div class="text-center py-12 text-slate-400">
         <p class="text-xl">No standings data available for {year}</p>
       </div>
@@ -74,24 +87,29 @@
             </tr>
           </thead>
           <tbody>
-            {#each standings as team}
+            {#each standings as team, i}
               <tr class="border-t border-slate-700 hover:bg-slate-700/30 transition-colors">
                 <td class="px-6 py-4">
-                  <div class="text-2xl font-bold text-slate-400">#{team.rank}</div>
+                  <div class="text-2xl font-bold text-slate-400">#{team.rank || i + 1}</div>
                 </td>
                 <td class="px-6 py-4">
                   <div class="flex items-center gap-3">
-                    <img 
-                      src={team.logo_url} 
-                      alt={team.manager_name}
-                      class="w-12 h-12 rounded-full object-cover border-2 border-slate-600"
-                    />
-                    <span class="font-semibold text-lg">{team.manager_name}</span>
+                    {#if team.logo_url}
+                      <img 
+                        src={team.logo_url} 
+                        alt={team.manager_name || 'Manager'}
+                        class="w-12 h-12 rounded-full object-cover border-2 border-slate-600"
+                        on:error={(e) => e.target.src = 'https://via.placeholder.com/48'}
+                      />
+                    {:else}
+                      <div class="w-12 h-12 rounded-full bg-slate-600 border-2 border-slate-500"></div>
+                    {/if}
+                    <span class="font-semibold text-lg">{team.manager_name || 'Unknown'}</span>
                   </div>
                 </td>
                 <td class="px-6 py-4 text-center">
                   <span class="text-lg font-mono">
-                    {team.wins}-{team.losses}{#if team.ties > 0}-{team.ties}{/if}
+                    {team.wins || 0}-{team.losses || 0}{#if team.ties > 0}-{team.ties}{/if}
                   </span>
                 </td>
                 <td class="px-6 py-4 text-center font-mono text-green-400">
@@ -113,17 +131,22 @@
 
       <!-- Mobile View -->
       <div class="md:hidden space-y-4">
-        {#each standings as team}
+        {#each standings as team, i}
           <div class="bg-slate-800/50 backdrop-blur rounded-xl p-4 border border-slate-700">
             <div class="flex items-center justify-between mb-3">
               <div class="flex items-center gap-3">
-                <div class="text-2xl font-bold text-slate-400">#{team.rank}</div>
-                <img 
-                  src={team.logo_url} 
-                  alt={team.manager_name}
-                  class="w-12 h-12 rounded-full object-cover border-2 border-slate-600"
-                />
-                <span class="font-semibold">{team.manager_name}</span>
+                <div class="text-2xl font-bold text-slate-400">#{team.rank || i + 1}</div>
+                {#if team.logo_url}
+                  <img 
+                    src={team.logo_url} 
+                    alt={team.manager_name || 'Manager'}
+                    class="w-12 h-12 rounded-full object-cover border-2 border-slate-600"
+                    on:error={(e) => e.target.src = 'https://via.placeholder.com/48'}
+                  />
+                {:else}
+                  <div class="w-12 h-12 rounded-full bg-slate-600 border-2 border-slate-500"></div>
+                {/if}
+                <span class="font-semibold">{team.manager_name || 'Unknown'}</span>
               </div>
               <span class="text-xs {getPlayoffBadgeClass(team.playoff_status)} text-white px-2 py-1 rounded">
                 {getPlayoffLabel(team.playoff_status)}
@@ -134,7 +157,7 @@
               <div class="bg-slate-700/30 rounded-lg p-3">
                 <div class="text-slate-400 text-xs mb-1">Record</div>
                 <div class="font-mono font-semibold">
-                  {team.wins}-{team.losses}{#if team.ties > 0}-{team.ties}{/if}
+                  {team.wins || 0}-{team.losses || 0}{#if team.ties > 0}-{team.ties}{/if}
                 </div>
               </div>
               
@@ -177,13 +200,3 @@
     </div>
   </div>
 </div>
-
-<style>
-  /* Mobile-specific adjustments */
-  @media (max-width: 768px) {
-    h1 {
-      font-size: 2rem;
-      line-height: 1.2;
-    }
-  }
-</style>
