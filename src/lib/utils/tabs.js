@@ -117,6 +117,36 @@ export const tabs = [
       { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
     ]
   },
+  /*{
+    icon: 'storage',
+    label: 'League',
+    nest: true,
+    key: 'league',
+    children: [
+      { icon: 'bar_chart', label: 'All Time League Stats', dest: '/league/all_time_stats' },
+      { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' },
+      { icon: 'sports', label: 'Playoff Stats', dest: '/league/playoff_stats' },
+      { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/league/rivalries' },
+      { icon: 'emoji_events', label: 'Streaks', dest: '/league/streaks' },
+            //{ icon: 'history_edu', label: 'Trophy Room', dest: '/league/trophy_room' },
+      { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
+    ]
+  },*/
+  /*{
+    icon: 'storage',
+    label: 'Previous Seasons',
+    nest: true,
+    key: 'previous_seasons',
+    children: [
+      { icon: 'bar_chart', label: 'Standings', dest: '/league/standings' },
+      { icon: 'compare_arrows', label: 'Weekly Matchups', dest: '/league/seasons/' },
+      { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts/' }
+      { icon: 'sports', label: 'Champions', dest: '/league/champions' },
+      { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats/' },
+      { icon: 'sports', label: 'Playoff Season Stats', dest: '/league/playoff_stats/' },
+    ]
+  },*/
+  
   {
     icon: 'groups',
     label: 'Managers',
