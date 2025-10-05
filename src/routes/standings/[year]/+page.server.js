@@ -19,65 +19,57 @@ export async function load({ params }) {
     
     const seasonId = seasonResult.rows[0].season_id;
     
-    // DEBUG: First let's see what's in matchups for this season
-    const debugMatchups = await query(`
-      SELECT season_id, COUNT(*) as matchup_count
-      FROM matchups
-      WHERE season_id = $1
-      GROUP BY season_id
-    `, [seasonId]);
-    console.log('Matchups for season', year, ':', debugMatchups.rows);
-    
-    // Get standings using historical_rankings and calculating record from matchups
+    // Get standings - calculate wins/losses and points SEPARATELY to avoid cartesian product
     const standingsResult = await query(`
-      WITH season_matchups AS (
-        -- First, get all matchups for THIS season only
+      WITH season_wins_losses AS (
+        -- Get wins/losses from matchups for this season
         SELECT 
-          team1_id as manager_id,
-          team1_score as score_for,
-          team2_score as score_against,
-          CASE 
-            WHEN team1_score > team2_score THEN 1
-            WHEN team1_score < team2_score THEN -1
-            ELSE 0
-          END as result
-        FROM matchups
-        WHERE season_id = $2
-          AND team1_score IS NOT NULL
-          AND team2_score IS NOT NULL
-        
-        UNION ALL
-        
-        SELECT 
-          team2_id as manager_id,
-          team2_score as score_for,
-          team1_score as score_against,
-          CASE 
-            WHEN team2_score > team1_score THEN 1
-            WHEN team2_score < team1_score THEN -1
-            ELSE 0
-          END as result
-        FROM matchups
-        WHERE season_id = $2
-          AND team1_score IS NOT NULL
-          AND team2_score IS NOT NULL
+          manager_id,
+          SUM(CASE WHEN result = 1 THEN 1 ELSE 0 END) as wins,
+          SUM(CASE WHEN result = -1 THEN 1 ELSE 0 END) as losses,
+          SUM(CASE WHEN result = 0 THEN 1 ELSE 0 END) as ties,
+          SUM(score_against) as points_against
+        FROM (
+          -- Team 1 perspective
+          SELECT 
+            team1_id as manager_id,
+            team1_score as score_for,
+            team2_score as score_against,
+            CASE 
+              WHEN team1_score > team2_score THEN 1
+              WHEN team1_score < team2_score THEN -1
+              ELSE 0
+            END as result
+          FROM matchups
+          WHERE season_id = $2
+            AND team1_score IS NOT NULL
+            AND team2_score IS NOT NULL
+          
+          UNION ALL
+          
+          -- Team 2 perspective
+          SELECT 
+            team2_id as manager_id,
+            team2_score as score_for,
+            team1_score as score_against,
+            CASE 
+              WHEN team2_score > team1_score THEN 1
+              WHEN team2_score < team1_score THEN -1
+              ELSE 0
+            END as result
+          FROM matchups
+          WHERE season_id = $2
+            AND team1_score IS NOT NULL
+            AND team2_score IS NOT NULL
+        ) all_matchups
+        GROUP BY manager_id
       ),
-      manager_records AS (
-        -- CRITICAL: Start with teams table filtered by season, not managers table
+      season_points AS (
+        -- Get points for from weekly_scoring for this season
         SELECT 
           t.manager_id,
-          -- Calculate wins from matchups for THIS season only
-          COUNT(CASE WHEN sm.result = 1 THEN 1 END) as wins,
-          -- Calculate losses from matchups for THIS season only
-          COUNT(CASE WHEN sm.result = -1 THEN 1 END) as losses,
-          -- Calculate ties from matchups for THIS season only
-          COUNT(CASE WHEN sm.result = 0 THEN 1 END) as ties,
-          -- Calculate points for from weekly_scoring for THIS season only
-          COALESCE(SUM(ws.team_score), 0) as points_for,
-          -- Calculate points against from matchups for THIS season only
-          COALESCE(SUM(sm.score_against), 0) as points_against
+          COALESCE(SUM(ws.team_score), 0) as points_for
         FROM teams t
-        LEFT JOIN season_matchups sm ON sm.manager_id = t.manager_id
         LEFT JOIN weekly_scoring ws ON ws.team_id = t.team_id AND ws.season_id = $2
         WHERE t.season_id = $2
         GROUP BY t.manager_id
@@ -89,17 +81,18 @@ export async function load({ params }) {
         m.manager_id,
         COALESCE(mtn.team_name, m.team_alias, m.username) as manager_name,
         COALESCE(mtn.logo_url, m.logo_url, 'https://via.placeholder.com/48') as logo_url,
-        COALESCE(mr.wins, 0) as wins,
-        COALESCE(mr.losses, 0) as losses,
-        COALESCE(mr.ties, 0) as ties,
-        COALESCE(mr.points_for, 0)::numeric(10,2) as points_for,
-        COALESCE(mr.points_against, 0)::numeric(10,2) as points_against
+        COALESCE(wl.wins, 0) as wins,
+        COALESCE(wl.losses, 0) as losses,
+        COALESCE(wl.ties, 0) as ties,
+        COALESCE(sp.points_for, 0)::numeric(10,2) as points_for,
+        COALESCE(wl.points_against, 0)::numeric(10,2) as points_against
         
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
       LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
         AND mtn.season_year = $1
-      LEFT JOIN manager_records mr ON mr.manager_id = m.manager_id
+      LEFT JOIN season_wins_losses wl ON wl.manager_id = m.manager_id
+      LEFT JOIN season_points sp ON sp.manager_id = m.manager_id
         
       WHERE hr.season_year = $1
       ORDER BY hr.regular_season_rank
