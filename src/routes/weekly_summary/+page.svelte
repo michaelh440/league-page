@@ -103,7 +103,7 @@
         
         try {
             const response = await fetch(
-                `/api/weekly-summary?season=${selectedSeason}&week=${selectedWeek}`
+                `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`
             );
             const data = await response.json();
             
@@ -147,7 +147,7 @@
             if (data.success) {
                 generatedSummary = data.summary;
                 
-                await fetch('/api/weekly-summary', {
+                await fetch('/api/weekly_summary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
