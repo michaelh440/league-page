@@ -63,23 +63,24 @@ export async function load({ params }) {
           AND team2_score IS NOT NULL
       ),
       manager_records AS (
+        -- CRITICAL: Start with teams table filtered by season, not managers table
         SELECT 
-          m.manager_id,
-          -- Calculate wins from matchups
+          t.manager_id,
+          -- Calculate wins from matchups for THIS season only
           COUNT(CASE WHEN sm.result = 1 THEN 1 END) as wins,
-          -- Calculate losses from matchups
+          -- Calculate losses from matchups for THIS season only
           COUNT(CASE WHEN sm.result = -1 THEN 1 END) as losses,
-          -- Calculate ties from matchups
+          -- Calculate ties from matchups for THIS season only
           COUNT(CASE WHEN sm.result = 0 THEN 1 END) as ties,
-          -- Calculate points for from weekly_scoring
+          -- Calculate points for from weekly_scoring for THIS season only
           COALESCE(SUM(ws.team_score), 0) as points_for,
-          -- Calculate points against from matchups
+          -- Calculate points against from matchups for THIS season only
           COALESCE(SUM(sm.score_against), 0) as points_against
-        FROM managers m
-        JOIN teams t ON t.manager_id = m.manager_id AND t.season_id = $2
-        LEFT JOIN season_matchups sm ON sm.manager_id = m.manager_id
+        FROM teams t
+        LEFT JOIN season_matchups sm ON sm.manager_id = t.manager_id
         LEFT JOIN weekly_scoring ws ON ws.team_id = t.team_id AND ws.season_id = $2
-        GROUP BY m.manager_id
+        WHERE t.season_id = $2
+        GROUP BY t.manager_id
       )
       SELECT 
         hr.regular_season_rank as rank,
