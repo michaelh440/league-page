@@ -10,14 +10,14 @@
   }
   
   function getPlayoffBadgeStyle(status) {
-    if (status === 'championship') return 'background: #fbbf24; color: #000;';
-    if (status === 'consolation') return 'background: #3b82f6; color: white;';
+    if (status === 'playoffs') return 'background: #3b82f6; color: white;';
+    if (status === 'consolation') return 'background: #8b5cf6; color: white;';
     return 'background: #64748b; color: white;';
   }
   
   function getPlayoffLabel(status) {
-    if (status === 'championship') return '🏆 Champion';
-    if (status === 'consolation') return 'Playoffs';
+    if (status === 'playoffs') return 'Playoffs';
+    if (status === 'consolation') return 'Consolation';
     return 'Missed';
   }
 </script>
@@ -71,7 +71,7 @@
           </thead>
           <tbody>
             {#each standings as team, i}
-              <tr class:champion={team.playoff_status === 'championship'}>
+              <tr>
                 <td class="rank-cell">
                   <span class="rank">#{team.rank || i + 1}</span>
                 </td>
@@ -112,12 +112,12 @@
         <!-- Legend -->
         <div class="legend">
           <div class="legend-item">
-            <span class="status-badge" style="background: #fbbf24; color: #000;">🏆 Champion</span>
-            <span>- Won championship</span>
+            <span class="status-badge" style="background: #3b82f6; color: white;">Playoffs</span>
+            <span>- Made playoffs (top 4)</span>
           </div>
           <div class="legend-item">
-            <span class="status-badge" style="background: #3b82f6; color: white;">Playoffs</span>
-            <span>- Made playoffs</span>
+            <span class="status-badge" style="background: #8b5cf6; color: white;">Consolation</span>
+            <span>- Consolation bracket (5-8)</span>
           </div>
           <div class="legend-item">
             <span class="status-badge" style="background: #64748b; color: white;">Missed</span>

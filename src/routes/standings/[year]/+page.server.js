@@ -77,7 +77,12 @@ export async function load({ params }) {
       SELECT 
         hr.regular_season_rank as rank,
         hr.final_rank,
-        hr.playoff_status,
+        -- Determine playoff status based on regular season rank
+        CASE 
+          WHEN hr.regular_season_rank <= 4 THEN 'playoffs'
+          WHEN hr.regular_season_rank <= 8 THEN 'consolation'
+          ELSE 'missed'
+        END as playoff_status,
         m.manager_id,
         COALESCE(mtn.team_name, m.team_alias, m.username) as manager_name,
         COALESCE(mtn.logo_url, m.logo_url, 'https://via.placeholder.com/48') as logo_url,
