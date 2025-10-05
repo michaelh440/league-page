@@ -147,7 +147,7 @@
             if (data.success) {
                 generatedSummary = data.summary;
                 
-                await fetch('/api/weekly_summary', {
+                await fetch('/api/weekly-summary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -172,9 +172,10 @@
         let prompt = `You are a snarky fantasy football analyst creating a weekly recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
         
         matchups.forEach((m, idx) => {
+            const margin = parseFloat(m.margin) || 0;
             prompt += `MATCHUP ${idx + 1}:\n`;
             prompt += `${m.team1_name} (${m.manager1_name}) ${m.team1_score} vs ${m.team2_name} (${m.manager2_name}) ${m.team2_score}\n`;
-            prompt += `Winner: ${m.winner} by ${m.margin.toFixed(2)} points\n\n`;
+            prompt += `Winner: ${m.winner} by ${margin.toFixed(2)} points\n\n`;
         });
         
         return prompt;
@@ -269,8 +270,8 @@
                     <div class="matchup-score">
                         <div class="team">
                             <div class="team-name">{matchup.team1_name}</div>
-                            <div class="score {matchup.team1_score > matchup.team2_score ? 'winner' : ''}">
-                                {matchup.team1_score?.toFixed(2) || '0.00'}
+                            <div class="score {parseFloat(matchup.team1_score) > parseFloat(matchup.team2_score) ? 'winner' : ''}">
+                                {parseFloat(matchup.team1_score || 0).toFixed(2)}
                             </div>
                         </div>
                         
@@ -278,8 +279,8 @@
                         
                         <div class="team">
                             <div class="team-name">{matchup.team2_name}</div>
-                            <div class="score {matchup.team2_score > matchup.team1_score ? 'winner' : ''}">
-                                {matchup.team2_score?.toFixed(2) || '0.00'}
+                            <div class="score {parseFloat(matchup.team2_score) > parseFloat(matchup.team1_score) ? 'winner' : ''}">
+                                {parseFloat(matchup.team2_score || 0).toFixed(2)}
                             </div>
                         </div>
                     </div>
