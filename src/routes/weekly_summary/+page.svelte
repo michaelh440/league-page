@@ -132,7 +132,7 @@
         try {
             const summaryPrompt = formatDataForAI(matchups);
             
-            const response = await fetch('/api/generate-summary', {
+            const response = await fetch('/api/generate_summary', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -146,17 +146,6 @@
             
             if (data.success) {
                 generatedSummary = data.summary;
-                
-                await fetch('/api/weekly-summary', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        season: selectedSeason,
-                        week: selectedWeek,
-                        summary: generatedSummary,
-                        format: 'text'
-                    })
-                });
             } else {
                 error = data.error || 'Failed to generate summary';
             }

@@ -57,6 +57,7 @@
   },
   "type": "module",
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
     "@neondatabase/serverless": "^1.0.1",
     "@vercel/analytics": "^1.4.1",
     "contentful": "^10.6.7",
