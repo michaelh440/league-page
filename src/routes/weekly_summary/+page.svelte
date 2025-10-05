@@ -1,17 +1,16 @@
-<!-- src/routes/weekly-summary/+page.svelte -->
-<script lang="ts">
+<!-- src/routes/weekly_summary/+page.svelte -->
+<script>
     import { onMount } from 'svelte';
-    import { goto } from '$app/navigation';
     
     let selectedSeason = '2024';
     let selectedWeek = '1';
-    let matchups: any[] = [];
+    let matchups = [];
     let loading = false;
     let importing = false;
     let generating = false;
     let generatedSummary = '';
     let error = '';
-    let importStatus: any = null;
+    let importStatus = null;
     
     const seasons = Array.from({ length: 10 }, (_, i) => 2024 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
@@ -23,8 +22,16 @@
     async function checkImportStatus() {
         try {
             const response = await fetch(
-                `/api/import-week?season=${selectedSeason}&week=${selectedWeek}`
+                `/api/import_sleeper_week?season=${selectedSeason}&week=${selectedWeek}`
             );
+            
+            // Check if response is JSON before parsing
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                console.log('Import status endpoint not ready (returned HTML)');
+                return;
+            }
+            
             const data = await response.json();
             
             if (data.success) {
@@ -45,7 +52,7 @@
         error = '';
         
         try {
-            const response = await fetch('/api/import-week', {
+            const response = await fetch('/api/import_sleeper_week', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -54,6 +61,16 @@
                     processImmediately: true
                 })
             });
+            
+            // Check if response is JSON
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('Non-JSON response:', text);
+                error = 'API endpoint not found. Make sure src/routes/api/import_sleeper_week/+server.js exists.';
+                importing = false;
+                return;
+            }
             
             const data = await response.json();
             
@@ -72,9 +89,9 @@
             } else {
                 error = data.error || 'Failed to import week data';
             }
-        } catch (err: any) {
-            error = 'Failed to import week: ' + err.message;
-            console.error(err);
+        } catch (err) {
+            console.error('Import error:', err);
+            error = 'Failed to import: ' + (err.message || 'Unknown error');
         } finally {
             importing = false;
         }
@@ -113,7 +130,6 @@
         error = '';
         
         try {
-            // Format data for Claude
             const summaryPrompt = formatDataForAI(matchups);
             
             const response = await fetch('/api/generate-summary', {
@@ -131,7 +147,6 @@
             if (data.success) {
                 generatedSummary = data.summary;
                 
-                // Save summary
                 await fetch('/api/weekly-summary', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -153,49 +168,21 @@
         }
     }
     
-    function formatDataForAI(matchups: any[]): string {
-        let prompt = `You are a snarky fantasy football analyst creating a weekly recap for Week ${selectedWeek} of the ${selectedSeason} season. Write an entertaining summary that includes:\n\n`;
-        prompt += `1. Individual matchup recaps with personality\n`;
-        prompt += `2. Standings changes and team momentum\n`;
-        prompt += `3. Lineup decisions that cost managers wins (if available)\n`;
-        prompt += `4. Manager-specific commentary based on their style\n\n`;
-        prompt += `Keep it witty, a bit snarky, and entertaining. Here's the data:\n\n`;
+    function formatDataForAI(matchups) {
+        let prompt = `You are a snarky fantasy football analyst creating a weekly recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
         
         matchups.forEach((m, idx) => {
             prompt += `MATCHUP ${idx + 1}:\n`;
             prompt += `${m.team1_name} (${m.manager1_name}) ${m.team1_score} vs ${m.team2_name} (${m.manager2_name}) ${m.team2_score}\n`;
             prompt += `Winner: ${m.winner} by ${m.margin.toFixed(2)} points\n\n`;
-            
-            if (m.team1_rank) {
-                prompt += `STANDINGS:\n`;
-                prompt += `${m.team1_name}: Rank #${m.team1_rank} (${m.team1_rank_change > 0 ? '+' : ''}${m.team1_rank_change || 0}), Record: ${m.team1_wins}-${m.team1_losses}\n`;
-                prompt += `${m.team2_name}: Rank #${m.team2_rank} (${m.team2_rank_change > 0 ? '+' : ''}${m.team2_rank_change || 0}), Record: ${m.team2_wins}-${m.team2_losses}\n\n`;
-            }
-            
-            if (m.team1_points_left > 5 || m.team2_points_left > 5) {
-                prompt += `LINEUP DECISIONS:\n`;
-                if (m.team1_points_left > 5) {
-                    prompt += `${m.manager1_name} left ${m.team1_points_left.toFixed(2)} points on the bench\n`;
-                }
-                if (m.team2_points_left > 5) {
-                    prompt += `${m.manager2_name} left ${m.team2_points_left.toFixed(2)} points on the bench\n`;
-                }
-                if (m.lineup_impact && m.lineup_impact !== 'Not yet calculated') {
-                    prompt += `Impact: ${m.lineup_impact}\n\n`;
-                }
-            }
-            
-            prompt += `---\n\n`;
         });
-        
-        prompt += `Write a cohesive, entertaining summary that flows naturally and highlights the most interesting storylines from this week.`;
         
         return prompt;
     }
     
-    function copyToClipboard(text: string) {
+    function copyToClipboard(text) {
         navigator.clipboard.writeText(text);
-        alert('Summary copied to clipboard!');
+        alert('Summary copied!');
     }
     
     function handleSeasonChange() {
@@ -233,132 +220,69 @@
             <button 
                 on:click={importWeek} 
                 disabled={importing}
-                class="import-btn"
+                class="btn-primary"
             >
-                {#if importing}
-                    Importing from Sleeper...
-                {:else}
-                    Import Week from Sleeper
-                {/if}
+                {importing ? 'Importing...' : 'Import Week from Sleeper'}
             </button>
         {:else}
             <button 
                 on:click={loadWeeklyData} 
                 disabled={loading}
-                class="load-btn"
+                class="btn-secondary"
             >
-                {#if loading}
-                    Loading...
-                {:else}
-                    Reload Data
-                {/if}
+                {loading ? 'Loading...' : 'Reload Data'}
             </button>
             
             <button 
                 on:click={generateSummary} 
                 disabled={loading || generating || matchups.length === 0}
-                class="generate-btn"
+                class="btn-primary"
             >
-                {#if generating}
-                    Generating AI Summary...
-                {:else}
-                    Generate AI Summary
-                {/if}
+                {generating ? 'Generating...' : 'Generate AI Summary'}
             </button>
         {/if}
     </div>
-    
-    {#if importStatus}
-        <div class="status-card">
-            <h3>Import Status</h3>
-            {#if importStatus.main && importStatus.main.matchups_count > 0}
-                <div class="status-good">
-                    ✓ Week {selectedWeek} data is loaded
-                    <div class="status-details">
-                        {importStatus.main.matchups_count} matchups, 
-                        {importStatus.main.teams_with_scores} teams with scores
-                    </div>
-                </div>
-            {:else}
-                <div class="status-warning">
-                    No data loaded for this week. Click "Import Week from Sleeper" to fetch data.
-                </div>
-            {/if}
-        </div>
-    {/if}
     
     {#if error}
         <div class="error">{error}</div>
     {/if}
     
+    {#if importStatus}
+        <div class="status-card">
+            <strong>Status:</strong>
+            {#if importStatus.main && importStatus.main.matchups_count > 0}
+                <span class="success">✓ Week {selectedWeek} data loaded ({importStatus.main.matchups_count} matchups)</span>
+            {:else}
+                <span class="warning">No data for this week. Click Import to fetch from Sleeper.</span>
+            {/if}
+        </div>
+    {/if}
+    
     {#if matchups.length > 0}
-        <div class="data-preview">
-            <h2>Week {selectedWeek} Matchups</h2>
+        <div class="matchups">
+            <h3>Week {selectedWeek} Matchups</h3>
             
             {#each matchups as matchup, idx}
                 <div class="matchup-card">
-                    <h3>Matchup {idx + 1}</h3>
+                    <div class="matchup-title">Matchup {idx + 1}</div>
                     
                     <div class="matchup-score">
                         <div class="team">
                             <div class="team-name">{matchup.team1_name}</div>
-                            <div class="manager">{matchup.manager1_name}</div>
                             <div class="score {matchup.team1_score > matchup.team2_score ? 'winner' : ''}">
                                 {matchup.team1_score?.toFixed(2) || '0.00'}
                             </div>
-                            {#if matchup.team1_rank}
-                                <div class="record">
-                                    Rank #{matchup.team1_rank}
-                                    {#if matchup.team1_rank_change}
-                                        <span class={matchup.team1_rank_change > 0 ? 'up' : 'down'}>
-                                            ({matchup.team1_rank_change > 0 ? '+' : ''}{matchup.team1_rank_change})
-                                        </span>
-                                    {/if}
-                                </div>
-                                <div class="record">{matchup.team1_wins}-{matchup.team1_losses}</div>
-                            {/if}
                         </div>
                         
                         <div class="vs">VS</div>
                         
                         <div class="team">
                             <div class="team-name">{matchup.team2_name}</div>
-                            <div class="manager">{matchup.manager2_name}</div>
                             <div class="score {matchup.team2_score > matchup.team1_score ? 'winner' : ''}">
                                 {matchup.team2_score?.toFixed(2) || '0.00'}
                             </div>
-                            {#if matchup.team2_rank}
-                                <div class="record">
-                                    Rank #{matchup.team2_rank}
-                                    {#if matchup.team2_rank_change}
-                                        <span class={matchup.team2_rank_change > 0 ? 'up' : 'down'}>
-                                            ({matchup.team2_rank_change > 0 ? '+' : ''}{matchup.team2_rank_change})
-                                        </span>
-                                    {/if}
-                                </div>
-                                <div class="record">{matchup.team2_wins}-{matchup.team2_losses}</div>
-                            {/if}
                         </div>
                     </div>
-                    
-                    {#if (matchup.team1_points_left && matchup.team1_points_left > 5) || (matchup.team2_points_left && matchup.team2_points_left > 5)}
-                        <div class="lineup-issues">
-                            <strong>Lineup Decisions:</strong>
-                            {#if matchup.team1_points_left > 5}
-                                <div class="bench-points">
-                                    {matchup.manager1_name} left {matchup.team1_points_left.toFixed(2)} points on bench
-                                </div>
-                            {/if}
-                            {#if matchup.team2_points_left > 5}
-                                <div class="bench-points">
-                                    {matchup.manager2_name} left {matchup.team2_points_left.toFixed(2)} points on bench
-                                </div>
-                            {/if}
-                            {#if matchup.lineup_impact && matchup.lineup_impact.includes('would have won')}
-                                <div class="impact-warning">⚠️ {matchup.lineup_impact}</div>
-                            {/if}
-                        </div>
-                    {/if}
                 </div>
             {/each}
         </div>
@@ -367,24 +291,14 @@
     {#if generatedSummary}
         <div class="summary-output">
             <div class="summary-header">
-                <h2>Generated Summary</h2>
-                <button on:click={() => copyToClipboard(generatedSummary)} class="copy-btn">
+                <h3>Generated Summary</h3>
+                <button on:click={() => copyToClipboard(generatedSummary)} class="btn-secondary">
                     Copy to Clipboard
                 </button>
             </div>
             
             <div class="summary-text">
                 {generatedSummary}
-            </div>
-            
-            <div class="next-steps">
-                <h3>Create Your Video:</h3>
-                <ol>
-                    <li><strong>ElevenLabs</strong> - Generate voiceover from summary text</li>
-                    <li><strong>D-ID or Synthesia</strong> - Create AI avatar video</li>
-                    <li><strong>Add graphics</strong> - Team logos, score overlays</li>
-                    <li><strong>Publish</strong> - Share with your league!</li>
-                </ol>
             </div>
         </div>
     {/if}
@@ -399,8 +313,7 @@
     
     h2 {
         font-size: 1.75em;
-        margin-bottom: 1.5em;
-        color: #333;
+        margin-bottom: 1em;
     }
     
     h3 {
@@ -411,30 +324,36 @@
     .controls {
         display: flex;
         gap: 1rem;
-        margin-bottom: 2rem;
-        justify-content: center;
+        margin-bottom: 1.5rem;
         flex-wrap: wrap;
+        align-items: flex-end;
     }
     
     .selector {
         display: flex;
         flex-direction: column;
-        gap: 0.5rem;
+        gap: 0.25rem;
+    }
+    
+    .selector label {
+        font-size: 0.9em;
+        font-weight: 600;
     }
     
     select {
         padding: 0.5rem;
         border: 1px solid #ccc;
         border-radius: 4px;
+        font-size: 1em;
     }
     
     button {
-        padding: 0.75rem 1.5rem;
+        padding: 0.6rem 1.2rem;
         border: none;
         border-radius: 4px;
         font-weight: 600;
         cursor: pointer;
-        transition: opacity 0.2s;
+        font-size: 0.95em;
     }
     
     button:disabled {
@@ -442,65 +361,64 @@
         cursor: not-allowed;
     }
     
-    .import-btn {
-        background: #f59e0b;
+    .btn-primary {
+        background: #2563eb;
         color: white;
     }
     
-    .load-btn {
-        background: #3b82f6;
+    .btn-primary:hover:not(:disabled) {
+        background: #1d4ed8;
+    }
+    
+    .btn-secondary {
+        background: #6b7280;
         color: white;
     }
     
-    .generate-btn {
-        background: #10b981;
-        color: white;
-    }
-    
-    .copy-btn {
-        background: #6366f1;
-        color: white;
-    }
-    
-    .status-card {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    .status-good {
-        color: #059669;
-        font-weight: 600;
-    }
-    
-    .status-warning {
-        color: #f59e0b;
-    }
-    
-    .status-details {
-        font-size: 0.875rem;
-        color: #666;
-        font-weight: normal;
-        margin-top: 0.25rem;
+    .btn-secondary:hover:not(:disabled) {
+        background: #4b5563;
     }
     
     .error {
         padding: 1rem;
         background: #fee2e2;
-        border: 1px solid #ef4444;
-        border-radius: 4px;
-        color: #991b1b;
+        border-left: 4px solid #dc2626;
         margin-bottom: 1rem;
+        color: #991b1b;
+    }
+    
+    .status-card {
+        padding: 1rem;
+        background: #f3f4f6;
+        border-radius: 4px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .success {
+        color: #059669;
+        font-weight: 600;
+    }
+    
+    .warning {
+        color: #d97706;
+    }
+    
+    .matchups {
+        margin-top: 2rem;
     }
     
     .matchup-card {
         background: white;
         border: 1px solid #e5e7eb;
-        border-radius: 8px;
+        border-radius: 6px;
         padding: 1.5rem;
         margin-bottom: 1rem;
+    }
+    
+    .matchup-title {
+        font-weight: 700;
+        margin-bottom: 1rem;
+        font-size: 1.1em;
     }
     
     .matchup-score {
@@ -516,68 +434,28 @@
     }
     
     .team-name {
-        font-weight: 700;
-        font-size: 1.1rem;
-    }
-    
-    .manager {
-        font-size: 0.9rem;
-        color: #666;
-        margin: 0.25rem 0;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
     }
     
     .score {
         font-size: 1.75rem;
         font-weight: 700;
-        margin: 0.5rem 0;
     }
     
     .score.winner {
         color: #059669;
     }
     
-    .record {
-        font-size: 0.875rem;
-        color: #666;
-    }
-    
-    .record .up {
-        color: #059669;
-    }
-    
-    .record .down {
-        color: #dc2626;
-    }
-    
     .vs {
         font-weight: 700;
         color: #9ca3af;
-        font-size: 1.25rem;
-    }
-    
-    .lineup-issues {
-        background: #fef3c7;
-        border: 1px solid #f59e0b;
-        border-radius: 4px;
-        padding: 1rem;
-        margin-top: 1rem;
-    }
-    
-    .bench-points {
-        margin: 0.5rem 0;
-        color: #92400e;
-    }
-    
-    .impact-warning {
-        margin-top: 0.5rem;
-        color: #dc2626;
-        font-weight: 600;
     }
     
     .summary-output {
         background: white;
         border: 1px solid #e5e7eb;
-        border-radius: 8px;
+        border-radius: 6px;
         padding: 1.5rem;
         margin-top: 2rem;
     }
@@ -595,13 +473,5 @@
         border-radius: 4px;
         white-space: pre-wrap;
         line-height: 1.6;
-        margin-bottom: 1.5rem;
-    }
-    
-    .next-steps {
-        background: #eff6ff;
-        border: 1px solid #3b82f6;
-        border-radius: 4px;
-        padding: 1rem;
     }
 </style>
