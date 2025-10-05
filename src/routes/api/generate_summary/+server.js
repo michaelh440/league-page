@@ -1,11 +1,7 @@
 // src/routes/api/generate_summary/+server.js
 import { json } from '@sveltejs/kit';
 import Anthropic from '@anthropic-ai/sdk';
-import { ANTHROPIC_API_KEY } from '$env/static/private';
-
-const anthropic = new Anthropic({
-    apiKey: ANTHROPIC_API_KEY
-});
+import { env } from '$env/dynamic/private';
 
 export async function POST({ request }) {
     try {
@@ -17,6 +13,11 @@ export async function POST({ request }) {
                 error: 'Prompt is required'
             }, { status: 400 });
         }
+        
+        // Use env object instead of direct import
+        const anthropic = new Anthropic({
+            apiKey: env.ANTHROPIC_API_KEY
+        });
         
         const message = await anthropic.messages.create({
             model: 'claude-sonnet-4-5-20250929',
