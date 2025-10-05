@@ -207,8 +207,8 @@
     }
 </script>
 
-<div class="container">
-    <h1>Weekly Summary Generator</h1>
+<div class="content">
+    <h2>Weekly Summary Generator</h2>
     
     <div class="controls">
         <div class="selector">
@@ -391,15 +391,21 @@
 </div>
 
 <style>
-    .container {
+    .content {
+        padding: 2em;
         max-width: 1200px;
-        margin: 2rem auto;
-        padding: 0 1rem;
+        margin: 0 auto;
     }
     
-    h1 {
-        text-align: center;
-        margin-bottom: 2rem;
+    h2 {
+        font-size: 1.75em;
+        margin-bottom: 1.5em;
+        color: #333;
+    }
+    
+    h3 {
+        font-size: 1.25em;
+        margin: 1em 0 0.5em 0;
     }
     
     .controls {
