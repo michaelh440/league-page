@@ -65,7 +65,7 @@ export class SleeperDataAdapter {
             await this.stageUsers(teamManagers);
 
             // Step 4: Stage rosters
-            await this.stageRosters(rostersData.rosters, leagueData);
+            await this.stageWeeklyRosters(matchupsData, rostersData.rosters, playersData, leagueData);
 
             // Step 5: Stage matchups for this week
             await this.stageMatchups(matchupsData, leagueData);
@@ -216,7 +216,7 @@ export class SleeperDataAdapter {
     /**
      * Stage weekly rosters with starter/bench details
      */
-    async stageWeeklyRosters(matchupsData, rosters, players) {
+    async stageWeeklyRosters(matchupsData, rosters, players, leagueData) {
         for (const matchup of matchupsData) {
             const roster = rosters[matchup.roster_id];
             if (!roster) continue;
