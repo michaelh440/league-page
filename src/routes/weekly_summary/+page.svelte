@@ -98,27 +98,33 @@
     }
     
     async function loadWeeklyData() {
-        loading = true;
-        error = '';
+    loading = true;
+    error = '';
+    matchups = []; // Clear existing data first
+    
+    console.log('Loading data for:', selectedSeason, selectedWeek); // Debug log
+    
+    try {
+        const url = `/api/weekly-summary?season=${selectedSeason}&week=${selectedWeek}`;
+        console.log('Fetching:', url); // Debug log
         
-        try {
-            const response = await fetch(
-                `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`
-            );
-            const data = await response.json();
-            
-            if (data.success) {
-                matchups = data.matchups;
-            } else {
-                error = data.error || 'Failed to load data';
-            }
-        } catch (err) {
-            error = 'Failed to fetch weekly data';
-            console.error(err);
-        } finally {
-            loading = false;
+        const response = await fetch(url);
+        const data = await response.json();
+        
+        console.log('Received data:', data); // Debug log
+        
+        if (data.success) {
+            matchups = data.matchups;
+        } else {
+            error = data.error || 'Failed to load data';
         }
+    } catch (err) {
+        error = 'Failed to fetch weekly data';
+        console.error(err);
+    } finally {
+        loading = false;
     }
+}
     
     async function generateSummary() {
         if (matchups.length === 0) {
