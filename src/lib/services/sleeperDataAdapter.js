@@ -47,7 +47,67 @@ export class SleeperDataAdapter {
     /**
      * Complete import workflow using your existing helper functions
      */
-    async importWeekData() {
+    /**
+ * Complete import workflow using your existing helper functions
+ */
+/**
+ * Complete import workflow using your existing helper functions
+ */
+async importWeekData() {
+    try {
+        // Step 1: Get all data using your existing helpers and direct Sleeper fetch
+        console.log('Fetching data for season:', this.season, 'week:', this.week);
+        
+        const [leagueData, rostersData, matchupsData, teamManagers, playersData] = await Promise.all([
+            getLeagueData(leagueID),
+            getLeagueRosters(leagueID),
+            this.fetchSpecificWeekMatchups(),
+            getLeagueTeamManagers(),
+            this.fetchPlayers()
+        ]);
+
+        // Debug: Check what we got back
+        console.log('leagueData:', leagueData ? 'OK' : 'UNDEFINED');
+        console.log('rostersData:', rostersData ? 'OK' : 'UNDEFINED');
+        console.log('matchupsData:', matchupsData ? 'OK' : 'UNDEFINED');
+        console.log('teamManagers:', teamManagers ? 'OK' : 'UNDEFINED');
+        console.log('playersData:', playersData ? 'OK' : 'UNDEFINED');
+
+        if (!leagueData) {
+            throw new Error('Failed to fetch league data');
+        }
+
+        // Step 2: Stage league info
+        await this.stageLeague(leagueData);
+
+        // Step 3: Stage users/managers
+        await this.stageUsers(teamManagers);
+
+        // Step 4: Stage rosters
+        await this.stageRosters(rostersData.rosters, leagueData);
+
+        // Step 5: Stage matchups for this week
+        await this.stageMatchups(matchupsData, leagueData);
+
+        // Step 6: Stage weekly rosters (starters/bench)
+        await this.stageWeeklyRosters(matchupsData, rostersData.rosters, playersData, leagueData);
+
+        return {
+            success: true,
+            message: `Week ${this.week} data staged successfully`
+        };
+
+    } catch (error) {
+        console.error('Error importing week data:', error);
+        return {
+            success: false,
+            message: error.message || 'Failed to import week data'
+        };
+    }
+}    
+  
+    
+    /*async importWeekData() {
         try {
             // Step 1: Get all data using your existing helpers and direct Sleeper fetch
             const [leagueData, rostersData, matchupsData, teamManagers, playersData] = await Promise.all([
@@ -85,7 +145,7 @@ export class SleeperDataAdapter {
                 message: error.message || 'Failed to import week data'
             };
         }
-    }
+    }^/
 
     /**
      * Stage league data
