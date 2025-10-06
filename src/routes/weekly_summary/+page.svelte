@@ -105,7 +105,7 @@
     console.log('Loading data for:', selectedSeason, selectedWeek); // Debug log
     
     try {
-        const url = `/api/weekly-summary?season=${selectedSeason}&week=${selectedWeek}`;
+        const url = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`;
         console.log('Fetching:', url); // Debug log
         
         const response = await fetch(url);
