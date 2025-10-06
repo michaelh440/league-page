@@ -36,36 +36,18 @@ export async function POST({ request }) {
             LIMIT 1
         `, [season]);
 
+        
         let seasonId;
 
         if (seasonResult.rows.length === 0) {
-            // Create new season
-            const leagueResult = await query(`
-                SELECT league_id FROM leagues 
-                WHERE platform = 'sleeper' 
-                ORDER BY created_at DESC 
-                LIMIT 1
-            `);
-
-            const leagueId = leagueResult.rows[0]?.league_id;
-
-            if (!leagueId) {
-                return json({
-                    success: false,
-                    error: 'No league found. Please create a league first.'
-                }, { status: 400 });
-            }
-
-            const newSeason = await query(`
-                INSERT INTO seasons (league_id, season_year, is_active, platform)
-                VALUES ($1, $2, TRUE, 'sleeper')
-                RETURNING season_id
-            `, [leagueId, season]);
-
-            seasonId = newSeason.rows[0].season_id;
+            return json({
+                success: false,
+                error: `Season ${season} does not exist. Please create the season in the database first.`
+            }, { status: 400 });
         } else {
             seasonId = seasonResult.rows[0].season_id;
         }
+        
 
         let processingResult = null;
 
