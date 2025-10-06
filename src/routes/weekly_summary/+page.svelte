@@ -12,7 +12,7 @@
     let error = '';
     let importStatus = null;
     
-    const seasons = Array.from({ length: 10 }, (_, i) => 2025 - i);
+    const seasons = Array.from({ length: 10 }, (_, i) => 2026 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
     
     onMount(() => {
