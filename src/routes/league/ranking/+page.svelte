@@ -91,9 +91,9 @@
                     <span class="manager-name">{manager.manager_name}</span>
                   </div>
                 </td>
-                <td class="stat-cell highlight">{manager.best_finish}</td>
+                <td class="stat-cell">{manager.best_finish}</td>
                 <td class="stat-cell">{manager.seasons_played}</td>
-                <td class="stat-cell">{parseFloat(manager.avg_finish).toFixed(1)}</td>
+                <td class="stat-cell highlight">{parseFloat(manager.avg_finish).toFixed(1)}</td>
               </tr>
             {/each}
           </tbody>
@@ -130,9 +130,9 @@
                     <span class="manager-name">{manager.manager_name}</span>
                   </div>
                 </td>
-                <td class="stat-cell highlight">{manager.best_regular_finish}</td>
+                <td class="stat-cell">{manager.best_regular_finish}</td>
                 <td class="stat-cell">{manager.seasons_played}</td>
-                <td class="stat-cell">{parseFloat(manager.avg_regular_finish).toFixed(1)}</td>
+                <td class="stat-cell highlight">{parseFloat(manager.avg_regular_finish).toFixed(1)}</td>
               </tr>
             {/each}
           </tbody>
@@ -169,9 +169,9 @@
                     <span class="manager-name">{manager.manager_name}</span>
                   </div>
                 </td>
-                <td class="stat-cell highlight">{manager.playoff_appearances}</td>
+                <td class="stat-cell">{manager.playoff_appearances}</td>
                 <td class="stat-cell">{manager.total_seasons}</td>
-                <td class="stat-cell">{manager.playoff_percentage}%</td>
+                <td class="stat-cell highlight">{manager.playoff_percentage}%</td>
               </tr>
             {/each}
           </tbody>
