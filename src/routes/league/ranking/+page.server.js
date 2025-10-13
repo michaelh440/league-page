@@ -30,7 +30,7 @@ export async function load() {
     JOIN managers m ON hr.manager_id = m.manager_id
     WHERE hr.regular_season_rank IS NOT NULL
     GROUP BY hr.manager_id, m.username, m.logo_url
-    ORDER BY ave_regular_finish ASC, best_regular_finish ASC
+    ORDER BY avg_regular_finish ASC, best_regular_finish ASC
     LIMIT 10
   `)).rows;
 
