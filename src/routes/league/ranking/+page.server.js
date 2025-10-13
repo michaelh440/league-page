@@ -14,7 +14,7 @@ export async function load() {
     JOIN managers m ON hr.manager_id = m.manager_id
     WHERE hr.final_rank IS NOT NULL
     GROUP BY hr.manager_id, m.username, m.logo_url
-    ORDER BY best_finish ASC, avg_finish ASC
+    ORDER BY ave_finish ASC, best_finish ASC
     LIMIT 10
   `)).rows;
 
@@ -30,7 +30,7 @@ export async function load() {
     JOIN managers m ON hr.manager_id = m.manager_id
     WHERE hr.regular_season_rank IS NOT NULL
     GROUP BY hr.manager_id, m.username, m.logo_url
-    ORDER BY best_regular_finish ASC, avg_regular_finish ASC
+    ORDER BY ave_regular_finish ASC, best_regular_finish ASC
     LIMIT 10
   `)).rows;
 
@@ -47,7 +47,7 @@ export async function load() {
     JOIN managers m ON hr.manager_id = m.manager_id
     WHERE hr.playoff_status IN ('championship', 'consolation')
     GROUP BY hr.manager_id, m.username, m.logo_url
-    ORDER BY playoff_appearances DESC, playoff_percentage DESC
+    ORDER BY playoff_percentage DESC, playoff_appearances DESC
     LIMIT 10
   `)).rows;
 
