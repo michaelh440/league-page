@@ -49,9 +49,9 @@
               <td>{i + 1}</td>
               <td class="team-cell">
                 {#if row.team_logo}
-                  <img src={row.team_logo} alt={row.manager_name || 'Team'} class="team-logo" />
+                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
                 {/if}
-                <span class="team-name">{row.manager_name || 'Unknown Team'}</span>
+                <span class="team-name">{row.team_name || 'Unknown Team'}</span>
               </td>
               <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
               <td class="points-cell">{formatScore(row.score || 0)}</td>
@@ -234,12 +234,12 @@
               <td>{i + 1}</td>
               <td class="team-cell">
                 {#if row.team_logo}
-                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                  <img src={row.team_logo} alt={row.manager_name || 'Team'} class="team-logo" />
                 {/if}
-                <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                <span class="team-name">{row.manager_name || 'Unknown Team'}</span>
               </td>
-              <td class="record-cell">{row.wins || 0}-{row.losses || 0}-{row.ties || 0}</td>
-              <td class="percentage-cell">{((row.win_pct || 0) * 100).toFixed(1)}%</td>
+              <td class="record-cell">{row.playoff_wins || 0}-{row.playoff_losses || 0}-{row.playoff_ties || 0}</td>
+              <td class="percentage-cell">{((row.playoff_win_pct || 0) * 100).toFixed(1)}%</td>
             </tr>
           {:else}
             <tr><td colspan="4" class="text-center text-gray-600">No playoff data available</td></tr>
