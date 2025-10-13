@@ -223,9 +223,9 @@
               <td>{i + 1}</td>
               <td class="team-cell">
                 {#if row.team_logo}
-                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                  <img src={row.team_logo} alt={row.manager_name || 'Team'} class="team-logo" />
                 {/if}
-                <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                <span class="team-name">{row.manager_name || 'Unknown Team'}</span>
               </td>
               <td class="record-cell">{row.wins || 0}-{row.losses || 0}-{row.ties || 0}</td>
               <td class="percentage-cell">{((row.win_pct || 0) * 100).toFixed(1)}%</td>
