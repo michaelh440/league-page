@@ -49,9 +49,9 @@
               <td>{i + 1}</td>
               <td class="team-cell">
                 {#if row.team_logo}
-                  <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                  <img src={row.team_logo} alt={row.manager_name || 'Team'} class="team-logo" />
                 {/if}
-                <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                <span class="team-name">{row.manager_name || 'Unknown Team'}</span>
               </td>
               <td class="week-cell">{row.year || 'N/A'} Week {row.week || 'N/A'}</td>
               <td class="points-cell">{formatScore(row.score || 0)}</td>
