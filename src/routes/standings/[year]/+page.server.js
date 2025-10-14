@@ -7,8 +7,9 @@ export async function load({ params }) {
   
   try {
     // Get season_id for the selected year - PICK THE ONE WITH DATA!
+    // Option 1: COUNT(*) - simpler
     const seasonResult = await query(`
-      SELECT s.season_id, COUNT(m.id) as matchup_count
+      SELECT s.season_id, COUNT(*) as matchup_count
       FROM seasons s
       LEFT JOIN matchups m ON m.season_id = s.season_id
       WHERE s.season_year = $1
