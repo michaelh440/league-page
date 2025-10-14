@@ -6,11 +6,13 @@ export async function load({ params }) {
   const year = params.year ? parseInt(params.year) : 2023;
   
   try {
-    // Get season_id for the selected year
+    // Get season_id for the selected year - handle multiple seasons per year
     const seasonResult = await query(`
       SELECT season_id 
       FROM seasons 
       WHERE season_year = $1
+      ORDER BY season_id DESC
+      LIMIT 1
     `, [year]);
     
     if (seasonResult.rows.length === 0) {
@@ -19,7 +21,7 @@ export async function load({ params }) {
     
     const seasonId = seasonResult.rows[0].season_id;
     
-    // Get standings - calculate wins/losses and points SEPARATELY to avoid cartesian product
+    // Get standings - FIX: weekly_scoring.team_id is actually manager_id!
     const standingsResult = await query(`
       WITH season_wins_losses AS (
         -- Get wins/losses from matchups for this season
@@ -65,14 +67,13 @@ export async function load({ params }) {
         GROUP BY manager_id
       ),
       season_points AS (
-        -- Get points for from weekly_scoring for this season
+        -- Get points for from weekly_scoring - JOIN ON MANAGER_ID not team_id!
         SELECT 
-          t.manager_id,
+          ws.team_id as manager_id,
           COALESCE(SUM(ws.team_score), 0) as points_for
-        FROM teams t
-        LEFT JOIN weekly_scoring ws ON ws.team_id = t.team_id AND ws.season_id = $2
-        WHERE t.season_id = $2
-        GROUP BY t.manager_id
+        FROM weekly_scoring ws
+        WHERE ws.season_id = $2
+        GROUP BY ws.team_id
       )
       SELECT 
         hr.regular_season_rank as rank,
@@ -103,17 +104,15 @@ export async function load({ params }) {
       ORDER BY hr.regular_season_rank
     `, [year, seasonId]);
     
-    // Get available years for dropdown
+    // Get available years for dropdown - INCLUDING 2024
     const yearsResult = await query(`
       SELECT DISTINCT season_year 
-      FROM historical_rankings
+      FROM seasons
+      WHERE season_year IS NOT NULL
       ORDER BY season_year DESC
     `);
     
     const availableYears = yearsResult.rows.map(row => row.season_year);
-    
-    // Debug logging
-    console.log('Standings data for year', year, ':', standingsResult.rows);
     
     return {
       year,
