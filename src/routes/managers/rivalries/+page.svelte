@@ -4,6 +4,9 @@
 
   export let data;
 
+  // Debug: log the raw rivalry data
+  console.log('Raw rivalries data:', data.rivalries);
+
   let selectedManagerId = data.managerId?.toString() ?? '';
 
   const withMgr = (path) =>
@@ -27,6 +30,8 @@
   // Process rivalries for display
   $: managerRivalries = data.rivalries
     .map(r => {
+      console.log('Processing rivalry:', r); // Debug each rivalry
+      
       const isTeam1 = r.team1_id === data.managerId;
       const opponentId = isTeam1 ? r.team2_id : r.team1_id;
       const opponent = data.managers.find(m => m.manager_id === opponentId);
@@ -36,6 +41,8 @@
       const losses = parseInt(isTeam1 ? r.team2_wins : r.team1_wins);
       const ties = parseInt(r.ties);
       const total = parseInt(r.total_games);
+      
+      console.log('Calculated values:', { wins, losses, ties, total }); // Debug calculated values
       
       // Calculate win percentage: (wins + 0.5 * ties) / total_games
       const winPct = ((wins + 0.5 * ties) / total * 100).toFixed(1);
