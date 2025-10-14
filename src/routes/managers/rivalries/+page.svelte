@@ -31,19 +31,21 @@
       const opponentId = isTeam1 ? r.team2_id : r.team1_id;
       const opponent = data.managers.find(m => m.manager_id === opponentId);
       
-      const wins = isTeam1 ? r.team1_wins : r.team2_wins;
-      const losses = isTeam1 ? r.team2_wins : r.team1_wins;
-      const ties = r.ties;
+      // Convert to numbers
+      const wins = parseInt(isTeam1 ? r.team1_wins : r.team2_wins);
+      const losses = parseInt(isTeam1 ? r.team2_wins : r.team1_wins);
+      const ties = parseInt(r.ties);
+      const total = parseInt(r.total_games);
       
       // Calculate win percentage: (wins + 0.5 * ties) / total_games
-      const winPct = ((wins + 0.5 * ties) / r.total_games * 100).toFixed(1);
+      const winPct = ((wins + 0.5 * ties) / total * 100).toFixed(1);
       
       return {
         opponent,
         wins,
         losses,
         ties,
-        total: r.total_games,
+        total,
         winPct,
         team1_id: r.team1_id,
         team2_id: r.team2_id
