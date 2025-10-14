@@ -5,6 +5,8 @@ import { error } from '@sveltejs/kit';
 export async function load({ params }) {
   const year = params.year ? parseInt(params.year) : 2023;
   
+  console.log('Loading standings for year:', year);
+  
   try {
     // Get season_id for the selected year - handle multiple seasons per year
     const seasonResult = await query(`
@@ -15,11 +17,14 @@ export async function load({ params }) {
       LIMIT 1
     `, [year]);
     
+    console.log('Season result for', year, ':', seasonResult.rows);
+    
     if (seasonResult.rows.length === 0) {
       throw error(404, `Season ${year} not found`);
     }
     
     const seasonId = seasonResult.rows[0].season_id;
+    console.log('Using season_id:', seasonId);
     
     // Get standings - FIX: weekly_scoring.team_id is actually manager_id!
     const standingsResult = await query(`
@@ -104,12 +109,15 @@ export async function load({ params }) {
       ORDER BY hr.regular_season_rank
     `, [year, seasonId]);
     
-    // Get available years for dropdown - INCLUDING 2024
+    console.log('Standings result count:', standingsResult.rows.length);
+    console.log('First 2 rows:', standingsResult.rows.slice(0, 2));
+    
+    // Get available years for dropdown
     const yearsResult = await query(`
       SELECT DISTINCT season_year 
       FROM seasons
       WHERE season_year IS NOT NULL
-      ORDER BY season_year ASC
+      ORDER BY season_year
     `);
     
     const availableYears = yearsResult.rows.map(row => row.season_year);
