@@ -50,9 +50,9 @@
         <h3 style="text-align: center;">{season} Season</h3>
 
         <nav class="season-nav">
-          <a href="/standings/{year}" class="season-btn">Reg Season Standings</a>
-          <a href="/seasons/{year}" class="season-btn active">Reg Season Week View</a>
-          <a href="/seasons/playoffs/{year}" class="season-btn"> Playoff Week View</a>
+          <a href="/standings/{season}" class="season-btn">Reg Season Standings</a>
+          <a href="/seasons/{season}" class="season-btn active">Reg Season Week View</a>
+          <a href="/seasons/playoffs/{season}" class="season-btn"> Playoff Week View</a>
         </nav>
 
         <!-- All weeks displayed vertically -->
