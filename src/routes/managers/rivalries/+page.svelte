@@ -31,21 +31,27 @@
       const opponentId = isTeam1 ? r.team2_id : r.team1_id;
       const opponent = data.managers.find(m => m.manager_id === opponentId);
       
+      const wins = isTeam1 ? r.team1_wins : r.team2_wins;
+      const losses = isTeam1 ? r.team2_wins : r.team1_wins;
+      const ties = r.ties;
+      
+      // Calculate win percentage: (wins + 0.5 * ties) / total_games
+      const winPct = ((wins + 0.5 * ties) / r.total_games * 100).toFixed(1);
+      
       return {
         opponent,
-        wins: isTeam1 ? r.team1_wins : r.team2_wins,
-        losses: isTeam1 ? r.team2_wins : r.team1_wins,
-        ties: r.ties,
+        wins,
+        losses,
+        ties,
         total: r.total_games,
-        winPct: isTeam1 
-          ? ((r.team1_wins / r.total_games) * 100).toFixed(1)
-          : ((r.team2_wins / r.total_games) * 100).toFixed(1),
+        winPct,
         team1_id: r.team1_id,
         team2_id: r.team2_id
       };
     })
     .sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct));
 </script>
+
 
 <StatsLayout title="Manager Rivalries" {navItems}>
   <div class="toolbar">
@@ -195,6 +201,8 @@
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
+    max-width: 900px;  /* Added: constrain width */
+    margin: 0 auto 3rem auto;  /* Added: center and add bottom margin */
   }
 
   .rivalry-table {
