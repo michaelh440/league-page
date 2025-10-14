@@ -52,7 +52,7 @@
         <nav class="season-nav">
           <a href="/standings/{season}" class="season-btn">Reg Season Standings</a>
           <a href="/seasons/{season}" class="season-btn active">Reg Season Week View</a>
-          <a href="/seasons/{season}/playoffs/" class="season-btn"> Playoff Week View</a>
+          <a href="/seasons/{season}/playoffs" class="season-btn"> Playoff Week View</a>
         </nav>
 
         <!-- All weeks displayed vertically -->
