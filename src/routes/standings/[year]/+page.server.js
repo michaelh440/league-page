@@ -5,31 +5,27 @@ import { error } from '@sveltejs/kit';
 export async function load({ params }) {
   const year = params.year ? parseInt(params.year) : 2023;
   
-  console.log('Loading standings for year:', year);
-  
   try {
-    // Get season_id for the selected year - handle multiple seasons per year
+    // Get season_id for the selected year - PICK THE ONE WITH DATA!
     const seasonResult = await query(`
-      SELECT season_id 
-      FROM seasons 
-      WHERE season_year = $1
-      ORDER BY season_id DESC
+      SELECT s.season_id, COUNT(m.id) as matchup_count
+      FROM seasons s
+      LEFT JOIN matchups m ON m.season_id = s.season_id
+      WHERE s.season_year = $1
+      GROUP BY s.season_id
+      ORDER BY matchup_count DESC, s.season_id DESC
       LIMIT 1
     `, [year]);
-    
-    console.log('Season result for', year, ':', seasonResult.rows);
     
     if (seasonResult.rows.length === 0) {
       throw error(404, `Season ${year} not found`);
     }
     
     const seasonId = seasonResult.rows[0].season_id;
-    console.log('Using season_id:', seasonId);
     
-    // Get standings - FIX: weekly_scoring.team_id is actually manager_id!
+    // Rest of the code stays the same...
     const standingsResult = await query(`
       WITH season_wins_losses AS (
-        -- Get wins/losses from matchups for this season
         SELECT 
           manager_id,
           SUM(CASE WHEN result = 1 THEN 1 ELSE 0 END) as wins,
@@ -37,7 +33,6 @@ export async function load({ params }) {
           SUM(CASE WHEN result = 0 THEN 1 ELSE 0 END) as ties,
           SUM(score_against) as points_against
         FROM (
-          -- Team 1 perspective
           SELECT 
             team1_id as manager_id,
             team1_score as score_for,
@@ -54,7 +49,6 @@ export async function load({ params }) {
           
           UNION ALL
           
-          -- Team 2 perspective
           SELECT 
             team2_id as manager_id,
             team2_score as score_for,
@@ -72,7 +66,6 @@ export async function load({ params }) {
         GROUP BY manager_id
       ),
       season_points AS (
-        -- Get points for from weekly_scoring - JOIN ON MANAGER_ID not team_id!
         SELECT 
           ws.team_id as manager_id,
           COALESCE(SUM(ws.team_score), 0) as points_for
@@ -83,7 +76,6 @@ export async function load({ params }) {
       SELECT 
         hr.regular_season_rank as rank,
         hr.final_rank,
-        -- Determine playoff status based on regular season rank
         CASE 
           WHEN hr.regular_season_rank <= 4 THEN 'playoffs'
           WHEN hr.regular_season_rank <= 8 THEN 'consolation'
@@ -108,9 +100,6 @@ export async function load({ params }) {
       WHERE hr.season_year = $1
       ORDER BY hr.regular_season_rank
     `, [year, seasonId]);
-    
-    console.log('Standings result count:', standingsResult.rows.length);
-    console.log('First 2 rows:', standingsResult.rows.slice(0, 2));
     
     // Get available years for dropdown
     const yearsResult = await query(`
