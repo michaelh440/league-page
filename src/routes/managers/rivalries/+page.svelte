@@ -4,9 +4,6 @@
 
   export let data;
 
-  // Debug: log the raw rivalry data
-  console.log('Raw rivalries data:', data.rivalries);
-
   let selectedManagerId = data.managerId?.toString() ?? '';
 
   const withMgr = (path) =>
@@ -30,19 +27,15 @@
   // Process rivalries for display
   $: managerRivalries = data.rivalries
     .map(r => {
-      console.log('Processing rivalry:', r); // Debug each rivalry
-      
-      const isTeam1 = r.team1_id === data.managerId;
-      const opponentId = isTeam1 ? r.team2_id : r.team1_id;
+      const isManager1 = r.manager1_id === data.managerId;
+      const opponentId = isManager1 ? r.manager2_id : r.manager1_id;
       const opponent = data.managers.find(m => m.manager_id === opponentId);
       
-      // Convert to numbers
-      const wins = parseInt(isTeam1 ? r.team1_wins : r.team2_wins);
-      const losses = parseInt(isTeam1 ? r.team2_wins : r.team1_wins);
+      // Convert to numbers using correct column names
+      const wins = parseInt(isManager1 ? r.manager1_wins : r.manager2_wins);
+      const losses = parseInt(isManager1 ? r.manager2_wins : r.manager1_wins);
       const ties = parseInt(r.ties);
-      const total = parseInt(r.total_games);
-      
-      console.log('Calculated values:', { wins, losses, ties, total }); // Debug calculated values
+      const total = parseInt(r.games_played);
       
       // Calculate win percentage: (wins + 0.5 * ties) / total_games
       const winPct = ((wins + 0.5 * ties) / total * 100).toFixed(1);
@@ -54,13 +47,12 @@
         ties,
         total,
         winPct,
-        team1_id: r.team1_id,
-        team2_id: r.team2_id
+        manager1_id: r.manager1_id,
+        manager2_id: r.manager2_id
       };
     })
     .sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct));
 </script>
-
 
 <StatsLayout title="Manager Rivalries" {navItems}>
   <div class="toolbar">
@@ -114,7 +106,7 @@
                 <td class="winpct-cell">{rivalry.winPct}%</td>
                 <td class="total-cell">{rivalry.total}</td>
                 <td class="action-cell">
-                  <a href={`/rivalries/${rivalry.team1_id}-${rivalry.team2_id}`} class="view-btn">
+                  <a href={`/rivalries/${rivalry.manager1_id}-${rivalry.manager2_id}`} class="view-btn">
                     View
                   </a>
                 </td>
@@ -210,8 +202,8 @@
     border-radius: 8px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    max-width: 900px;  /* Added: constrain width */
-    margin: 0 auto 3rem auto;  /* Added: center and add bottom margin */
+    max-width: 900px;
+    margin: 0 auto 3rem auto;
   }
 
   .rivalry-table {
@@ -387,6 +379,10 @@
     .view-btn {
       padding: 0.4rem 0.8rem;
       font-size: 0.8rem;
+    }
+
+    .rivalry-table-wrapper {
+      margin-bottom: 2rem;
     }
   }
 </style>

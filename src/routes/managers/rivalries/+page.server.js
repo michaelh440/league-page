@@ -30,7 +30,7 @@ export async function load({ url }) {
     SELECT *
     FROM vw_rivalries
     WHERE scope = 'all_time'
-      AND (team1_id = $1 OR team2_id = $1)
+      AND (manager1_id = $1 OR manager2_id = $1)
   `, [managerId]);
 
   return {
