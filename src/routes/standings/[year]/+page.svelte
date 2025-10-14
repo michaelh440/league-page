@@ -23,7 +23,7 @@
 </script>
 
 <svelte:head>
-  <title>{year} Season Standings</title>
+  <title>{year} Regular Season Standings</title>
 </svelte:head>
 
 <div class="page-layout">
@@ -42,10 +42,10 @@
 
   <!-- Main Content -->
   <main class="content">
-    <h3 style="text-align: center;">{year} Season Standings</h3>
+    <h3 style="text-align: center;">{year} Regular Season Standings</h3>
 
     <nav class="season-nav">
-      <a href="/standings/{year}" class="season-btn active">Final Standings</a>
+      <a href="/standings/{year}" class="season-btn active">Reg Season Standings</a>
       <a href="/seasons/{year}" class="season-btn">View Season</a>
     </nav>
 
@@ -58,7 +58,7 @@
         <table class="standings-table">
           <thead>
             <tr>
-              <th class="table-title" colspan="6">{year} Final Standings</th>
+              <th class="table-title" colspan="6">{year} Regular Season Final Standings</th>
             </tr>
             <tr>
               <th>Rank</th>
