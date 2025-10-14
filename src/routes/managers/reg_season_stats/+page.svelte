@@ -12,6 +12,7 @@
     selectedManagerId ? `${path}?managerId=${selectedManagerId}` : path;
 
   const navItems = [
+    { label: "Manager Bio", href: withMgr("/managers/bio") },
     { label: "All Time Scoring", href: withMgr("/managers/all_time_stats") },
     { label: "Regular Season Scoring", href: withMgr("/managers/reg_season_stats"), active: true },
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },

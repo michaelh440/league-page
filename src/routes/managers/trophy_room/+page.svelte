@@ -9,6 +9,7 @@
   const { awardsData, teamManagersData } = data;
 
   const navItems = [
+    { label: "Biography", href: withMgr("/managers/bio")},
     { label: "All Time Scoring", href: "/league/all_time_stats" },
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats" },

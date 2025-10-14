@@ -14,13 +14,14 @@
     managerId ? `${path}?manager_id=${managerId}` : path;
 
   const navItems = [
+    { label: "Manager Bio", href: withMgr("/managers/bio") },
     { label: "All Time Scoring", href: withMgr("/managers/all_time_stats") },
     { label: "Regular Season Scoring", href: withMgr("/managers/reg_season_stats") },
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },
     { label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
-    { label: "Draft Room", href: withMgr("/managers/drafts"), active: true },
-    { label: "Biography", href: withMgr("/managers/bio") }
+    { label: "Draft Room", href: withMgr("/managers/drafts"), active: true }
+    
   ];
 
   function handleManagerSelect(e) {
