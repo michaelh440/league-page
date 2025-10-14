@@ -27,13 +27,13 @@
   // Process rivalries for display
   $: managerRivalries = data.rivalries
     .map(r => {
-      const isManager1 = r.manager1_id === data.managerId;
-      const opponentId = isManager1 ? r.manager2_id : r.manager1_id;
+      const isTeam1 = r.team1_id === data.managerId;
+      const opponentId = isTeam1 ? r.team2_id : r.team1_id;
       const opponent = data.managers.find(m => m.manager_id === opponentId);
       
       // Convert to numbers using correct column names
-      const wins = parseInt(isManager1 ? r.manager1_wins : r.manager2_wins);
-      const losses = parseInt(isManager1 ? r.manager2_wins : r.manager1_wins);
+      const wins = parseInt(isTeam1 ? r.team1_wins : r.team2_wins);
+      const losses = parseInt(isTeam1 ? r.team2_wins : r.team1_wins);
       const ties = parseInt(r.ties);
       const total = parseInt(r.games_played);
       
@@ -47,12 +47,13 @@
         ties,
         total,
         winPct,
-        manager1_id: r.manager1_id,
-        manager2_id: r.manager2_id
+        team1_id: r.team1_id,
+        team2_id: r.team2_id
       };
     })
     .sort((a, b) => parseFloat(b.winPct) - parseFloat(a.winPct));
 </script>
+
 
 <StatsLayout title="Manager Rivalries" {navItems}>
   <div class="toolbar">

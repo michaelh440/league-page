@@ -25,12 +25,12 @@ export async function load({ url }) {
     };
   }
 
-  // Get rivalries for selected manager
+  // Get rivalries for selected manager - using team1_id/team2_id
   const rivalriesRes = await query(`
     SELECT *
     FROM vw_rivalries
     WHERE scope = 'all_time'
-      AND (manager1_id = $1 OR manager2_id = $1)
+      AND (team1_id = $1 OR team2_id = $1)
   `, [managerId]);
 
   return {
