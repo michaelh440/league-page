@@ -24,8 +24,9 @@
 
     <!-- Navigation -->
     <nav class="season-nav">
-      <a href="/seasons/{season}" class="season-btn">Regular Season</a>
-      <a href="/seasons/{season}/playoffs" class="season-btn active">Playoffs</a>
+      <a href="/standings/{year}" class="season-btn">Reg Season Standings</a>
+      <a href="/seasons/{year}" class="season-btn">Reg Season Week View</a>
+      <a href="/seasons/playoffs/{year}" class="season-btn active"> Playoff Week View</a>
     </nav>
 
     <!-- Championship Bracket -->
