@@ -109,7 +109,7 @@ export async function load({ params }) {
       SELECT DISTINCT season_year 
       FROM seasons
       WHERE season_year IS NOT NULL
-      ORDER BY season_year DESC
+      ORDER BY season_year ASC
     `);
     
     const availableYears = yearsResult.rows.map(row => row.season_year);

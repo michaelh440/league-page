@@ -10,7 +10,7 @@
 
 <div class="seasons-grid">
   {#each seasons as year}
-    <a class="season-card" href={`/seasons/${year}`}>
+    <a class="season-card" href={`/standings/${year}`}>
       <div class="card-header">{year}</div>
       <div class="card-body">
         <p>View Regular Season & Playoffs</p>
