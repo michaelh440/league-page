@@ -102,7 +102,7 @@ import { leagueID } from '$lib/utils/leagueInfo';
 export const tabs = [
   { icon: 'home', label: 'Home', dest: '/', key: 'home' },
   { icon: 'calendar_month', label: 'Current Season', dest: '/matchups', key: 'current' },
-  {
+  /*{
     icon: 'storage',
     label: 'League',
     nest: true,
@@ -116,8 +116,8 @@ export const tabs = [
       //{ icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
       { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
     ]
-  },
-  /*{
+  },*/
+  {
     icon: 'storage',
     label: 'League',
     nest: true,
@@ -131,16 +131,17 @@ export const tabs = [
             //{ icon: 'history_edu', label: 'Trophy Room', dest: '/league/trophy_room' },
       { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
     ]
-  },*/
+  },
+  { icon: 'storage', label: 'Previous Seasons', dest: '/previous_years', key: 'current' },
   /*{
     icon: 'storage',
     label: 'Previous Seasons',
     nest: true,
     key: 'previous_seasons',
     children: [
-      { icon: 'bar_chart', label: 'Standings', dest: '/league/standings' },
+      { icon: 'bar_chart', label: 'Standings', dest: '/standings' },
       { icon: 'compare_arrows', label: 'Weekly Matchups', dest: '/league/seasons/' },
-      { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts/' }
+      { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts/' },
       { icon: 'sports', label: 'Champions', dest: '/league/champions' },
       { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats/' },
       { icon: 'sports', label: 'Playoff Season Stats', dest: '/league/playoff_stats/' },
