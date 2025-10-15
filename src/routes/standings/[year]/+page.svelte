@@ -18,7 +18,7 @@
   function getPlayoffLabel(status) {
     if (status === 'playoffs') return 'Playoffs';
     if (status === 'consolation') return 'Consolation';
-    return 'Missed';
+    return 'Toilet Bowl';
   }
 </script>
 
@@ -121,8 +121,8 @@
             <span>- Consolation bracket (5-8)</span>
           </div>
           <div class="legend-item">
-            <span class="status-badge" style="background: #64748b; color: white;">Missed</span>
-            <span>- Missed playoffs</span>
+            <span class="status-badge" style="background: #64748b; color: white;">Toilet Bowl</span>
+            <span>- Toilet Bowl</span>
           </div>
         </div>
       {/if}
