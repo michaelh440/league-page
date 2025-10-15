@@ -50,16 +50,16 @@ export async function load({ params }) {
 
     result.rows.forEach((row) => {
       const weekKey = row.week === firstWeek ? 'week15' : 'week16';
-      const isChamp = row.bracket === 'Championship'; // Fixed: capitalized
+      const isChamp = row.bracket === 'Championship';
       
       const game = {
-        label: row.round_name || 'Playoff Game', // Use round_name from database
+        label: row.round_name || 'Playoff Game',
         team1: row.team1,
         team1_logo: row.team1_logo,
-        score1: row.score1 || 0,
+        score1: parseFloat(row.score1) || 0,  // Convert to number
         team2: row.team2,
         team2_logo: row.team2_logo,
-        score2: row.score2 || 0
+        score2: parseFloat(row.score2) || 0   // Convert to number
       };
 
       if (isChamp) {
