@@ -18,7 +18,6 @@
   );
 
   const navItems = [
-    { label: "Manager Bio", href: withMgr("/managers/bio")},
     { label: "List", href: "/managers", active: true },
     { label: "Individual Manager Bio", href: "/managers/bio" },
     { label: "Manager All Time Stats", href: "/managers/all_time_stats" },
