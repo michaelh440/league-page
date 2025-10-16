@@ -67,29 +67,17 @@ async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
     
     console.log(`Found ${picks.length} picks in draft`);
     
-    // Check if draft already exists
+    // Check if draft already exists by platform_draft_id
     const existingDraft = await query(`
       SELECT draft_id FROM drafts 
-      WHERE season_id = $1 AND platform_draft_id = $2
-    `, [seasonId, draft.draft_id]);
+      WHERE platform_draft_id = $1 AND platform = 'sleeper'
+    `, [draft.draft_id]);
     
     let draftDbId;
     
     if (existingDraft.rows.length > 0) {
       draftDbId = existingDraft.rows[0].draft_id;
-      console.log(`Draft already exists with ID ${draftDbId}, updating...`);
-      
-      await query(`
-        UPDATE drafts 
-        SET draft_status = 'completed',
-            draft_name = $1,
-            total_rounds = $2
-        WHERE draft_id = $3
-      `, [
-        draft.metadata?.name || 'Draft',
-        draft.settings.rounds,
-        draftDbId
-      ]);
+      console.log(`Draft already exists with ID ${draftDbId}, will update picks...`);
     } else {
       // Insert new draft record
       const draftResult = await query(`
