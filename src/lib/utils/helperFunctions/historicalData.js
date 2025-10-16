@@ -18,11 +18,14 @@ export async function archiveSeasonToPostgres(leagueID) {
   const season = parseInt(leagueData.season);
   console.log(`Archiving season ${season}`);
   
-  // Check if already archived
+  // Check if already archived - use explicit column references
   const existingCheck = await query(
-    `SELECT season_id, league_id FROM seasons s 
-     JOIN leagues l ON s.league_id = l.league_id 
-     WHERE l.platform_id = $1 AND s.season_year = $2 AND l.platform = 'sleeper'`,
+    `SELECT s.season_id, s.league_id 
+     FROM seasons s 
+     INNER JOIN leagues l ON s.league_id = l.league_id 
+     WHERE l.platform_id = $1 
+       AND s.season_year = $2 
+       AND l.platform = 'sleeper'`,
     [leagueID, season]
   );
   
@@ -33,6 +36,8 @@ export async function archiveSeasonToPostgres(leagueID) {
   const seasonId = existingCheck.rows[0].season_id;
   const dbLeagueId = existingCheck.rows[0].league_id;
   
+  console.log(`Found season_id: ${seasonId}, league_id: ${dbLeagueId}`);
+  
   // Archive draft
   await archiveDraft(leagueID, dbLeagueId, seasonId, season);
   
@@ -40,20 +45,27 @@ export async function archiveSeasonToPostgres(leagueID) {
 }
 
 async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
-  console.log('Fetching drafts...');
+  console.log('Fetching drafts from Sleeper API...');
   
   // Get drafts for this league
   const draftsRes = await fetch(`https://api.sleeper.app/v1/league/${leagueID}/drafts`);
   const drafts = await draftsRes.json();
   
+  console.log(`Found ${drafts.length} draft(s)`);
+  
   for (const draft of drafts) {
-    if (draft.status !== 'complete') continue;
+    if (draft.status !== 'complete') {
+      console.log(`Draft ${draft.draft_id} is not complete, skipping...`);
+      continue;
+    }
     
     console.log(`Processing draft ${draft.draft_id}`);
     
     // Get draft picks
     const picksRes = await fetch(`https://api.sleeper.app/v1/draft/${draft.draft_id}/picks`);
     const picks = await picksRes.json();
+    
+    console.log(`Found ${picks.length} picks in draft`);
     
     // Insert draft record
     const draftResult = await query(`
@@ -62,7 +74,8 @@ async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
         total_rounds, draft_status, platform, platform_draft_id
       )
       VALUES ($1, $2, $3, $4, $5, 'completed', 'sleeper', $6)
-      ON CONFLICT DO NOTHING
+      ON CONFLICT (platform_draft_id) DO UPDATE 
+      SET draft_status = 'completed'
       RETURNING draft_id
     `, [
       seasonId,
@@ -73,26 +86,26 @@ async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
       draft.draft_id
     ]);
     
-    if (draftResult.rows.length === 0) {
-      console.log('Draft already exists, skipping...');
-      continue;
-    }
-    
     const draftDbId = draftResult.rows[0].draft_id;
-    console.log(`Created draft record with ID ${draftDbId}`);
+    console.log(`Draft record ID: ${draftDbId}`);
     
     // Insert picks
+    let successCount = 0;
+    let skipCount = 0;
+    
     for (const pick of picks) {
       // Get manager_id and team_id from roster
       const rosterInfo = await query(`
         SELECT t.team_id, t.manager_id, m.username
         FROM teams t
-        JOIN managers m ON t.manager_id = m.manager_id
-        WHERE t.platform_team_id = $1 AND t.season_id = $2
+        INNER JOIN managers m ON t.manager_id = m.manager_id
+        WHERE t.platform_team_id = $1 
+          AND t.season_id = $2
       `, [pick.roster_id.toString(), seasonId]);
       
       if (rosterInfo.rows.length === 0) {
-        console.log(`Roster ${pick.roster_id} not found, skipping pick`);
+        console.log(`Roster ${pick.roster_id} not found for pick ${pick.pick_no}, skipping`);
+        skipCount++;
         continue;
       }
       
@@ -120,8 +133,10 @@ async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
         username,
         pick.metadata?.team || 'FA'
       ]);
+      
+      successCount++;
     }
     
-    console.log(`Archived ${picks.length} picks`);
+    console.log(`Archived ${successCount} picks successfully, skipped ${skipCount}`);
   }
 }
