@@ -59,7 +59,7 @@ async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
       continue;
     }
     
-    console.log(`Processing draft ${draft.draft_id}`);
+    console.log(`Processing draft ${draft.draft_id}, type: ${typeof draft.draft_id}`);
     
     // Get draft picks
     const picksRes = await fetch(`https://api.sleeper.app/v1/draft/${draft.draft_id}/picks`);
@@ -67,33 +67,38 @@ async function archiveDraft(leagueID, dbLeagueId, seasonId, season) {
     
     console.log(`Found ${picks.length} picks in draft`);
     
-    // Check if draft already exists by platform_draft_id
+    // Check if draft already exists by matching season_id and draft details
+    // Since your schema doesn't have platform_draft_id, we'll check by season and pick count
     const existingDraft = await query(`
-      SELECT draft_id FROM drafts 
-      WHERE platform_draft_id = $1 AND platform = 'sleeper'
-    `, [draft.draft_id]);
+      SELECT d.draft_id 
+      FROM drafts d
+      WHERE d.season_id = $1 
+        AND d.platform = 'sleeper'
+      LIMIT 1
+    `, [seasonId]);
     
     let draftDbId;
     
+    console.log(`Existing draft check returned ${existingDraft.rows.length} rows`);
+    
     if (existingDraft.rows.length > 0) {
       draftDbId = existingDraft.rows[0].draft_id;
-      console.log(`Draft already exists with ID ${draftDbId}, will update picks...`);
+      console.log(`Draft already exists with ID ${draftDbId}, will add/update picks...`);
     } else {
-      // Insert new draft record
+      // Insert new draft record (without platform_draft_id since it's not in your schema)
       const draftResult = await query(`
         INSERT INTO drafts (
           season_id, season_year, draft_name, draft_type,
-          total_rounds, draft_status, platform, platform_draft_id
+          total_rounds, draft_status, platform
         )
-        VALUES ($1, $2, $3, $4, $5, 'completed', 'sleeper', $6)
+        VALUES ($1, $2, $3, $4, $5, 'completed', 'sleeper')
         RETURNING draft_id
       `, [
         seasonId,
         season,
         draft.metadata?.name || 'Draft',
         draft.type,
-        draft.settings.rounds,
-        draft.draft_id
+        draft.settings.rounds
       ]);
       
       draftDbId = draftResult.rows[0].draft_id;
