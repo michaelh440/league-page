@@ -10,40 +10,41 @@
     let generating = false;
     let generatedSummary = '';
     let error = '';
-    let importStatus = null;
     
-    const seasons = Array.from({ length: 10 }, (_, i) => 2026 - i);
+    const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
     
     onMount(() => {
-        checkImportStatus();
+        loadWeeklyData();
     });
     
-    async function checkImportStatus() {
+    async function loadWeeklyData() {
+        loading = true;
+        error = '';
+        matchups = [];
+        
+        console.log('Loading data for:', selectedSeason, selectedWeek);
+        
         try {
-            const response = await fetch(
-                `/api/import_sleeper_week?season=${selectedSeason}&week=${selectedWeek}`
-            );
+            const url = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`;
+            console.log('Fetching:', url);
             
-            // Check if response is JSON before parsing
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                console.log('Import status endpoint not ready (returned HTML)');
-                return;
-            }
-            
+            const response = await fetch(url);
             const data = await response.json();
             
+            console.log('Received data:', data);
+            
             if (data.success) {
-                importStatus = data;
-                
-                // If data exists in main tables, load it for preview
-                if (data.main && data.main.matchups_count > 0) {
-                    await loadWeeklyData();
-                }
+                matchups = data.matchups || [];
+                console.log(`Found ${matchups.length} matchups`);
+            } else {
+                error = data.error || 'Failed to load data';
             }
         } catch (err) {
-            console.error('Error checking import status:', err);
+            error = 'Failed to fetch weekly data';
+            console.error(err);
+        } finally {
+            loading = false;
         }
     }
     
@@ -52,6 +53,8 @@
         error = '';
         
         try {
+            console.log('Importing week:', selectedSeason, selectedWeek);
+            
             const response = await fetch('/api/import_sleeper_week', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -62,29 +65,19 @@
                 })
             });
             
-            // Check if response is JSON
             const contentType = response.headers.get('content-type');
             if (!contentType || !contentType.includes('application/json')) {
                 const text = await response.text();
                 console.error('Non-JSON response:', text);
                 error = 'API endpoint not found. Make sure src/routes/api/import_sleeper_week/+server.js exists.';
-                importing = false;
                 return;
             }
             
             const data = await response.json();
+            console.log('Import result:', data);
             
             if (data.success) {
-                importStatus = {
-                    success: true,
-                    main: { 
-                        season_id: data.seasonId,
-                        matchups_count: 0 
-                    }
-                };
-                
-                // Refresh status and load data
-                await checkImportStatus();
+                alert('Week imported successfully!');
                 await loadWeeklyData();
             } else {
                 error = data.error || 'Failed to import week data';
@@ -96,35 +89,6 @@
             importing = false;
         }
     }
-    
-    async function loadWeeklyData() {
-    loading = true;
-    error = '';
-    matchups = []; // Clear existing data first
-    
-    console.log('Loading data for:', selectedSeason, selectedWeek); // Debug log
-    
-    try {
-        const url = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`;
-        console.log('Fetching:', url); // Debug log
-        
-        const response = await fetch(url);
-        const data = await response.json();
-        
-        console.log('Received data:', data); // Debug log
-        
-        if (data.success) {
-            matchups = data.matchups;
-        } else {
-            error = data.error || 'Failed to load data';
-        }
-    } catch (err) {
-        error = 'Failed to fetch weekly data';
-        console.error(err);
-    } finally {
-        loading = false;
-    }
-}
     
     async function generateSummary() {
         if (matchups.length === 0) {
@@ -182,11 +146,11 @@
     }
     
     function handleSeasonChange() {
-        checkImportStatus();
+        loadWeeklyData();
     }
     
     function handleWeekChange() {
-        checkImportStatus();
+        loadWeeklyData();
     }
 </script>
 
@@ -211,46 +175,53 @@
                 {/each}
             </select>
         </div>
-        
-        {#if !importStatus || !importStatus.main || importStatus.main.matchups_count === 0}
-            <button 
-                on:click={importWeek} 
-                disabled={importing}
-                class="btn-primary"
-            >
-                {importing ? 'Importing...' : 'Import Week from Sleeper'}
-            </button>
-        {:else}
-            <button 
-                on:click={loadWeeklyData} 
-                disabled={loading}
-                class="btn-secondary"
-            >
-                {loading ? 'Loading...' : 'Reload Data'}
-            </button>
-            
-            <button 
-                on:click={generateSummary} 
-                disabled={loading || generating || matchups.length === 0}
-                class="btn-primary"
-            >
-                {generating ? 'Generating...' : 'Generate AI Summary'}
-            </button>
-        {/if}
     </div>
     
     {#if error}
         <div class="error">{error}</div>
     {/if}
     
-    {#if importStatus}
+    <!-- Status and Import Button -->
+    {#if loading}
         <div class="status-card">
-            <strong>Status:</strong>
-            {#if importStatus.main && importStatus.main.matchups_count > 0}
-                <span class="success">✓ Week {selectedWeek} data loaded ({importStatus.main.matchups_count} matchups)</span>
-            {:else}
-                <span class="warning">No data for this week. Click Import to fetch from Sleeper.</span>
-            {/if}
+            <span>⏳ Loading data...</span>
+        </div>
+    {:else if matchups.length === 0}
+        <div class="status-card warning-card">
+            <div class="status-message">
+                <span class="warning">⚠️ No data found for Week {selectedWeek} of {selectedSeason}</span>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
+                    Click the button below to import this week's data from Sleeper.
+                </p>
+            </div>
+            <button 
+                on:click={importWeek} 
+                disabled={importing}
+                class="btn-primary btn-large"
+            >
+                {importing ? '⏳ Importing from Sleeper...' : '📥 Import Week from Sleeper'}
+            </button>
+        </div>
+    {:else}
+        <div class="status-card success-card">
+            <span class="success">✓ Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
+            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                <button 
+                    on:click={loadWeeklyData} 
+                    disabled={loading}
+                    class="btn-secondary"
+                >
+                    {loading ? 'Loading...' : '🔄 Reload Data'}
+                </button>
+                
+                <button 
+                    on:click={generateSummary} 
+                    disabled={loading || generating}
+                    class="btn-primary"
+                >
+                    {generating ? '⏳ Generating...' : '🤖 Generate AI Summary'}
+                </button>
+            </div>
         </div>
     {/if}
     
@@ -265,6 +236,7 @@
                     <div class="matchup-score">
                         <div class="team">
                             <div class="team-name">{matchup.team1_name}</div>
+                            <div class="manager-name">({matchup.manager1_name})</div>
                             <div class="score {parseFloat(matchup.team1_score) > parseFloat(matchup.team2_score) ? 'winner' : ''}">
                                 {parseFloat(matchup.team1_score || 0).toFixed(2)}
                             </div>
@@ -274,11 +246,18 @@
                         
                         <div class="team">
                             <div class="team-name">{matchup.team2_name}</div>
+                            <div class="manager-name">({matchup.manager2_name})</div>
                             <div class="score {parseFloat(matchup.team2_score) > parseFloat(matchup.team1_score) ? 'winner' : ''}">
                                 {parseFloat(matchup.team2_score || 0).toFixed(2)}
                             </div>
                         </div>
                     </div>
+                    
+                    {#if matchup.margin}
+                        <div class="margin">
+                            Margin: {parseFloat(matchup.margin || 0).toFixed(2)} points
+                        </div>
+                    {/if}
                 </div>
             {/each}
         </div>
@@ -289,7 +268,7 @@
             <div class="summary-header">
                 <h3>Generated Summary</h3>
                 <button on:click={() => copyToClipboard(generatedSummary)} class="btn-secondary">
-                    Copy to Clipboard
+                    📋 Copy to Clipboard
                 </button>
             </div>
             
@@ -350,6 +329,7 @@
         font-weight: 600;
         cursor: pointer;
         font-size: 0.95em;
+        transition: background 0.2s;
     }
     
     button:disabled {
@@ -364,6 +344,11 @@
     
     .btn-primary:hover:not(:disabled) {
         background: #1d4ed8;
+    }
+    
+    .btn-large {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.05em;
     }
     
     .btn-secondary {
@@ -384,19 +369,37 @@
     }
     
     .status-card {
-        padding: 1rem;
+        padding: 1.5rem;
         background: #f3f4f6;
-        border-radius: 4px;
+        border-radius: 6px;
         margin-bottom: 1.5rem;
+    }
+    
+    .warning-card {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        text-align: center;
+    }
+    
+    .success-card {
+        background: #d1fae5;
+        border: 2px solid #10b981;
+    }
+    
+    .status-message {
+        margin-bottom: 1rem;
     }
     
     .success {
         color: #059669;
         font-weight: 600;
+        font-size: 1.05em;
     }
     
     .warning {
         color: #d97706;
+        font-weight: 600;
+        font-size: 1.05em;
     }
     
     .matchups {
@@ -431,12 +434,19 @@
     
     .team-name {
         font-weight: 600;
+        margin-bottom: 0.25rem;
+    }
+    
+    .manager-name {
+        font-size: 0.85em;
+        color: #6b7280;
         margin-bottom: 0.5rem;
     }
     
     .score {
         font-size: 1.75rem;
         font-weight: 700;
+        color: #6b7280;
     }
     
     .score.winner {
@@ -446,6 +456,14 @@
     .vs {
         font-weight: 700;
         color: #9ca3af;
+        font-size: 1.25em;
+    }
+    
+    .margin {
+        text-align: center;
+        margin-top: 0.75rem;
+        font-size: 0.9em;
+        color: #6b7280;
     }
     
     .summary-output {
