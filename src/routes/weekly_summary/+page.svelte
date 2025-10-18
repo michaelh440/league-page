@@ -1,8 +1,6 @@
 <!-- src/routes/weekly_summary/+page.svelte -->
 <script>
-    import { onMount } from 'svelte';
-    
-    let selectedSeason = '2024';
+    let selectedSeason = '2025';
     let selectedWeek = '1';
     let matchups = [];
     let loading = false;
@@ -10,18 +8,16 @@
     let generating = false;
     let generatedSummary = '';
     let error = '';
+    let dataLoaded = false;
     
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
-    
-    onMount(() => {
-        loadWeeklyData();
-    });
     
     async function loadWeeklyData() {
         loading = true;
         error = '';
         matchups = [];
+        dataLoaded = false;
         
         console.log('Loading data for:', selectedSeason, selectedWeek);
         
@@ -36,13 +32,16 @@
             
             if (data.success) {
                 matchups = data.matchups || [];
+                dataLoaded = true;
                 console.log(`Found ${matchups.length} matchups`);
             } else {
                 error = data.error || 'Failed to load data';
+                dataLoaded = true;
             }
         } catch (err) {
             error = 'Failed to fetch weekly data';
             console.error(err);
+            dataLoaded = true;
         } finally {
             loading = false;
         }
@@ -144,14 +143,6 @@
         navigator.clipboard.writeText(text);
         alert('Summary copied!');
     }
-    
-    function handleSeasonChange() {
-        loadWeeklyData();
-    }
-    
-    function handleWeekChange() {
-        loadWeeklyData();
-    }
 </script>
 
 <div class="content">
@@ -160,7 +151,7 @@
     <div class="controls">
         <div class="selector">
             <label for="season">Season:</label>
-            <select id="season" bind:value={selectedSeason} on:change={handleSeasonChange}>
+            <select id="season" bind:value={selectedSeason}>
                 {#each seasons as season}
                     <option value={season}>{season}</option>
                 {/each}
@@ -169,60 +160,67 @@
         
         <div class="selector">
             <label for="week">Week:</label>
-            <select id="week" bind:value={selectedWeek} on:change={handleWeekChange}>
+            <select id="week" bind:value={selectedWeek}>
                 {#each weeks as week}
                     <option value={week}>Week {week}</option>
                 {/each}
             </select>
         </div>
+        
+        <button 
+            on:click={loadWeeklyData} 
+            disabled={loading}
+            class="btn-primary"
+            style="margin-top: auto;"
+        >
+            {loading ? '⏳ Loading...' : '🔍 Load Week Data'}
+        </button>
     </div>
     
     {#if error}
         <div class="error">{error}</div>
     {/if}
     
-    <!-- Status and Import Button -->
-    {#if loading}
-        <div class="status-card">
-            <span>⏳ Loading data...</span>
-        </div>
-    {:else if matchups.length === 0}
-        <div class="status-card warning-card">
-            <div class="status-message">
-                <span class="warning">⚠️ No data found for Week {selectedWeek} of {selectedSeason}</span>
-                <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
-                    Click the button below to import this week's data from Sleeper.
-                </p>
-            </div>
-            <button 
-                on:click={importWeek} 
-                disabled={importing}
-                class="btn-primary btn-large"
-            >
-                {importing ? '⏳ Importing from Sleeper...' : '📥 Import Week from Sleeper'}
-            </button>
-        </div>
-    {:else}
-        <div class="status-card success-card">
-            <span class="success">✓ Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
-            <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+    <!-- Show status after data is loaded -->
+    {#if dataLoaded}
+        {#if matchups.length === 0}
+            <div class="status-card warning-card">
+                <div class="status-message">
+                    <span class="warning">⚠️ No data found for Week {selectedWeek} of {selectedSeason}</span>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
+                        Click the button below to import this week's data from Sleeper.
+                    </p>
+                </div>
                 <button 
-                    on:click={loadWeeklyData} 
-                    disabled={loading}
-                    class="btn-secondary"
+                    on:click={importWeek} 
+                    disabled={importing}
+                    class="btn-primary btn-large"
                 >
-                    {loading ? 'Loading...' : '🔄 Reload Data'}
-                </button>
-                
-                <button 
-                    on:click={generateSummary} 
-                    disabled={loading || generating}
-                    class="btn-primary"
-                >
-                    {generating ? '⏳ Generating...' : '🤖 Generate AI Summary'}
+                    {importing ? '⏳ Importing from Sleeper...' : '📥 Import Week from Sleeper'}
                 </button>
             </div>
-        </div>
+        {:else}
+            <div class="status-card success-card">
+                <span class="success">✓ Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                    <button 
+                        on:click={loadWeeklyData} 
+                        disabled={loading}
+                        class="btn-secondary"
+                    >
+                        {loading ? 'Loading...' : '🔄 Reload Data'}
+                    </button>
+                    
+                    <button 
+                        on:click={generateSummary} 
+                        disabled={loading || generating}
+                        class="btn-primary"
+                    >
+                        {generating ? '⏳ Generating...' : '🤖 Generate AI Summary'}
+                    </button>
+                </div>
+            </div>
+        {/if}
     {/if}
     
     {#if matchups.length > 0}
