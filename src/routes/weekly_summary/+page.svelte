@@ -9,6 +9,9 @@
     let generatedSummary = '';
     let error = '';
     let dataLoaded = false;
+    let editMode = false;
+    let saving = false;
+    let summaryExists = false;
     
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
@@ -17,25 +20,34 @@
         loading = true;
         error = '';
         matchups = [];
+        generatedSummary = '';
+        summaryExists = false;
+        editMode = false;
         dataLoaded = false;
         
         console.log('Loading data for:', selectedSeason, selectedWeek);
         
         try {
-            const url = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`;
-            console.log('Fetching:', url);
+            // Load matchups
+            const matchupsUrl = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`;
+            console.log('Fetching matchups:', matchupsUrl);
             
-            const response = await fetch(url);
-            const data = await response.json();
+            const matchupsResponse = await fetch(matchupsUrl);
+            const matchupsData = await matchupsResponse.json();
             
-            console.log('Received data:', data);
+            console.log('Received matchup data:', matchupsData);
             
-            if (data.success) {
-                matchups = data.matchups || [];
+            if (matchupsData.success) {
+                matchups = matchupsData.matchups || [];
                 dataLoaded = true;
                 console.log(`Found ${matchups.length} matchups`);
+                
+                // If matchups exist, also load the summary
+                if (matchups.length > 0) {
+                    await loadExistingSummary();
+                }
             } else {
-                error = data.error || 'Failed to load data';
+                error = matchupsData.error || 'Failed to load data';
                 dataLoaded = true;
             }
         } catch (err) {
@@ -44,6 +56,24 @@
             dataLoaded = true;
         } finally {
             loading = false;
+        }
+    }
+    
+    async function loadExistingSummary() {
+        try {
+            const summaryUrl = `/api/weekly_summary_text?season=${selectedSeason}&week=${selectedWeek}`;
+            const response = await fetch(summaryUrl);
+            const data = await response.json();
+            
+            if (data.success && data.summary) {
+                generatedSummary = data.summary.summary_text;
+                summaryExists = true;
+                console.log('Loaded existing summary');
+            } else {
+                summaryExists = false;
+            }
+        } catch (err) {
+            console.error('Error loading existing summary:', err);
         }
     }
     
@@ -115,6 +145,8 @@
             
             if (data.success) {
                 generatedSummary = data.summary;
+                summaryExists = true;
+                editMode = false;
             } else {
                 error = data.error || 'Failed to generate summary';
             }
@@ -124,6 +156,53 @@
         } finally {
             generating = false;
         }
+    }
+    
+    async function saveSummary() {
+        if (!generatedSummary.trim()) {
+            error = 'Summary cannot be empty';
+            return;
+        }
+        
+        saving = true;
+        error = '';
+        
+        try {
+            const response = await fetch('/api/weekly_summary_text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    season: selectedSeason,
+                    week: selectedWeek,
+                    summaryText: generatedSummary
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                summaryExists = true;
+                editMode = false;
+                alert('Summary saved successfully!');
+            } else {
+                error = data.error || 'Failed to save summary';
+            }
+        } catch (err) {
+            error = 'Failed to save summary';
+            console.error(err);
+        } finally {
+            saving = false;
+        }
+    }
+    
+    function toggleEditMode() {
+        editMode = !editMode;
+    }
+    
+    function cancelEdit() {
+        editMode = false;
+        // Reload the original summary
+        loadExistingSummary();
     }
     
     function formatDataForAI(matchups) {
@@ -216,7 +295,7 @@
                         disabled={loading || generating}
                         class="btn-primary"
                     >
-                        {generating ? '⏳ Generating...' : '🤖 Generate AI Summary'}
+                        {generating ? '⏳ Generating...' : summaryExists ? '🔄 Regenerate Summary' : '🤖 Generate AI Summary'}
                     </button>
                 </div>
             </div>
@@ -264,15 +343,38 @@
     {#if generatedSummary}
         <div class="summary-output">
             <div class="summary-header">
-                <h3>Generated Summary</h3>
-                <button on:click={() => copyToClipboard(generatedSummary)} class="btn-secondary">
-                    📋 Copy to Clipboard
-                </button>
+                <h3>Weekly Summary</h3>
+                <div style="display: flex; gap: 0.5rem;">
+                    {#if !editMode}
+                        <button on:click={toggleEditMode} class="btn-secondary">
+                            ✏️ Edit
+                        </button>
+                        <button on:click={() => copyToClipboard(generatedSummary)} class="btn-secondary">
+                            📋 Copy
+                        </button>
+                    {:else}
+                        <button on:click={saveSummary} disabled={saving} class="btn-primary">
+                            {saving ? '⏳ Saving...' : '💾 Save'}
+                        </button>
+                        <button on:click={cancelEdit} disabled={saving} class="btn-secondary">
+                            ❌ Cancel
+                        </button>
+                    {/if}
+                </div>
             </div>
             
-            <div class="summary-text">
-                {generatedSummary}
-            </div>
+            {#if editMode}
+                <textarea
+                    bind:value={generatedSummary}
+                    class="summary-textarea"
+                    rows="15"
+                    placeholder="Enter your summary..."
+                ></textarea>
+            {:else}
+                <div class="summary-text">
+                    {generatedSummary}
+                </div>
+            {/if}
         </div>
     {/if}
 </div>
@@ -485,5 +587,22 @@
         border-radius: 4px;
         white-space: pre-wrap;
         line-height: 1.6;
+    }
+    
+    .summary-textarea {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid #e5e7eb;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 1em;
+        line-height: 1.6;
+        resize: vertical;
+        min-height: 300px;
+    }
+    
+    .summary-textarea:focus {
+        outline: none;
+        border-color: #2563eb;
     }
 </style>
