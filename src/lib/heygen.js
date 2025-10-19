@@ -17,7 +17,7 @@ export async function createHeyGenVideo(script, options = {}) {
         title = 'Fantasy Football Weekly Summary'
     } = options;
 
-    // Try the simpler v1 API format first
+    // Try the simpler v2 API format first
     const payload = {
         video_inputs: [
             {
@@ -41,8 +41,8 @@ export async function createHeyGenVideo(script, options = {}) {
     console.log('Payload:', JSON.stringify(payload, null, 2));
 
     try {
-        // Try v1 endpoint
-        const response = await fetch(`${HEYGEN_API_BASE}/v1/video.generate`, {
+        // Try v2 endpoint
+        const response = await fetch(`${HEYGEN_API_BASE}/v2/video.generate`, {
             method: 'POST',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY,
@@ -140,7 +140,7 @@ export async function listHeyGenAvatars() {
         console.log('API Key present:', !!HEYGEN_API_KEY);
         console.log('API Key first 10 chars:', HEYGEN_API_KEY ? HEYGEN_API_KEY.substring(0, 10) + '...' : 'MISSING');
         
-        const response = await fetch(`${HEYGEN_API_BASE}/v1/avatar.list`, {
+        const response = await fetch(`${HEYGEN_API_BASE}/v2/avatar.list`, {
             method: 'GET',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY
@@ -178,7 +178,7 @@ export async function listHeyGenAvatars() {
  */
 export async function listHeyGenVoices() {
     try {
-        const response = await fetch(`${HEYGEN_API_BASE}/v1/voice.list`, {
+        const response = await fetch(`${HEYGEN_API_BASE}/v2/voice.list`, {
             method: 'GET',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY
