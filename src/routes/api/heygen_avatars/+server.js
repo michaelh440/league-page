@@ -7,6 +7,7 @@ export async function GET() {
         const result = await listHeyGenAvatars();
         
         if (!result.success) {
+            console.error('Failed to fetch avatars:', result.error);
             return json({ 
                 success: false, 
                 error: result.error,

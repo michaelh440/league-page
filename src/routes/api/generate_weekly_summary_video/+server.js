@@ -1,287 +1,232 @@
 // src/routes/api/generate_weekly_summary_video/+server.js
 import { json } from '@sveltejs/kit';
-import { query } from '$lib/db';
-import { createHeyGenVideo, checkHeyGenVideoStatus } from '$lib/heygen';
+import { createHeyGenVideo, getHeyGenVideoStatus } from '$lib/heygen';
+import { neon } from '@neondatabase/serverless';
+import { DATABASE_URL } from '$env/static/private';
 
-// POST - Generate video from summary
+const sql = neon(DATABASE_URL);
+
 export async function POST({ request }) {
-    try {
-        const { season, week, summaryText, testMode } = await request.json();
+	try {
+		const body = await request.json();
+		const { season, week, summary, testMode = false, avatarId, voiceId } = body;
+		
+		console.log('POST /api/generate_weekly_summary_video - Request body:', body);
 
-        if (!season || !week || !summaryText) {
-            return json({
-                success: false,
-                error: 'Missing required parameters'
-            }, { status: 400 });
-        }
+		if (!season || !week || !summary) {
+			return json({ success: false, error: 'Missing required parameters' }, { status: 400 });
+		}
 
-        // Get season_id
-        const seasonResult = await query(
-            'SELECT season_id FROM seasons WHERE season_year = $1',
-            [season]
-        );
+		// Get season_id
+		const seasonResult = await sql`
+			SELECT season_id FROM seasons WHERE season = ${season}
+		`;
 
-        if (seasonResult.rows.length === 0) {
-            return json({
-                success: false,
-                error: 'Season not found'
-            }, { status: 404 });
-        }
+		if (seasonResult.length === 0) {
+			return json({ success: false, error: 'Season not found' }, { status: 404 });
+		}
 
-        const seasonId = seasonResult.rows[0].season_id;
+		const seasonId = seasonResult[0].season_id;
 
-        // Create or update video record with pending status
-        const videoResult = await query(
-            `INSERT INTO weekly_summary_videos (
-                season_id,
-                week,
-                generation_status,
-                created_at
-            ) VALUES ($1, $2, 'pending', CURRENT_TIMESTAMP)
-            ON CONFLICT (season_id, week) 
-            DO UPDATE SET
-                generation_status = 'pending',
-                error_message = NULL,
-                video_url = NULL,
-                thumbnail_url = NULL,
-                provider_video_id = NULL,
-                created_at = CURRENT_TIMESTAMP
-            RETURNING video_id`,
-            [seasonId, week]
-        );
+		// Check if video already exists
+		const existingVideo = await sql`
+			SELECT * FROM weekly_summary_videos
+			WHERE season_id = ${seasonId} AND week = ${week}
+		`;
 
-        const videoId = videoResult.rows[0].video_id;
+		if (existingVideo.length > 0) {
+			// Delete existing video record
+			await sql`
+				DELETE FROM weekly_summary_videos
+				WHERE season_id = ${seasonId} AND week = ${week}
+			`;
+		}
 
-        if (testMode) {
-            // ==========================================
-            // TEST MODE - Simulate video generation
-            // ==========================================
-            console.log('Test mode: Simulating video generation for:', {
-                videoId,
-                season,
-                week,
-                summaryLength: summaryText.length
-            });
-            
-            // Update to processing status
-            await query(
-                `UPDATE weekly_summary_videos 
-                SET generation_status = 'processing'
-                WHERE video_id = $1`,
-                [videoId]
-            );
-            
-            // Simulate processing delay (2 seconds) then complete
-            setTimeout(async () => {
-                try {
-                    // Use a public test video URL (Big Buck Bunny sample)
-                    const testVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
-                    
-                    await query(
-                        `UPDATE weekly_summary_videos 
-                        SET 
-                            generation_status = 'completed',
-                            video_url = $1,
-                            thumbnail_url = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-                            video_duration = 596,
-                            completed_at = CURRENT_TIMESTAMP,
-                            error_message = NULL
-                        WHERE video_id = $2`,
-                        [testVideoUrl, videoId]
-                    );
-                    
-                    console.log('Test video generation completed:', videoId);
-                } catch (err) {
-                    console.error('Error completing test video:', err);
-                    await query(
-                        `UPDATE weekly_summary_videos 
-                        SET 
-                            generation_status = 'failed',
-                            error_message = $1
-                        WHERE video_id = $2`,
-                        [err.message, videoId]
-                    );
-                }
-            }, 2000);
-            
-            return json({
-                success: true,
-                message: 'Test video generation initiated',
-                videoId,
-                status: 'processing',
-                testMode: true
-            });
-        }
+		if (testMode) {
+			// Test mode: Create a mock video record
+			console.log('Test mode enabled - creating mock video');
 
-        // ==========================================
-        // PRODUCTION MODE - HeyGen API integration
-        // ==========================================
-        
-        console.log('Production mode: Generating HeyGen video for:', {
-            videoId,
-            season,
-            week,
-            summaryLength: summaryText.length
-        });
-        
-        // Call HeyGen API to create video
-        const heygenResult = await createHeyGenVideo(summaryText, {
-            title: `Week ${week} - ${season} Fantasy Football Summary`
-        });
-        
-        if (!heygenResult.success) {
-            // Failed to start video generation
-            await query(
-                `UPDATE weekly_summary_videos 
-                SET 
-                    generation_status = 'failed',
-                    error_message = $1
-                WHERE video_id = $2`,
-                [heygenResult.error, videoId]
-            );
-            
-            return json({
-                success: false,
-                error: heygenResult.error
-            }, { status: 500 });
-        }
-        
-        // Successfully started video generation
-        await query(
-            `UPDATE weekly_summary_videos 
-            SET 
-                generation_status = 'processing',
-                provider_video_id = $1
-            WHERE video_id = $2`,
-            [heygenResult.videoId, videoId]
-        );
-        
-        // Start background polling to check for completion
-        pollHeyGenVideo(videoId, heygenResult.videoId);
+			// Insert pending video record
+			const insertResult = await sql`
+				INSERT INTO weekly_summary_videos (
+					season_id, week, generation_status, video_provider
+				)
+				VALUES (${seasonId}, ${week}, 'pending', 'test')
+				RETURNING video_id
+			`;
 
-        return json({
-            success: true,
-            message: 'HeyGen video generation started',
-            videoId,
-            status: 'processing',
-            heygenVideoId: heygenResult.videoId
-        });
+			const videoId = insertResult[0].video_id;
 
-    } catch (error) {
-        console.error('Error generating video:', error);
-        return json({
-            success: false,
-            error: error.message
-        }, { status: 500 });
-    }
+			// Simulate processing delay
+			setTimeout(async () => {
+				try {
+					const testVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+					const testThumbnail = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg';
+
+					await sql`
+						UPDATE weekly_summary_videos
+						SET 
+							generation_status = 'completed',
+							video_url = ${testVideoUrl},
+							thumbnail_url = ${testThumbnail},
+							video_duration = 596,
+							completed_at = CURRENT_TIMESTAMP
+						WHERE video_id = ${videoId}
+					`;
+
+					console.log('Test video completed:', videoId);
+				} catch (err) {
+					console.error('Error updating test video:', err);
+				}
+			}, 2000);
+
+			return json({ success: true, videoId, testMode: true });
+		} else {
+			// Production mode: Use HeyGen API
+			console.log('Creating HeyGen video with avatar:', avatarId, 'and voice:', voiceId);
+
+			// Insert pending video record
+			const insertResult = await sql`
+				INSERT INTO weekly_summary_videos (
+					season_id, week, generation_status, video_provider
+				)
+				VALUES (${seasonId}, ${week}, 'pending', 'heygen')
+				RETURNING video_id
+			`;
+
+			const videoId = insertResult[0].video_id;
+
+			try {
+				// Call HeyGen API with custom avatar and voice
+				const heygenOptions = {};
+				if (avatarId) heygenOptions.avatarId = avatarId;
+				if (voiceId) heygenOptions.voiceId = voiceId;
+				
+				console.log('Calling HeyGen with options:', heygenOptions);
+				const result = await createHeyGenVideo(summary, heygenOptions);
+
+				if (!result.success) {
+					await sql`
+						UPDATE weekly_summary_videos
+						SET 
+							generation_status = 'failed',
+							error_message = ${result.error}
+						WHERE video_id = ${videoId}
+					`;
+
+					return json({ success: false, error: result.error }, { status: 500 });
+				}
+
+				// Update with HeyGen video ID and set to processing
+				await sql`
+					UPDATE weekly_summary_videos
+					SET 
+						generation_status = 'processing',
+						provider_video_id = ${result.videoId}
+					WHERE video_id = ${videoId}
+				`;
+
+				// Start polling for completion
+				pollHeyGenStatus(videoId, result.videoId, sql);
+
+				return json({ success: true, videoId, heygenVideoId: result.videoId });
+			} catch (err) {
+				console.error('Error creating HeyGen video:', err);
+
+				await sql`
+					UPDATE weekly_summary_videos
+					SET 
+						generation_status = 'failed',
+						error_message = ${err.message}
+					WHERE video_id = ${videoId}
+				`;
+
+				return json({ success: false, error: err.message }, { status: 500 });
+			}
+		}
+	} catch (error) {
+		console.error('Error in generate_weekly_summary_video POST:', error);
+		return json({ success: false, error: error.message }, { status: 500 });
+	}
 }
 
-// Background polling function to check HeyGen video status
-async function pollHeyGenVideo(videoId, heygenVideoId, attempts = 0) {
-    const maxAttempts = 120; // Max 10 minutes (5 second intervals)
-    
-    if (attempts >= maxAttempts) {
-        console.log('Polling timeout for video:', videoId);
-        await query(
-            `UPDATE weekly_summary_videos 
-            SET 
-                generation_status = 'failed',
-                error_message = 'Video generation timeout'
-            WHERE video_id = $1`,
-            [videoId]
-        );
-        return;
-    }
-    
-    try {
-        const status = await checkHeyGenVideoStatus(heygenVideoId);
-        
-        if (!status.success) {
-            console.error('Error checking video status:', status.error);
-            // Retry after delay
-            setTimeout(() => pollHeyGenVideo(videoId, heygenVideoId, attempts + 1), 5000);
-            return;
-        }
-        
-        if (status.status === 'completed') {
-            // Video is ready!
-            await query(
-                `UPDATE weekly_summary_videos 
-                SET 
-                    generation_status = 'completed',
-                    video_url = $1,
-                    thumbnail_url = $2,
-                    video_duration = $3,
-                    completed_at = CURRENT_TIMESTAMP,
-                    error_message = NULL
-                WHERE video_id = $4`,
-                [status.videoUrl, status.thumbnailUrl, status.duration, videoId]
-            );
-            console.log('HeyGen video completed:', videoId);
-        } else if (status.status === 'failed') {
-            // Video generation failed
-            await query(
-                `UPDATE weekly_summary_videos 
-                SET 
-                    generation_status = 'failed',
-                    error_message = $1
-                WHERE video_id = $2`,
-                [status.error || 'Video generation failed', videoId]
-            );
-            console.log('HeyGen video failed:', videoId);
-        } else {
-            // Still processing, poll again
-            setTimeout(() => pollHeyGenVideo(videoId, heygenVideoId, attempts + 1), 5000);
-        }
-    } catch (error) {
-        console.error('Error polling HeyGen video:', error);
-        setTimeout(() => pollHeyGenVideo(videoId, heygenVideoId, attempts + 1), 5000);
-    }
-}
-
-// GET - Check video generation status
 export async function GET({ url }) {
-    try {
-        const videoId = url.searchParams.get('videoId');
+	try {
+		const videoId = url.searchParams.get('videoId');
 
-        if (!videoId) {
-            return json({
-                success: false,
-                error: 'Missing videoId parameter'
-            }, { status: 400 });
-        }
+		if (!videoId) {
+			return json({ success: false, error: 'videoId required' }, { status: 400 });
+		}
 
-        const result = await query(
-            `SELECT 
-                video_id,
-                video_url,
-                generation_status,
-                provider_video_id,
-                thumbnail_url,
-                error_message,
-                completed_at
-            FROM weekly_summary_videos
-            WHERE video_id = $1`,
-            [videoId]
-        );
+		const result = await sql`
+			SELECT * FROM weekly_summary_videos WHERE video_id = ${videoId}
+		`;
 
-        if (result.rows.length === 0) {
-            return json({
-                success: false,
-                error: 'Video not found'
-            }, { status: 404 });
-        }
+		if (result.length === 0) {
+			return json({ success: false, error: 'Video not found' }, { status: 404 });
+		}
 
-        return json({
-            success: true,
-            video: result.rows[0]
-        });
+		return json({ success: true, video: result[0] });
+	} catch (error) {
+		console.error('Error in generate_weekly_summary_video GET:', error);
+		return json({ success: false, error: error.message }, { status: 500 });
+	}
+}
 
-    } catch (error) {
-        console.error('Error checking video status:', error);
-        return json({
-            success: false,
-            error: error.message
-        }, { status: 500 });
-    }
+async function pollHeyGenStatus(videoId, heygenVideoId, sql, attempts = 0) {
+	const maxAttempts = 60; // 5 minutes
+	const pollInterval = 5000; // 5 seconds
+
+	if (attempts >= maxAttempts) {
+		console.log('Polling timeout for video:', videoId);
+		await sql`
+			UPDATE weekly_summary_videos
+			SET 
+				generation_status = 'failed',
+				error_message = 'Video generation timeout'
+			WHERE video_id = ${videoId}
+		`;
+		return;
+	}
+
+	try {
+		const status = await getHeyGenVideoStatus(heygenVideoId);
+
+		if (!status.success) {
+			console.error('Error checking HeyGen status:', status.error);
+			setTimeout(() => pollHeyGenStatus(videoId, heygenVideoId, sql, attempts + 1), pollInterval);
+			return;
+		}
+
+		console.log('HeyGen video status:', status.status, 'for video:', videoId);
+
+		if (status.status === 'completed' && status.videoUrl) {
+			// Video is ready!
+			await sql`
+				UPDATE weekly_summary_videos
+				SET 
+					generation_status = 'completed',
+					video_url = ${status.videoUrl},
+					thumbnail_url = ${status.thumbnailUrl || null},
+					video_duration = ${status.duration || null},
+					completed_at = CURRENT_TIMESTAMP
+				WHERE video_id = ${videoId}
+			`;
+			console.log('Video completed successfully:', videoId);
+		} else if (status.status === 'failed') {
+			await sql`
+				UPDATE weekly_summary_videos
+				SET 
+					generation_status = 'failed',
+					error_message = ${status.error || 'HeyGen video generation failed'}
+				WHERE video_id = ${videoId}
+			`;
+		} else {
+			// Still processing, poll again
+			setTimeout(() => pollHeyGenStatus(videoId, heygenVideoId, sql, attempts + 1), pollInterval);
+		}
+	} catch (err) {
+		console.error('Error polling HeyGen status:', err);
+		setTimeout(() => pollHeyGenStatus(videoId, heygenVideoId, sql, attempts + 1), pollInterval);
+	}
 }

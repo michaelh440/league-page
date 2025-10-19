@@ -7,6 +7,7 @@ export async function GET() {
         const result = await listHeyGenVoices();
         
         if (!result.success) {
+            console.error('Failed to fetch voices:', result.error);
             return json({ 
                 success: false, 
                 error: result.error,
