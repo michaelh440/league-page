@@ -11,40 +11,38 @@ const HEYGEN_API_BASE = 'https://api.heygen.com';
  */
 export async function createHeyGenVideo(script, options = {}) {
     const {
-        avatarId = 'Annelise-incasualsuit-20220818', // Default: Annelise avatar
-        voiceId = 'en-US-JennyNeural', // Default voice
+        avatarId = 'josh_lite3_20230714', // Using a common public avatar as fallback
+        voiceId = 'en-US-JennyNeural',
         backgroundColor = '#FFFFFF',
         title = 'Fantasy Football Weekly Summary'
     } = options;
 
+    // Try the simpler v1 API format first
     const payload = {
         video_inputs: [
             {
                 character: {
                     type: 'avatar',
-                    avatar_id: avatarId,
-                    avatar_style: 'normal'
+                    avatar_id: avatarId
                 },
                 voice: {
                     type: 'text',
                     input_text: script,
                     voice_id: voiceId
-                },
-                background: {
-                    type: 'color',
-                    value: backgroundColor
                 }
             }
         ],
-        title: title,
         test: false,
         caption: false
     };
 
-    console.log('Calling HeyGen API with payload:', JSON.stringify(payload, null, 2));
+    console.log('Calling HeyGen API...');
+    console.log('API Key present:', !!HEYGEN_API_KEY);
+    console.log('Payload:', JSON.stringify(payload, null, 2));
 
     try {
-        const response = await fetch(`${HEYGEN_API_BASE}/v2/video/generate`, {
+        // Try v1 endpoint
+        const response = await fetch(`${HEYGEN_API_BASE}/v1/video.generate`, {
             method: 'POST',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY,
@@ -54,28 +52,28 @@ export async function createHeyGenVideo(script, options = {}) {
         });
 
         const responseText = await response.text();
-        console.log('HeyGen API response status:', response.status);
-        console.log('HeyGen API response body:', responseText);
+        console.log('HeyGen response status:', response.status);
+        console.log('HeyGen response:', responseText);
 
         if (!response.ok) {
-            let errorMessage = `HeyGen API error (${response.status}): ${response.statusText}`;
+            // Try to parse error
+            let errorMessage;
             try {
                 const errorData = JSON.parse(responseText);
-                errorMessage = `HeyGen API error: ${errorData.message || errorData.error || responseText}`;
+                errorMessage = `HeyGen API error (${response.status}): ${errorData.message || errorData.error || JSON.stringify(errorData)}`;
             } catch (e) {
-                errorMessage = `HeyGen API error: ${responseText}`;
+                errorMessage = `HeyGen API error (${response.status}): ${responseText}`;
             }
             throw new Error(errorMessage);
         }
 
         const data = JSON.parse(responseText);
+        console.log('HeyGen success response:', data);
         
         if (!data.data || !data.data.video_id) {
-            console.error('Invalid HeyGen response:', data);
+            console.error('Invalid HeyGen response structure:', data);
             throw new Error('Invalid response from HeyGen API - no video_id returned');
         }
-
-        console.log('HeyGen video created successfully:', data.data.video_id);
 
         return {
             success: true,
@@ -138,21 +136,31 @@ export async function checkHeyGenVideoStatus(videoId) {
  */
 export async function listHeyGenAvatars() {
     try {
-        const response = await fetch(`${HEYGEN_API_BASE}/avatars`, {
+        console.log('Fetching HeyGen avatars...');
+        console.log('API Key present:', !!HEYGEN_API_KEY);
+        console.log('API Key first 10 chars:', HEYGEN_API_KEY ? HEYGEN_API_KEY.substring(0, 10) + '...' : 'MISSING');
+        
+        const response = await fetch(`${HEYGEN_API_BASE}/v1/avatar.list`, {
             method: 'GET',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY
             }
         });
 
+        const responseText = await response.text();
+        console.log('Avatars response status:', response.status);
+        console.log('Avatars response:', responseText);
+
         if (!response.ok) {
-            throw new Error(`Failed to fetch avatars: ${response.statusText}`);
+            throw new Error(`Failed to fetch avatars (${response.status}): ${responseText}`);
         }
 
-        const data = await response.json();
+        const data = JSON.parse(responseText);
+        console.log('Avatars data structure:', Object.keys(data));
+        
         return {
             success: true,
-            avatars: data.data.avatars || []
+            avatars: data.data?.avatars || data.avatars || []
         };
     } catch (error) {
         console.error('Error listing HeyGen avatars:', error);
@@ -170,21 +178,25 @@ export async function listHeyGenAvatars() {
  */
 export async function listHeyGenVoices() {
     try {
-        const response = await fetch(`${HEYGEN_API_BASE}/voices`, {
+        const response = await fetch(`${HEYGEN_API_BASE}/v1/voice.list`, {
             method: 'GET',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY
             }
         });
 
+        const responseText = await response.text();
+        console.log('Voices response status:', response.status);
+        console.log('Voices response:', responseText);
+
         if (!response.ok) {
-            throw new Error(`Failed to fetch voices: ${response.statusText}`);
+            throw new Error(`Failed to fetch voices (${response.status}): ${responseText}`);
         }
 
-        const data = await response.json();
+        const data = JSON.parse(responseText);
         return {
             success: true,
-            voices: data.data.voices || []
+            voices: data.data?.voices || data.voices || []
         };
     } catch (error) {
         console.error('Error listing HeyGen voices:', error);
