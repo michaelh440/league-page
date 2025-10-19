@@ -1,7 +1,7 @@
 // src/lib/heygen.js
 import { HEYGEN_API_KEY } from '$env/static/private';
 
-const HEYGEN_API_BASE = 'https://api.heygen.com/v2';
+const HEYGEN_API_BASE = 'https://api.heygen.com';
 
 /**
  * Create a video generation request with HeyGen
@@ -41,8 +41,10 @@ export async function createHeyGenVideo(script, options = {}) {
         caption: false
     };
 
+    console.log('Calling HeyGen API with payload:', JSON.stringify(payload, null, 2));
+
     try {
-        const response = await fetch(`${HEYGEN_API_BASE}/video/generate`, {
+        const response = await fetch(`${HEYGEN_API_BASE}/v2/video/generate`, {
             method: 'POST',
             headers: {
                 'X-Api-Key': HEYGEN_API_KEY,
@@ -51,16 +53,29 @@ export async function createHeyGenVideo(script, options = {}) {
             body: JSON.stringify(payload)
         });
 
+        const responseText = await response.text();
+        console.log('HeyGen API response status:', response.status);
+        console.log('HeyGen API response body:', responseText);
+
         if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(`HeyGen API error: ${errorData.message || response.statusText}`);
+            let errorMessage = `HeyGen API error (${response.status}): ${response.statusText}`;
+            try {
+                const errorData = JSON.parse(responseText);
+                errorMessage = `HeyGen API error: ${errorData.message || errorData.error || responseText}`;
+            } catch (e) {
+                errorMessage = `HeyGen API error: ${responseText}`;
+            }
+            throw new Error(errorMessage);
         }
 
-        const data = await response.json();
+        const data = JSON.parse(responseText);
         
         if (!data.data || !data.data.video_id) {
-            throw new Error('Invalid response from HeyGen API');
+            console.error('Invalid HeyGen response:', data);
+            throw new Error('Invalid response from HeyGen API - no video_id returned');
         }
+
+        console.log('HeyGen video created successfully:', data.data.video_id);
 
         return {
             success: true,
