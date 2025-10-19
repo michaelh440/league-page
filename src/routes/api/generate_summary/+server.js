@@ -1,7 +1,7 @@
 // src/routes/api/generate_summary/+server.js
 import { json } from '@sveltejs/kit';
 import Anthropic from '@anthropic-ai/sdk';
-import { env } from '$env/dynamic/private';
+import { query } from '$lib/db';
 
 export async function POST({ request }) {
     try {
@@ -14,9 +14,9 @@ export async function POST({ request }) {
             }, { status: 400 });
         }
         
-        // Use env object instead of direct import
+        // Use process.env directly
         const anthropic = new Anthropic({
-            apiKey: env.ANTHROPIC_API_KEY
+            apiKey: process.env.ANTHROPIC_API_KEY
         });
         
         const message = await anthropic.messages.create({
@@ -35,6 +35,47 @@ Keep it around 300-500 words.`
         const summary = message.content[0].type === 'text' 
             ? message.content[0].text 
             : '';
+        
+        // Save the summary to the database
+        if (season && week) {
+            try {
+                console.log('💾 Attempting to save summary for season:', season, 'week:', week);
+                
+                // Get season_id
+                const seasonResult = await query(
+                    'SELECT season_id FROM seasons WHERE season_year = $1',
+                    [season]
+                );
+
+                if (seasonResult.rows.length > 0) {
+                    const seasonId = seasonResult.rows[0].season_id;
+                    console.log('✅ Found season_id:', seasonId);
+
+                    // Save summary
+                    await query(
+                        `INSERT INTO weekly_summaries (
+                            season_id,
+                            week,
+                            summary_text
+                        ) VALUES ($1, $2, $3)
+                        ON CONFLICT (season_id, week) 
+                        DO UPDATE SET
+                            summary_text = EXCLUDED.summary_text,
+                            generated_at = CURRENT_TIMESTAMP`,
+                        [seasonId, week, summary]
+                    );
+                    
+                    console.log('✅ Summary saved successfully');
+                } else {
+                    console.error('❌ Season not found for year:', season);
+                }
+            } catch (dbError) {
+                console.error('❌ DATABASE SAVE ERROR:', dbError);
+                console.error('Season:', season, 'Week:', week);
+                console.error('Summary length:', summary.length);
+                // Continue even if save fails
+            }
+        }
         
         return json({
             success: true,
