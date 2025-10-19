@@ -16,15 +16,15 @@ export async function GET({ url }) {
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
 		}
 
-		// Get season_id
+		// Get season_id using season_year column
 		const seasonResult = await sql`
-			SELECT season_id FROM seasons WHERE season = ${season}
+			SELECT season_id FROM seasons WHERE season_year = ${parseInt(season)}
 		`;
-
+		
 		console.log('Season result:', seasonResult);
 
 		if (seasonResult.length === 0) {
-			return json({ success: false, error: 'Season not found' }, { status: 404 });
+			return json({ success: false, error: `Season ${season} not found` }, { status: 404 });
 		}
 
 		const seasonId = seasonResult[0].season_id;
@@ -32,7 +32,7 @@ export async function GET({ url }) {
 		// Get video
 		const result = await sql`
 			SELECT * FROM weekly_summary_videos
-			WHERE season_id = ${seasonId} AND week = ${week}
+			WHERE season_id = ${seasonId} AND week = ${parseInt(week)}
 		`;
 
 		console.log('Video result:', result);
@@ -56,10 +56,17 @@ export async function DELETE({ request }) {
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
 		}
 
-		// Get season_id
-		const seasonResult = await sql`
-			SELECT season_id FROM seasons WHERE season = ${season}
+		// Get season_id - try 'year' column first
+		let seasonResult = await sql`
+			SELECT season_id FROM seasons WHERE year = ${parseInt(season)}
 		`;
+		
+		if (seasonResult.length === 0) {
+			// Try using season_id directly as fallback
+			seasonResult = await sql`
+				SELECT season_id FROM seasons WHERE season_id = ${parseInt(season)}
+			`;
+		}
 
 		if (seasonResult.length === 0) {
 			return json({ success: false, error: 'Season not found' }, { status: 404 });
@@ -70,7 +77,7 @@ export async function DELETE({ request }) {
 		// Delete video
 		await sql`
 			DELETE FROM weekly_summary_videos
-			WHERE season_id = ${seasonId} AND week = ${week}
+			WHERE season_id = ${seasonId} AND week = ${parseInt(week)}
 		`;
 
 		return json({ success: true });
