@@ -31,7 +31,7 @@
 	let videoId = null;
 	let testMode = true;
 
-	// NEW: Avatar and Voice selection
+	// Avatar and Voice selection
 	let availableAvatars = [];
 	let availableVoices = [];
 	let selectedAvatar = null;
@@ -580,32 +580,6 @@
 		</div>
 	{/if}
 
-	<!-- Matchups Display -->
-	{#if dataLoaded && matchups.length > 0}
-		<div class="matchups-section">
-			<h2>Week {selectedWeek} Matchups</h2>
-			<div class="matchups-grid">
-				{#each matchups as matchup}
-					<div class="matchup-card">
-						<div class="team">
-							<strong>{matchup.team1_name}</strong>
-							<span class="score">{matchup.team1_score}</span>
-						</div>
-						<div class="vs">vs</div>
-						<div class="team">
-							<strong>{matchup.team2_name}</strong>
-							<span class="score">{matchup.team2_score}</span>
-						</div>
-					</div>
-				{/each}
-			</div>
-
-			<button on:click={generateSummary} disabled={generating}>
-				{generating ? '⏳ Generating...' : '✨ Generate AI Summary'}
-			</button>
-		</div>
-	{/if}
-
 	<!-- Generated Summary -->
 	{#if generatedSummary}
 		<div class="summary-section">
@@ -656,6 +630,9 @@
 											? 'selected'
 											: ''}"
 										on:click={() => (selectedAvatar = avatar)}
+										role="button"
+										tabindex="0"
+										on:keypress={(e) => e.key === 'Enter' && (selectedAvatar = avatar)}
 									>
 										{#if avatar.preview_image_url}
 											<img src={avatar.preview_image_url} alt={avatar.avatar_name} />
@@ -718,6 +695,33 @@
 			{/if}
 		</div>
 	{/if}
+
+    <!-- Matchups Display -->
+	{#if dataLoaded && matchups.length > 0}
+		<div class="matchups-section">
+			<h2>Week {selectedWeek} Matchups</h2>
+			<div class="matchups-grid">
+				{#each matchups as matchup}
+					<div class="matchup-card">
+						<div class="team">
+							<strong>{matchup.team1_name}</strong>
+							<span class="score">{matchup.team1_score}</span>
+						</div>
+						<div class="vs">vs</div>
+						<div class="team">
+							<strong>{matchup.team2_name}</strong>
+							<span class="score">{matchup.team2_score}</span>
+						</div>
+					</div>
+				{/each}
+			</div>
+
+			<button on:click={generateSummary} disabled={generating}>
+				{generating ? '⏳ Generating...' : '✨ Generate AI Summary'}
+			</button>
+		</div>
+	{/if}
+
 </div>
 
 <style>
