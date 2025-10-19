@@ -1,4 +1,5 @@
 <!-- src/routes/weekly_summary/+page.svelte -->
+ <!--Adding comment to force commit-->
 <script>
     import { onMount } from 'svelte';
     
