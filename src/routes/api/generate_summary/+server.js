@@ -5,43 +5,65 @@ import { query } from '$lib/db';
 
 export async function POST({ request }) {
     try {
-        const { prompt, season, week } = await request.json();
+        const { prompt, season, week, systemPrompt, refinementMode, existingSummary, refinementInstructions } = await request.json();
         
-        if (!prompt) {
+        if (!prompt && !refinementMode) {
             return json({
                 success: false,
                 error: 'Prompt is required'
             }, { status: 400 });
         }
         
-        // Use process.env directly
         const anthropic = new Anthropic({
             apiKey: process.env.ANTHROPIC_API_KEY
         });
+        
+        let userPrompt;
+        let systemMessage;
+        
+        if (refinementMode && existingSummary && refinementInstructions) {
+            // Refinement mode - modify existing summary
+            userPrompt = `Here is an existing weekly fantasy football recap:
+
+${existingSummary}
+
+Please refine this recap with the following instructions:
+${refinementInstructions}
+
+Keep the same general format and length (300-500 words), but make the requested changes.`;
+            
+            systemMessage = systemPrompt || `You are a witty, snarky fantasy football analyst writing weekly recaps for "The Hou Dat League". 
+Your writing style is entertaining and slightly sarcastic. Call out bad performances and celebrate great ones.
+Use sports commentary language. Keep it fun and lighthearted. Format as a narrative, not bullet points.`;
+            
+        } else {
+            // Normal generation mode
+            userPrompt = prompt;
+            systemMessage = systemPrompt || `You are a witty, snarky fantasy football analyst writing weekly recaps for "The Hou Dat League". 
+Your writing style is entertaining and slightly sarcastic. Call out bad performances and celebrate great ones.
+Use sports commentary language. Keep it fun and lighthearted. Format as a narrative, not bullet points.
+Keep it around 300-500 words.`;
+        }
         
         const message = await anthropic.messages.create({
             model: 'claude-sonnet-4-5-20250929',
             max_tokens: 2048,
             messages: [{
                 role: 'user',
-                content: prompt
+                content: userPrompt
             }],
-            system: `You are a witty, snarky fantasy football analyst writing weekly recaps for "The Hou Dat League". 
-Your writing style is entertaining and slightly sarcastic. Call out bad performances and celebrate great ones.
-Use sports commentary language. Keep it fun and lighthearted. Format as a narrative, not bullet points.
-Keep it around 300-500 words.`
+            system: systemMessage
         });
         
         const summary = message.content[0].type === 'text' 
             ? message.content[0].text 
             : '';
         
-        // Save the summary to the database
-        if (season && week) {
+        // Save the summary to the database (only in normal mode or if explicitly requested)
+        if (season && week && !refinementMode) {
             try {
                 console.log('💾 Attempting to save summary for season:', season, 'week:', week);
                 
-                // Get season_id
                 const seasonResult = await query(
                     'SELECT season_id FROM seasons WHERE season_year = $1',
                     [season]
@@ -51,7 +73,6 @@ Keep it around 300-500 words.`
                     const seasonId = seasonResult.rows[0].season_id;
                     console.log('✅ Found season_id:', seasonId);
 
-                    // Save summary
                     await query(
                         `INSERT INTO weekly_summaries (
                             season_id,
@@ -71,9 +92,6 @@ Keep it around 300-500 words.`
                 }
             } catch (dbError) {
                 console.error('❌ DATABASE SAVE ERROR:', dbError);
-                console.error('Season:', season, 'Week:', week);
-                console.error('Summary length:', summary.length);
-                // Continue even if save fails
             }
         }
         

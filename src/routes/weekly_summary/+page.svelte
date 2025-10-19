@@ -1,5 +1,7 @@
 <!-- src/routes/weekly_summary/+page.svelte -->
 <script>
+    import { onMount } from 'svelte';
+    
     let selectedSeason = '2025';
     let selectedWeek = '1';
     let matchups = [];
@@ -12,9 +14,73 @@
     let editMode = false;
     let saving = false;
     let summaryExists = false;
+    let showAdvancedSettings = false;
+    let systemPrompt = '';
+    let savedPrompts = [];
+    let selectedPromptName = 'Default Snarky Analyst';
+    let refining = false;
+    let showRefinement = false;
+    let refinementInstructions = '';
     
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
+    
+    // Only load prompts on mount - NOT weekly data
+    onMount(() => {
+        loadPrompts();
+    });
+    
+    async function loadPrompts() {
+        try {
+            const response = await fetch('/api/ai_prompts');
+            const data = await response.json();
+            
+            if (data.success) {
+                savedPrompts = data.prompts;
+                // Load the default prompt
+                const defaultPrompt = savedPrompts.find(p => p.is_default);
+                if (defaultPrompt) {
+                    systemPrompt = defaultPrompt.system_prompt;
+                    selectedPromptName = defaultPrompt.prompt_name;
+                }
+            }
+        } catch (err) {
+            console.error('Error loading prompts:', err);
+        }
+    }
+    
+    function loadSelectedPrompt() {
+        const selected = savedPrompts.find(p => p.prompt_name === selectedPromptName);
+        if (selected) {
+            systemPrompt = selected.system_prompt;
+        }
+    }
+    
+    async function savePrompt() {
+        const promptName = prompt('Enter a name for this prompt:');
+        if (!promptName) return;
+        
+        try {
+            const response = await fetch('/api/ai_prompts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    promptName,
+                    systemPrompt,
+                    isDefault: false
+                })
+            });
+            
+            const data = await response.json();
+            if (data.success) {
+                alert('Prompt saved successfully!');
+                await loadPrompts();
+            }
+        } catch (err) {
+            console.error('Error saving prompt:', err);
+            error = 'Failed to save prompt';
+        }
+    }
     
     async function loadWeeklyData() {
         loading = true;
@@ -24,6 +90,7 @@
         summaryExists = false;
         editMode = false;
         dataLoaded = false;
+        showRefinement = false;
         
         console.log('Loading data for:', selectedSeason, selectedWeek);
         
@@ -127,6 +194,7 @@
         
         generating = true;
         error = '';
+        showRefinement = false;
         
         try {
             const summaryPrompt = formatDataForAI(matchups);
@@ -137,7 +205,8 @@
                 body: JSON.stringify({
                     prompt: summaryPrompt,
                     season: selectedSeason,
-                    week: selectedWeek
+                    week: selectedWeek,
+                    systemPrompt: systemPrompt || undefined
                 })
             });
             
@@ -155,6 +224,47 @@
             console.error(err);
         } finally {
             generating = false;
+        }
+    }
+    
+    async function refineSummary() {
+        if (!generatedSummary || !refinementInstructions.trim()) {
+            error = 'Please enter refinement instructions';
+            return;
+        }
+        
+        refining = true;
+        error = '';
+        
+        try {
+            const response = await fetch('/api/generate_summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    refinementMode: true,
+                    existingSummary: generatedSummary,
+                    refinementInstructions: refinementInstructions,
+                    systemPrompt: systemPrompt || undefined,
+                    season: selectedSeason,
+                    week: selectedWeek
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                generatedSummary = data.summary;
+                refinementInstructions = '';
+                showRefinement = false;
+                // Don't auto-save refinements - user can manually save if they like it
+            } else {
+                error = data.error || 'Failed to refine summary';
+            }
+        } catch (err) {
+            error = 'Failed to refine summary';
+            console.error(err);
+        } finally {
+            refining = false;
         }
     }
     
@@ -260,6 +370,57 @@
         <div class="error">{error}</div>
     {/if}
     
+    <!-- Advanced Settings -->
+    <div class="advanced-settings">
+        <button 
+            on:click={() => showAdvancedSettings = !showAdvancedSettings}
+            class="btn-secondary"
+            style="width: 100%; text-align: left; margin-bottom: 1rem;"
+        >
+            {showAdvancedSettings ? '▼' : '▶'} Advanced AI Settings
+        </button>
+        
+        {#if showAdvancedSettings}
+            <div class="settings-panel">
+                <div style="margin-bottom: 1rem;">
+                    <label for="promptSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                        Load Saved Prompt:
+                    </label>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <select 
+                            id="promptSelect"
+                            bind:value={selectedPromptName}
+                            on:change={loadSelectedPrompt}
+                            style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;"
+                        >
+                            {#each savedPrompts as prompt}
+                                <option value={prompt.prompt_name}>
+                                    {prompt.prompt_name} {prompt.is_default ? '(Default)' : ''}
+                                </option>
+                            {/each}
+                        </select>
+                    </div>
+                </div>
+                
+                <div>
+                    <label for="systemPrompt" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                        System Prompt:
+                    </label>
+                    <textarea
+                        id="systemPrompt"
+                        bind:value={systemPrompt}
+                        rows="6"
+                        placeholder="Enter the AI system prompt here..."
+                        style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em;"
+                    ></textarea>
+                    <button on:click={savePrompt} class="btn-secondary" style="margin-top: 0.5rem;">
+                        💾 Save as New Prompt
+                    </button>
+                </div>
+            </div>
+        {/if}
+    </div>
+    
     <!-- Show status after data is loaded -->
     {#if dataLoaded}
         {#if matchups.length === 0}
@@ -346,11 +507,17 @@
                 <h3>Weekly Summary</h3>
                 <div style="display: flex; gap: 0.5rem;">
                     {#if !editMode}
+                        <button on:click={() => showRefinement = !showRefinement} class="btn-secondary">
+                            ✨ Refine
+                        </button>
                         <button on:click={toggleEditMode} class="btn-secondary">
                             ✏️ Edit
                         </button>
                         <button on:click={() => copyToClipboard(generatedSummary)} class="btn-secondary">
                             📋 Copy
+                        </button>
+                        <button on:click={saveSummary} disabled={saving} class="btn-primary">
+                            {saving ? '⏳ Saving...' : '💾 Save'}
                         </button>
                     {:else}
                         <button on:click={saveSummary} disabled={saving} class="btn-primary">
@@ -362,6 +529,29 @@
                     {/if}
                 </div>
             </div>
+            
+            {#if showRefinement && !editMode}
+                <div class="refinement-panel">
+                    <label for="refinementInstructions" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
+                        How would you like to refine this summary?
+                    </label>
+                    <textarea
+                        id="refinementInstructions"
+                        bind:value={refinementInstructions}
+                        rows="3"
+                        placeholder="E.g., 'Make it funnier', 'Add more stats', 'Focus on the upsets', 'Make it more professional'..."
+                        style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 0.5rem;"
+                    ></textarea>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button on:click={refineSummary} disabled={refining || !refinementInstructions.trim()} class="btn-primary">
+                            {refining ? '⏳ Refining...' : '✨ Apply Refinement'}
+                        </button>
+                        <button on:click={() => { showRefinement = false; refinementInstructions = ''; }} class="btn-secondary">
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            {/if}
             
             {#if editMode}
                 <textarea
@@ -604,5 +794,25 @@
     .summary-textarea:focus {
         outline: none;
         border-color: #2563eb;
+    }
+    
+    .advanced-settings {
+        margin-bottom: 1.5rem;
+    }
+    
+    .settings-panel {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .refinement-panel {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1rem;
     }
 </style>
