@@ -358,16 +358,11 @@
             if (data.success) {
                 const message = testMode 
                     ? 'Test video generation started! Check back in a few seconds.'
-                    : 'Video generation started!';
+                    : 'HeyGen video generation started! This usually takes 2-3 minutes.';
                 alert(message);
                 
-                // In test mode, poll for completion
-                if (testMode) {
-                    pollVideoStatus(data.videoId);
-                } else {
-                    // Reload video data to get updated status
-                    await loadExistingVideo();
-                }
+                // Poll for completion (both test and production mode)
+                pollVideoStatus(data.videoId);
             } else {
                 error = data.error || 'Failed to generate video';
             }
@@ -380,8 +375,12 @@
     }
     
     async function pollVideoStatus(videoId, attempts = 0) {
-        if (attempts > 20) { // Max 20 attempts (10 seconds)
+        const maxAttempts = testMode ? 20 : 60; // 10 seconds for test, 5 minutes for production
+        const pollInterval = testMode ? 500 : 5000; // 500ms for test, 5s for production
+        
+        if (attempts > maxAttempts) {
             console.log('Polling timeout');
+            await loadExistingVideo(); // Load final status
             return;
         }
         
@@ -394,8 +393,8 @@
                     // Video is ready!
                     await loadExistingVideo();
                 } else if (data.video.generation_status === 'processing' || data.video.generation_status === 'pending') {
-                    // Still processing, poll again in 500ms
-                    setTimeout(() => pollVideoStatus(videoId, attempts + 1), 500);
+                    // Still processing, poll again
+                    setTimeout(() => pollVideoStatus(videoId, attempts + 1), pollInterval);
                 } else {
                     // Failed or unknown status
                     await loadExistingVideo();
@@ -574,8 +573,6 @@
             </div>
         {/if}
     {/if}
-    
-    
     
     {#if generatedSummary}
         <div class="summary-output">

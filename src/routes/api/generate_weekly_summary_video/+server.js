@@ -1,6 +1,7 @@
 // src/routes/api/generate_weekly_summary_video/+server.js
 import { json } from '@sveltejs/kit';
 import { query } from '$lib/db';
+import { createHeyGenVideo, checkHeyGenVideoStatus } from '$lib/heygen';
 
 // POST - Generate video from summary
 export async function POST({ request }) {
@@ -41,6 +42,9 @@ export async function POST({ request }) {
             DO UPDATE SET
                 generation_status = 'pending',
                 error_message = NULL,
+                video_url = NULL,
+                thumbnail_url = NULL,
+                provider_video_id = NULL,
                 created_at = CURRENT_TIMESTAMP
             RETURNING video_id`,
             [seasonId, week]
@@ -113,31 +117,54 @@ export async function POST({ request }) {
         // PRODUCTION MODE - HeyGen API integration
         // ==========================================
         
-        // TODO: Add HeyGen API integration here
-        // For now, we'll just mark it as "pending"
-        
-        console.log('Production mode: Video generation requested for:', {
+        console.log('Production mode: Generating HeyGen video for:', {
             videoId,
             season,
             week,
             summaryLength: summaryText.length
         });
         
-        // Placeholder response
+        // Call HeyGen API to create video
+        const heygenResult = await createHeyGenVideo(summaryText, {
+            title: `Week ${week} - ${season} Fantasy Football Summary`
+        });
+        
+        if (!heygenResult.success) {
+            // Failed to start video generation
+            await query(
+                `UPDATE weekly_summary_videos 
+                SET 
+                    generation_status = 'failed',
+                    error_message = $1
+                WHERE video_id = $2`,
+                [heygenResult.error, videoId]
+            );
+            
+            return json({
+                success: false,
+                error: heygenResult.error
+            }, { status: 500 });
+        }
+        
+        // Successfully started video generation
         await query(
             `UPDATE weekly_summary_videos 
             SET 
                 generation_status = 'processing',
-                error_message = 'HeyGen integration not yet configured. Video generation pending.'
-            WHERE video_id = $1`,
-            [videoId]
+                provider_video_id = $1
+            WHERE video_id = $2`,
+            [heygenResult.videoId, videoId]
         );
+        
+        // Start background polling to check for completion
+        pollHeyGenVideo(videoId, heygenResult.videoId);
 
         return json({
             success: true,
-            message: 'Video generation initiated (HeyGen integration pending)',
+            message: 'HeyGen video generation started',
             videoId,
-            status: 'processing'
+            status: 'processing',
+            heygenVideoId: heygenResult.videoId
         });
 
     } catch (error) {
@@ -146,6 +173,69 @@ export async function POST({ request }) {
             success: false,
             error: error.message
         }, { status: 500 });
+    }
+}
+
+// Background polling function to check HeyGen video status
+async function pollHeyGenVideo(videoId, heygenVideoId, attempts = 0) {
+    const maxAttempts = 120; // Max 10 minutes (5 second intervals)
+    
+    if (attempts >= maxAttempts) {
+        console.log('Polling timeout for video:', videoId);
+        await query(
+            `UPDATE weekly_summary_videos 
+            SET 
+                generation_status = 'failed',
+                error_message = 'Video generation timeout'
+            WHERE video_id = $1`,
+            [videoId]
+        );
+        return;
+    }
+    
+    try {
+        const status = await checkHeyGenVideoStatus(heygenVideoId);
+        
+        if (!status.success) {
+            console.error('Error checking video status:', status.error);
+            // Retry after delay
+            setTimeout(() => pollHeyGenVideo(videoId, heygenVideoId, attempts + 1), 5000);
+            return;
+        }
+        
+        if (status.status === 'completed') {
+            // Video is ready!
+            await query(
+                `UPDATE weekly_summary_videos 
+                SET 
+                    generation_status = 'completed',
+                    video_url = $1,
+                    thumbnail_url = $2,
+                    video_duration = $3,
+                    completed_at = CURRENT_TIMESTAMP,
+                    error_message = NULL
+                WHERE video_id = $4`,
+                [status.videoUrl, status.thumbnailUrl, status.duration, videoId]
+            );
+            console.log('HeyGen video completed:', videoId);
+        } else if (status.status === 'failed') {
+            // Video generation failed
+            await query(
+                `UPDATE weekly_summary_videos 
+                SET 
+                    generation_status = 'failed',
+                    error_message = $1
+                WHERE video_id = $2`,
+                [status.error || 'Video generation failed', videoId]
+            );
+            console.log('HeyGen video failed:', videoId);
+        } else {
+            // Still processing, poll again
+            setTimeout(() => pollHeyGenVideo(videoId, heygenVideoId, attempts + 1), 5000);
+        }
+    } catch (error) {
+        console.error('Error polling HeyGen video:', error);
+        setTimeout(() => pollHeyGenVideo(videoId, heygenVideoId, attempts + 1), 5000);
     }
 }
 
