@@ -1,29 +1,29 @@
-// src/routes/api/heygen_avatars/+server.js
+// src/routes/api/heygen_voices/+server.js
 import { json } from '@sveltejs/kit';
-import { listHeyGenAvatars } from '$lib/heygen';
+import { listHeyGenVoices } from '$lib/heygen';
 
 export async function GET() {
     try {
-        const result = await listHeyGenAvatars();
+        const result = await listHeyGenVoices();
         
         if (!result.success) {
             return json({ 
                 success: false, 
                 error: result.error,
-                avatars: [] 
+                voices: [] 
             }, { status: 500 });
         }
         
         return json({
             success: true,
-            avatars: result.avatars || []
+            voices: result.voices || []
         });
     } catch (error) {
-        console.error('Error in heygen_avatars endpoint:', error);
+        console.error('Error in heygen_voices endpoint:', error);
         return json({ 
             success: false, 
             error: error.message,
-            avatars: [] 
+            voices: [] 
         }, { status: 500 });
     }
 }
