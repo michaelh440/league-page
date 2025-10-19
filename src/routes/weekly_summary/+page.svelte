@@ -575,6 +575,8 @@
         {/if}
     {/if}
     
+    
+    
     {#if generatedSummary}
         <div class="summary-output">
             <div class="summary-header">
@@ -654,9 +656,14 @@
                         {generatingVideo ? '⏳ Generating...' : '🎬 Generate Video'}
                     </button>
                 {:else if videoData.generation_status === 'pending' || videoData.generation_status === 'processing'}
-                    <button disabled class="btn-secondary">
-                        ⏳ Video Processing...
-                    </button>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button disabled class="btn-secondary">
+                            ⏳ Video Processing...
+                        </button>
+                        <button on:click={generateVideo} class="btn-primary">
+                            🔄 Cancel & Retry
+                        </button>
+                    </div>
                 {:else if videoData.generation_status === 'completed' && videoData.video_url}
                     <button on:click={generateVideo} class="btn-secondary">
                         🔄 Regenerate Video
@@ -679,11 +686,21 @@
                             <source src={videoData.video_url} type="video/mp4">
                             Your browser does not support the video tag.
                         </video>
-                        {#if videoData.completed_at}
-                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9em;">
-                                Generated: {new Date(videoData.completed_at).toLocaleString()}
-                            </p>
-                        {/if}
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; margin-top: 1rem; width: 100%;">
+                            {#if videoData.completed_at}
+                                <p style="margin: 0; color: #6b7280; font-size: 0.9em;">
+                                    Generated: {new Date(videoData.completed_at).toLocaleString()}
+                                </p>
+                            {/if}
+                            <button 
+                                on:click={generateVideo} 
+                                disabled={generatingVideo}
+                                class="btn-primary"
+                                style="padding: 0.75rem 1.5rem;"
+                            >
+                                {generatingVideo ? '⏳ Regenerating...' : '🔄 Regenerate Video with Current Summary'}
+                            </button>
+                        </div>
                     </div>
                 {:else if videoData.generation_status === 'processing' || videoData.generation_status === 'pending'}
                     <div class="status-card warning-card">
@@ -756,7 +773,6 @@
             {/each}
         </div>
     {/if}
-    
 </div>
 
 <style>
