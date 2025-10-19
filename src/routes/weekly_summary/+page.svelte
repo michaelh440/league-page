@@ -21,6 +21,9 @@
     let refining = false;
     let showRefinement = false;
     let refinementInstructions = '';
+    let videoData = null;
+    let generatingVideo = false;
+    let checkingVideo = false;
     
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
@@ -91,6 +94,7 @@
         editMode = false;
         dataLoaded = false;
         showRefinement = false;
+        videoData = null;
         
         console.log('Loading data for:', selectedSeason, selectedWeek);
         
@@ -109,9 +113,10 @@
                 dataLoaded = true;
                 console.log(`Found ${matchups.length} matchups`);
                 
-                // If matchups exist, also load the summary
+                // If matchups exist, also load the summary and video
                 if (matchups.length > 0) {
                     await loadExistingSummary();
+                    await loadExistingVideo();
                 }
             } else {
                 error = matchupsData.error || 'Failed to load data';
@@ -141,6 +146,27 @@
             }
         } catch (err) {
             console.error('Error loading existing summary:', err);
+        }
+    }
+    
+    async function loadExistingVideo() {
+        checkingVideo = true;
+        try {
+            const videoUrl = `/api/weekly_summary_video?season=${selectedSeason}&week=${selectedWeek}`;
+            const response = await fetch(videoUrl);
+            const data = await response.json();
+            
+            if (data.success && data.video) {
+                videoData = data.video;
+                console.log('Loaded existing video:', videoData);
+            } else {
+                videoData = null;
+            }
+        } catch (err) {
+            console.error('Error loading existing video:', err);
+            videoData = null;
+        } finally {
+            checkingVideo = false;
         }
     }
     
@@ -305,6 +331,43 @@
         }
     }
     
+    async function generateVideo() {
+        if (!generatedSummary || !generatedSummary.trim()) {
+            error = 'No summary available to generate video from';
+            return;
+        }
+        
+        generatingVideo = true;
+        error = '';
+        
+        try {
+            const response = await fetch('/api/generate_weekly_summary_video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    season: selectedSeason,
+                    week: selectedWeek,
+                    summaryText: generatedSummary
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Video generation started! (HeyGen integration pending)');
+                // Reload video data to get updated status
+                await loadExistingVideo();
+            } else {
+                error = data.error || 'Failed to generate video';
+            }
+        } catch (err) {
+            error = 'Failed to generate video';
+            console.error(err);
+        } finally {
+            generatingVideo = false;
+        }
+    }
+    
     function toggleEditMode() {
         editMode = !editMode;
     }
@@ -462,7 +525,7 @@
             </div>
         {/if}
     {/if}
-
+    
     {#if generatedSummary}
         <div class="summary-output">
             <div class="summary-header">
@@ -528,8 +591,80 @@
                 </div>
             {/if}
         </div>
+        
+        <!-- Video Section -->
+        <div class="video-section">
+            <div class="section-header">
+                <h3>🎥 AI Sportscaster Video</h3>
+                {#if !videoData}
+                    <button 
+                        on:click={generateVideo} 
+                        disabled={generatingVideo || !generatedSummary}
+                        class="btn-primary"
+                    >
+                        {generatingVideo ? '⏳ Generating...' : '🎬 Generate Video'}
+                    </button>
+                {:else if videoData.generation_status === 'pending' || videoData.generation_status === 'processing'}
+                    <button disabled class="btn-secondary">
+                        ⏳ Video Processing...
+                    </button>
+                {:else if videoData.generation_status === 'completed' && videoData.video_url}
+                    <button on:click={generateVideo} class="btn-secondary">
+                        🔄 Regenerate Video
+                    </button>
+                {:else}
+                    <button on:click={generateVideo} class="btn-primary">
+                        🔄 Retry Generation
+                    </button>
+                {/if}
+            </div>
+            
+            {#if checkingVideo}
+                <div class="status-card" style="text-align: center;">
+                    <p>⏳ Checking for existing video...</p>
+                </div>
+            {:else if videoData}
+                {#if videoData.generation_status === 'completed' && videoData.video_url}
+                    <div class="video-player">
+                        <video controls style="width: 100%; max-width: 800px; border-radius: 8px;">
+                            <source src={videoData.video_url} type="video/mp4">
+                            Your browser does not support the video tag.
+                        </video>
+                        {#if videoData.completed_at}
+                            <p style="margin-top: 0.5rem; color: #6b7280; font-size: 0.9em;">
+                                Generated: {new Date(videoData.completed_at).toLocaleString()}
+                            </p>
+                        {/if}
+                    </div>
+                {:else if videoData.generation_status === 'processing' || videoData.generation_status === 'pending'}
+                    <div class="status-card warning-card">
+                        <p style="margin: 0;">⏳ Video is being generated...</p>
+                        {#if videoData.error_message}
+                            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #d97706;">
+                                Note: {videoData.error_message}
+                            </p>
+                        {/if}
+                    </div>
+                {:else if videoData.generation_status === 'failed'}
+                    <div class="status-card" style="background: #fee2e2; border: 2px solid #dc2626;">
+                        <p style="margin: 0; color: #991b1b;">❌ Video generation failed</p>
+                        {#if videoData.error_message}
+                            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #991b1b;">
+                                Error: {videoData.error_message}
+                            </p>
+                        {/if}
+                    </div>
+                {/if}
+            {:else}
+                <div class="status-card" style="text-align: center;">
+                    <p style="margin: 0; color: #6b7280;">
+                        📹 No video generated yet. Click "Generate Video" to create an AI sportscaster video from your summary!
+                    </p>
+                </div>
+            {/if}
+        </div>
     {/if}
-    
+
     {#if matchups.length > 0}
         <div class="matchups">
             <h3>Week {selectedWeek} Matchups</h3>
@@ -567,7 +702,6 @@
             {/each}
         </div>
     {/if}
-    
     
 </div>
 
@@ -816,5 +950,29 @@
         border-radius: 4px;
         padding: 1rem;
         margin-bottom: 1rem;
+    }
+    
+    .video-section {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 6px;
+        padding: 1.5rem;
+        margin-top: 2rem;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .video-player {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 1rem;
+        background: #f9fafb;
+        border-radius: 8px;
     }
 </style>
