@@ -462,45 +462,7 @@
             </div>
         {/if}
     {/if}
-    
-    {#if matchups.length > 0}
-        <div class="matchups">
-            <h3>Week {selectedWeek} Matchups</h3>
-            
-            {#each matchups as matchup, idx}
-                <div class="matchup-card">
-                    <div class="matchup-title">Matchup {idx + 1}</div>
-                    
-                    <div class="matchup-score">
-                        <div class="team">
-                            <div class="team-name">{matchup.team1_name}</div>
-                            <div class="manager-name">({matchup.manager1_name})</div>
-                            <div class="score {parseFloat(matchup.team1_score) > parseFloat(matchup.team2_score) ? 'winner' : ''}">
-                                {parseFloat(matchup.team1_score || 0).toFixed(2)}
-                            </div>
-                        </div>
-                        
-                        <div class="vs">VS</div>
-                        
-                        <div class="team">
-                            <div class="team-name">{matchup.team2_name}</div>
-                            <div class="manager-name">({matchup.manager2_name})</div>
-                            <div class="score {parseFloat(matchup.team2_score) > parseFloat(matchup.team1_score) ? 'winner' : ''}">
-                                {parseFloat(matchup.team2_score || 0).toFixed(2)}
-                            </div>
-                        </div>
-                    </div>
-                    
-                    {#if matchup.margin}
-                        <div class="margin">
-                            Margin: {parseFloat(matchup.margin || 0).toFixed(2)} points
-                        </div>
-                    {/if}
-                </div>
-            {/each}
-        </div>
-    {/if}
-    
+
     {#if generatedSummary}
         <div class="summary-output">
             <div class="summary-header">
@@ -567,6 +529,46 @@
             {/if}
         </div>
     {/if}
+    
+    {#if matchups.length > 0}
+        <div class="matchups">
+            <h3>Week {selectedWeek} Matchups</h3>
+            
+            {#each matchups as matchup, idx}
+                <div class="matchup-card">
+                    <div class="matchup-title">Matchup {idx + 1}</div>
+                    
+                    <div class="matchup-score">
+                        <div class="team">
+                            <div class="team-name">{matchup.team1_name}</div>
+                            <div class="manager-name">({matchup.manager1_name})</div>
+                            <div class="score {parseFloat(matchup.team1_score) > parseFloat(matchup.team2_score) ? 'winner' : ''}">
+                                {parseFloat(matchup.team1_score || 0).toFixed(2)}
+                            </div>
+                        </div>
+                        
+                        <div class="vs">VS</div>
+                        
+                        <div class="team">
+                            <div class="team-name">{matchup.team2_name}</div>
+                            <div class="manager-name">({matchup.manager2_name})</div>
+                            <div class="score {parseFloat(matchup.team2_score) > parseFloat(matchup.team1_score) ? 'winner' : ''}">
+                                {parseFloat(matchup.team2_score || 0).toFixed(2)}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {#if matchup.margin}
+                        <div class="margin">
+                            Margin: {parseFloat(matchup.margin || 0).toFixed(2)} points
+                        </div>
+                    {/if}
+                </div>
+            {/each}
+        </div>
+    {/if}
+    
+    
 </div>
 
 <style>
