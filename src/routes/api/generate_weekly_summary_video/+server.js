@@ -17,10 +17,17 @@ export async function POST({ request }) {
 			return json({ success: false, error: 'Missing required parameters' }, { status: 400 });
 		}
 
-		// Get season_id
-		const seasonResult = await sql`
-			SELECT season_id FROM seasons WHERE season = ${season}
+		// Get season_id - try 'year' column first, then fall back to season_id
+		let seasonResult = await sql`
+			SELECT season_id FROM seasons WHERE year = ${parseInt(season)}
 		`;
+		
+		if (seasonResult.length === 0) {
+			// Try using season_id directly
+			seasonResult = await sql`
+				SELECT season_id FROM seasons WHERE season_id = ${parseInt(season)}
+			`;
+		}
 
 		if (seasonResult.length === 0) {
 			return json({ success: false, error: 'Season not found' }, { status: 404 });

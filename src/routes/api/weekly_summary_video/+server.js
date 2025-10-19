@@ -10,6 +10,8 @@ export async function GET({ url }) {
 		const season = url.searchParams.get('season');
 		const week = url.searchParams.get('week');
 
+		console.log('GET /api/weekly_summary_video - season:', season, 'week:', week);
+
 		if (!season || !week) {
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
 		}
@@ -18,6 +20,8 @@ export async function GET({ url }) {
 		const seasonResult = await sql`
 			SELECT season_id FROM seasons WHERE season = ${season}
 		`;
+
+		console.log('Season result:', seasonResult);
 
 		if (seasonResult.length === 0) {
 			return json({ success: false, error: 'Season not found' }, { status: 404 });
@@ -30,6 +34,8 @@ export async function GET({ url }) {
 			SELECT * FROM weekly_summary_videos
 			WHERE season_id = ${seasonId} AND week = ${week}
 		`;
+
+		console.log('Video result:', result);
 
 		if (result.length === 0) {
 			return json({ success: true, video: null });
