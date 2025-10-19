@@ -5,7 +5,7 @@ import { query } from '$lib/db';
 // POST - Generate video from summary
 export async function POST({ request }) {
     try {
-        const { season, week, summaryText } = await request.json();
+        const { season, week, summaryText, testMode } = await request.json();
 
         if (!season || !week || !summaryText) {
             return json({
@@ -48,17 +48,75 @@ export async function POST({ request }) {
 
         const videoId = videoResult.rows[0].video_id;
 
+        if (testMode) {
+            // ==========================================
+            // TEST MODE - Simulate video generation
+            // ==========================================
+            console.log('Test mode: Simulating video generation for:', {
+                videoId,
+                season,
+                week,
+                summaryLength: summaryText.length
+            });
+            
+            // Update to processing status
+            await query(
+                `UPDATE weekly_summary_videos 
+                SET generation_status = 'processing'
+                WHERE video_id = $1`,
+                [videoId]
+            );
+            
+            // Simulate processing delay (2 seconds) then complete
+            setTimeout(async () => {
+                try {
+                    // Use a public test video URL (Big Buck Bunny sample)
+                    const testVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+                    
+                    await query(
+                        `UPDATE weekly_summary_videos 
+                        SET 
+                            generation_status = 'completed',
+                            video_url = $1,
+                            thumbnail_url = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+                            video_duration = 596,
+                            completed_at = CURRENT_TIMESTAMP,
+                            error_message = NULL
+                        WHERE video_id = $2`,
+                        [testVideoUrl, videoId]
+                    );
+                    
+                    console.log('Test video generation completed:', videoId);
+                } catch (err) {
+                    console.error('Error completing test video:', err);
+                    await query(
+                        `UPDATE weekly_summary_videos 
+                        SET 
+                            generation_status = 'failed',
+                            error_message = $1
+                        WHERE video_id = $2`,
+                        [err.message, videoId]
+                    );
+                }
+            }, 2000);
+            
+            return json({
+                success: true,
+                message: 'Test video generation initiated',
+                videoId,
+                status: 'processing',
+                testMode: true
+            });
+        }
+
         // ==========================================
+        // PRODUCTION MODE - HeyGen API integration
+        // ==========================================
+        
         // TODO: Add HeyGen API integration here
-        // ==========================================
-        
         // For now, we'll just mark it as "pending"
-        // Later, we'll add:
-        // 1. Call HeyGen API to create video
-        // 2. Poll for completion
-        // 3. Update database with video URL
         
-        console.log('Video generation requested for:', {
+        console.log('Production mode: Video generation requested for:', {
             videoId,
             season,
             week,

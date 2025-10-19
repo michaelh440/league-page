@@ -24,6 +24,7 @@
     let videoData = null;
     let generatingVideo = false;
     let checkingVideo = false;
+    let testMode = true; // Enable test mode by default
     
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
@@ -347,16 +348,26 @@
                 body: JSON.stringify({
                     season: selectedSeason,
                     week: selectedWeek,
-                    summaryText: generatedSummary
+                    summaryText: generatedSummary,
+                    testMode: testMode
                 })
             });
             
             const data = await response.json();
             
             if (data.success) {
-                alert('Video generation started! (HeyGen integration pending)');
-                // Reload video data to get updated status
-                await loadExistingVideo();
+                const message = testMode 
+                    ? 'Test video generation started! Check back in a few seconds.'
+                    : 'Video generation started!';
+                alert(message);
+                
+                // In test mode, poll for completion
+                if (testMode) {
+                    pollVideoStatus(data.videoId);
+                } else {
+                    // Reload video data to get updated status
+                    await loadExistingVideo();
+                }
             } else {
                 error = data.error || 'Failed to generate video';
             }
@@ -365,6 +376,33 @@
             console.error(err);
         } finally {
             generatingVideo = false;
+        }
+    }
+    
+    async function pollVideoStatus(videoId, attempts = 0) {
+        if (attempts > 20) { // Max 20 attempts (10 seconds)
+            console.log('Polling timeout');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/generate_weekly_summary_video?videoId=${videoId}`);
+            const data = await response.json();
+            
+            if (data.success && data.video) {
+                if (data.video.generation_status === 'completed') {
+                    // Video is ready!
+                    await loadExistingVideo();
+                } else if (data.video.generation_status === 'processing' || data.video.generation_status === 'pending') {
+                    // Still processing, poll again in 500ms
+                    setTimeout(() => pollVideoStatus(videoId, attempts + 1), 500);
+                } else {
+                    // Failed or unknown status
+                    await loadExistingVideo();
+                }
+            }
+        } catch (err) {
+            console.error('Error polling video status:', err);
         }
     }
     
@@ -479,6 +517,16 @@
                     <button on:click={savePrompt} class="btn-secondary" style="margin-top: 0.5rem;">
                         💾 Save as New Prompt
                     </button>
+                </div>
+                
+                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" bind:checked={testMode} style="width: 18px; height: 18px; cursor: pointer;">
+                        <span style="font-weight: 600;">🧪 Test Mode (Use Mock Video)</span>
+                    </label>
+                    <p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #6b7280;">
+                        When enabled, video generation will use a test video instead of calling HeyGen API (saves money during testing)
+                    </p>
                 </div>
             </div>
         {/if}
@@ -660,6 +708,11 @@
                     <p style="margin: 0; color: #6b7280;">
                         📹 No video generated yet. Click "Generate Video" to create an AI sportscaster video from your summary!
                     </p>
+                    {#if testMode}
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #059669;">
+                            🧪 Test mode is enabled - will use a mock video for testing
+                        </p>
+                    {/if}
                 </div>
             {/if}
         </div>
@@ -702,7 +755,6 @@
             {/each}
         </div>
     {/if}
-    
 </div>
 
 <style>
