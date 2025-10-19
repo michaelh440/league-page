@@ -483,6 +483,17 @@
         
         {#if showAdvancedSettings}
             <div class="settings-panel">
+                <!-- Test Mode Toggle - Moved to top for visibility -->
+                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 6px;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" bind:checked={testMode} style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 700; font-size: 1.05em;">🧪 Test Mode (Use Mock Video)</span>
+                    </label>
+                    <p style="margin: 0.5rem 0 0 1.75rem; font-size: 0.9em; color: #92400e;">
+                        When enabled, video generation will use a test video instead of calling HeyGen API (saves money during testing)
+                    </p>
+                </div>
+                
                 <div style="margin-bottom: 1rem;">
                     <label for="promptSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
                         Load Saved Prompt:
@@ -517,16 +528,6 @@
                     <button on:click={savePrompt} class="btn-secondary" style="margin-top: 0.5rem;">
                         💾 Save as New Prompt
                     </button>
-                </div>
-                
-                <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #e5e7eb;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" bind:checked={testMode} style="width: 18px; height: 18px; cursor: pointer;">
-                        <span style="font-weight: 600;">🧪 Test Mode (Use Mock Video)</span>
-                    </label>
-                    <p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #6b7280;">
-                        When enabled, video generation will use a test video instead of calling HeyGen API (saves money during testing)
-                    </p>
                 </div>
             </div>
         {/if}
@@ -755,6 +756,7 @@
             {/each}
         </div>
     {/if}
+    
 </div>
 
 <style>
