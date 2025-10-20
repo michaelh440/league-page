@@ -32,20 +32,20 @@ export async function GET({ url }) {
 				m.matchup_id,
 				m.week,
 				m.team1_id,
-				COALESCE(mtn1.team_name, t1.team_name) as team1_name,
+				COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id) as team1_name,
 				mgr1.manager_id as manager1_id,
-				COALESCE(mgr1.team_alias, mgr1.real_name, mgr1.username) as manager1_name,
+				COALESCE(mgr1.real_name, mgr1.username) as manager1_name,
 				m.team1_score,
 				t1.platform_team_id as team1_platform_id,
 				m.team2_id,
-				COALESCE(mtn2.team_name, t2.team_name) as team2_name,
+				COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id) as team2_name,
 				mgr2.manager_id as manager2_id,
-				COALESCE(mgr2.team_alias, mgr2.real_name, mgr2.username) as manager2_name,
+				COALESCE(mgr2.real_name, mgr2.username) as manager2_name,
 				m.team2_score,
 				t2.platform_team_id as team2_platform_id,
 				CASE 
-					WHEN m.team1_score > m.team2_score THEN COALESCE(mtn1.team_name, t1.team_name)
-					WHEN m.team2_score > m.team1_score THEN COALESCE(mtn2.team_name, t2.team_name)
+					WHEN m.team1_score > m.team2_score THEN COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id)
+					WHEN m.team2_score > m.team1_score THEN COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id)
 					ELSE 'TIE'
 				END as winner,
 				ABS(m.team1_score - m.team2_score) as margin
