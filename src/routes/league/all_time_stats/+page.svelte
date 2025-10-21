@@ -424,7 +424,7 @@
     }
 
     .stats-table {
-      min-width: 480px;
+      min-width: 400px;
       font-size: 0.8rem;
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     }
@@ -436,8 +436,38 @@
       line-height: 1.4;
     }
 
+    /* Fix table column widths for mobile */
+    .stats-table th:nth-child(1),
+    .stats-table td:nth-child(1) {
+      width: 35px;
+      min-width: 35px;
+      max-width: 35px;
+      padding: 0.6rem 0.25rem;
+    }
+
+    .stats-table th:nth-child(2),
+    .stats-table td:nth-child(2) {
+      width: 140px;
+      min-width: 140px;
+      max-width: 140px;
+    }
+
+    .stats-table th:nth-child(3),
+    .stats-table td:nth-child(3) {
+      width: 90px;
+      min-width: 90px;
+    }
+
+    .stats-table th:nth-child(4),
+    .stats-table td:nth-child(4) {
+      width: 70px;
+      min-width: 70px;
+      text-align: right;
+      padding-right: 0.5rem;
+    }
+
     .stats-table th {
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       background: #e9ecef;
       color: #495057;
       font-weight: 700;
@@ -452,46 +482,58 @@
     }
 
     .table-title {
-      font-size: 0.95rem;
-      padding: 0.75rem;
+      font-size: 0.9rem;
+      padding: 0.6rem;
       background: linear-gradient(135deg, #003366, #004080) !important;
       color: white !important;
     }
 
     .team-logo {
-      width: 22px;
-      height: 22px;
+      width: 20px;
+      height: 20px;
     }
 
     .team-name {
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       font-weight: 500;
       color: #212529;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .team-cell {
-      gap: 0.4rem;
+      gap: 0.3rem;
+      min-width: 140px;
+      max-width: 140px;
+    }
+
+    .matchup-cell {
+      min-width: 180px;
+      max-width: 180px;
     }
 
     .matchup-display {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
     }
 
     .team-info {
-      gap: 0.3rem;
+      gap: 0.25rem;
     }
 
     .score {
-      font-size: 0.8em;
+      font-size: 0.75em;
       color: #495057;
       font-weight: 500;
     }
 
     .vs-text {
-      font-size: 0.7rem;
+      font-size: 0.65rem;
       color: #6c757d;
       font-weight: 600;
-      margin: 0.15rem 0;
+      margin: 0.1rem 0;
     }
 
     .points-cell,
@@ -499,17 +541,20 @@
     .percentage-cell {
       font-weight: 600;
       color: #007bff;
+      text-align: right;
     }
 
     .record-cell {
       font-weight: 500;
       color: #495057;
+      font-size: 0.75rem;
     }
 
     .week-cell,
     .season-cell {
-      font-size: 0.75rem;
-      color: #6c757d;
+      font-size: 0.7rem;
+      color: #495057;
+      white-space: nowrap;
     }
   }
 
@@ -532,7 +577,7 @@
   /* Very small mobile screens */
   @media (max-width: 480px) {
     .stats-table {
-      min-width: 450px;
+      min-width: 380px;
       font-size: 0.7rem;
     }
 
@@ -541,18 +586,43 @@
       padding: 0.5rem 0.3rem;
     }
 
+    .stats-table th:nth-child(1),
+    .stats-table td:nth-child(1) {
+      width: 30px;
+      min-width: 30px;
+      max-width: 30px;
+      padding: 0.5rem 0.2rem;
+    }
+
+    .stats-table th:nth-child(2),
+    .stats-table td:nth-child(2) {
+      width: 130px;
+      min-width: 130px;
+      max-width: 130px;
+    }
+
     .team-logo {
       width: 18px;
       height: 18px;
     }
 
     .table-title {
-      font-size: 0.85rem;
+      font-size: 0.8rem;
       padding: 0.5rem;
     }
 
     .matchup-display {
       font-size: 0.65rem;
+    }
+
+    .team-cell {
+      min-width: 130px;
+      max-width: 130px;
+    }
+
+    .matchup-cell {
+      min-width: 160px;
+      max-width: 160px;
     }
   }
 </style>
