@@ -29,6 +29,20 @@
     function expandClose(matchupId) {
         active = active === matchupId ? null : matchupId;
     }
+
+    // Get position badge color
+    function getPositionColor(position) {
+        const colors = {
+            'QB': '#ff0066',
+            'RB': '#00ceb8',
+            'WR': '#58a7ff',
+            'TE': '#ffae58',
+            'K': '#bd66ff',
+            'DEF': '#f5c842',
+            'FLEX': '#00ceb8'
+        };
+        return colors[position] || '#999';
+    }
 </script>
 
 <div class="page-layout">
@@ -83,12 +97,52 @@
                                     </div>
                                 </div>
 
-                                <!-- Placeholder for expandable content -->
-                                <div class="rosters" style:max-height={active === matchupId ? '200px' : '0'} style:border={active !== matchupId ? 'none' : ''}>
-                                    <div class="placeholder-content">
-                                        <p>Game details for {game.team1} vs {game.team2}</p>
-                                        <p>Final Score: {game.score1} - {game.score2}</p>
-                                    </div>
+                                <!-- Expandable roster content -->
+                                <div class="rosters" 
+                                     style:max-height={active === matchupId ? '600px' : '0'} 
+                                     style:border={active !== matchupId ? 'none' : ''}>
+                                    
+                                    {#if game.team1_roster && game.team2_roster}
+                                        <div class="roster-container">
+                                            <!-- Team 1 Roster -->
+                                            <div class="team-roster">
+                                                <h5>{game.team1}</h5>
+                                                {#each game.team1_roster as player}
+                                                    <div class="player-row {player.is_starter ? 'starter' : 'bench'}">
+                                                        <div class="position-badge" style="background-color: {getPositionColor(player.position)}">
+                                                            {player.lineup_slot}
+                                                        </div>
+                                                        <div class="player-info">
+                                                            <span class="player-name">{player.player_name}</span>
+                                                        </div>
+                                                    </div>
+                                                {/each}
+                                            </div>
+
+                                            <!-- Divider -->
+                                            <div class="roster-divider"></div>
+
+                                            <!-- Team 2 Roster -->
+                                            <div class="team-roster">
+                                                <h5>{game.team2}</h5>
+                                                {#each game.team2_roster as player}
+                                                    <div class="player-row {player.is_starter ? 'starter' : 'bench'}">
+                                                        <div class="position-badge" style="background-color: {getPositionColor(player.position)}">
+                                                            {player.lineup_slot}
+                                                        </div>
+                                                        <div class="player-info">
+                                                            <span class="player-name">{player.player_name}</span>
+                                                        </div>
+                                                    </div>
+                                                {/each}
+                                            </div>
+                                        </div>
+                                    {:else}
+                                        <div class="placeholder-content">
+                                            <p>No roster data available for this matchup</p>
+                                        </div>
+                                    {/if}
+                                    
                                     <div class="close" on:click={() => expandClose(matchupId)}>Close Matchup</div>
                                 </div>
                             </div>
@@ -304,16 +358,94 @@
         text-align: left;
     }
 
-    /* Expandable content */
+    /* Expandable roster content */
     .rosters {
         position: relative;
         background-color: #fff;
         border-radius: 8px;
-        overflow: hidden;
+        overflow-y: auto;
         border-left: 1px solid #bbb;
         border-right: 1px solid #bbb;
         border-bottom: 1px solid #bbb;
         transition: max-height 0.4s;
+    }
+
+    .roster-container {
+        display: flex;
+        gap: 1px;
+        background-color: #ddd;
+        padding: 0;
+    }
+
+    .team-roster {
+        flex: 1;
+        background-color: #fff;
+        padding: 0.5rem;
+    }
+
+    .team-roster h5 {
+        margin: 0 0 0.5rem 0;
+        padding: 0.5rem;
+        background-color: #f0f0f0;
+        text-align: center;
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #333;
+    }
+
+    .player-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.5rem;
+        margin-bottom: 2px;
+        border-radius: 4px;
+        background-color: #f8f8f8;
+    }
+
+    .player-row.starter {
+        background-color: #fff;
+        border-left: 3px solid #007bff;
+    }
+
+    .player-row.bench {
+        background-color: #f8f8f8;
+        opacity: 0.7;
+    }
+
+    .position-badge {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 38px;
+        height: 38px;
+        border-radius: 6px;
+        color: white;
+        font-weight: bold;
+        font-size: 0.75rem;
+        text-align: center;
+        padding: 0 4px;
+    }
+
+    .player-info {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+    .player-name {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #333;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .roster-divider {
+        width: 2px;
+        background: linear-gradient(to bottom, #ddd, #999, #ddd);
     }
 
     .placeholder-content {
@@ -331,6 +463,8 @@
         z-index: 2;
         font-size: 1.1em;
         padding: 6px 0;
+        position: sticky;
+        bottom: 0;
     }
 
     .close:hover {
@@ -412,6 +546,25 @@
 
         .totalPoints {
             font-size: 0.8em;
+        }
+
+        .roster-container {
+            flex-direction: column;
+        }
+
+        .roster-divider {
+            width: 100%;
+            height: 2px;
+        }
+
+        .player-name {
+            font-size: 0.75rem;
+        }
+
+        .position-badge {
+            min-width: 32px;
+            height: 32px;
+            font-size: 0.65rem;
         }
     }
 

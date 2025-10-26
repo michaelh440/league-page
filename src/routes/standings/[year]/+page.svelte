@@ -56,59 +56,61 @@
           <p>No standings data available for {year}</p>
         </div>
       {:else}
-        <table class="standings-table">
-          <thead>
-            <tr>
-              <th class="table-title" colspan="6">{year} Regular Season Final Standings</th>
-            </tr>
-            <tr>
-              <th>Rank</th>
-              <th>Manager</th>
-              <th>Record</th>
-              <th>Points For</th>
-              <th>Points Against</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each standings as team, i}
+        <div class="table-wrapper">
+          <table class="standings-table">
+            <thead>
               <tr>
-                <td class="rank-cell">
-                  <span class="rank">#{team.rank || i + 1}</span>
-                </td>
-                <td class="manager-cell">
-                  <div class="team-info">
-                    {#if team.logo_url}
-                      <img 
-                        src={team.logo_url} 
-                        alt={team.manager_name || 'Manager'}
-                        class="team-logo"
-                        on:error={(e) => e.target.src = 'https://via.placeholder.com/32'}
-                      />
-                    {:else}
-                      <div class="team-logo-placeholder"></div>
-                    {/if}
-                    <span class="team-name">{team.manager_name || 'Unknown'}</span>
-                  </div>
-                </td>
-                <td class="record-cell">
-                  {team.wins || 0}-{team.losses || 0}{#if team.ties > 0}-{team.ties}{/if}
-                </td>
-                <td class="points-for-cell">
-                  {team.points_for ? Number(team.points_for).toFixed(1) : '0.0'}
-                </td>
-                <td class="points-against-cell">
-                  {team.points_against ? Number(team.points_against).toFixed(1) : '0.0'}
-                </td>
-                <td class="status-cell">
-                  <span class="status-badge" style={getPlayoffBadgeStyle(team.playoff_status)}>
-                    {getPlayoffLabel(team.playoff_status)}
-                  </span>
-                </td>
+                <th class="table-title" colspan="6">{year} Regular Season Final Standings</th>
               </tr>
-            {/each}
-          </tbody>
-        </table>
+              <tr>
+                <th>Rank</th>
+                <th>Manager</th>
+                <th>Record</th>
+                <th>Points For</th>
+                <th>Points Against</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each standings as team, i}
+                <tr>
+                  <td class="rank-cell">
+                    <span class="rank">#{team.rank || i + 1}</span>
+                  </td>
+                  <td class="manager-cell">
+                    <div class="team-info">
+                      {#if team.logo_url}
+                        <img 
+                          src={team.logo_url} 
+                          alt={team.manager_name || 'Manager'}
+                          class="team-logo"
+                          on:error={(e) => e.target.src = 'https://via.placeholder.com/32'}
+                        />
+                      {:else}
+                        <div class="team-logo-placeholder"></div>
+                      {/if}
+                      <span class="team-name">{team.manager_name || 'Unknown'}</span>
+                    </div>
+                  </td>
+                  <td class="record-cell">
+                    {team.wins || 0}-{team.losses || 0}{#if team.ties > 0}-{team.ties}{/if}
+                  </td>
+                  <td class="points-for-cell">
+                    {team.points_for ? Number(team.points_for).toFixed(1) : '0.0'}
+                  </td>
+                  <td class="points-against-cell">
+                    {team.points_against ? Number(team.points_against).toFixed(1) : '0.0'}
+                  </td>
+                  <td class="status-cell">
+                    <span class="status-badge" style={getPlayoffBadgeStyle(team.playoff_status)}>
+                      {getPlayoffLabel(team.playoff_status)}
+                    </span>
+                  </td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
 
         <!-- Legend -->
         <div class="legend">
@@ -215,17 +217,23 @@
     padding-bottom: 2rem;
   }
 
+  /* Table Wrapper for horizontal scroll */
+  .table-wrapper {
+    width: 85%;
+    max-width: 900px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
   /* Table Styling */
   .standings-table {
     border-collapse: collapse;
-    margin: 0 auto;
-    width: 85%;
-    max-width: 900px;
+    width: 100%;
+    min-width: 600px;
     text-align: center;
     background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .standings-table th,
@@ -449,6 +457,7 @@
       gap: 0.75rem;
       margin: 0.5rem 0 1.5rem 0;
       flex-wrap: wrap;
+      padding: 0 0.5rem;
     }
 
     .season-btn {
@@ -462,15 +471,43 @@
       width: 100%;
     }
 
-    .standings-table {
-      width: 100%;
+    /* Mobile table wrapper with padding */
+    .table-wrapper {
+      width: calc(100% - 1rem);
       max-width: none;
+      margin: 0 0.5rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: #ccc transparent;
+    }
+
+    .table-wrapper::-webkit-scrollbar {
+      height: 6px;
+    }
+
+    .table-wrapper::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+
+    .table-wrapper::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 3px;
+    }
+
+    .table-wrapper::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+
+    .standings-table {
+      min-width: 650px;
       font-size: 0.85rem;
     }
 
     .standings-table th,
     .standings-table td {
-      padding: 0.5rem 0.35rem;
+      padding: 0.5rem 0.4rem;
       font-size: 0.8rem;
     }
 
@@ -506,6 +543,8 @@
       flex-direction: column;
       gap: 0.75rem;
       padding: 0.75rem;
+      width: calc(100% - 1rem);
+      margin: 1rem 0.5rem 0 0.5rem;
     }
 
     .legend-item {
@@ -515,10 +554,14 @@
 
   /* VERY SMALL SCREENS */
   @media screen and (max-width: 480px) {
+    .standings-table {
+      min-width: 600px;
+    }
+
     .standings-table th,
     .standings-table td {
-      padding: 0.4rem 0.25rem;
-      font-size: 0.7rem;
+      padding: 0.4rem 0.3rem;
+      font-size: 0.75rem;
     }
 
     .table-title {
@@ -532,7 +575,7 @@
     }
 
     .team-name {
-      font-size: 0.7rem;
+      font-size: 0.75rem;
     }
 
     .rank {
@@ -556,7 +599,7 @@
       font-size: 0.9rem;
     }
 
-    .standings-table {
+    .table-wrapper {
       width: 90%;
     }
   }

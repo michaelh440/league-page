@@ -6,9 +6,11 @@ export async function load() {
     SELECT 
       s.season_year,
       m.week,
+      m.team1_id,
       mt1.team_name AS team1,
       mt1.logo_url AS team1_logo,
       m.team1_score AS score1,
+      m.team2_id,
       mt2.team_name AS team2,
       mt2.logo_url AS team2_logo,
       m.team2_score AS score2
@@ -24,27 +26,92 @@ export async function load() {
     ORDER BY m.week ASC, m.matchup_id ASC
   `);
 
-  // Group rows by week
-  const weeks = result.rows.reduce((acc, row) => {
-    let week = acc.find(w => w.week === row.week);
+  // Get season_id for roster queries
+  const seasonResult = await query(`
+    SELECT season_id FROM seasons WHERE season_year = 2015
+  `);
+  const seasonId = seasonResult.rows[0]?.season_id;
+
+  // Group rows by week and add roster data
+  const weeks = [];
+  
+  for (const row of result.rows) {
+    let week = weeks.find(w => w.week === row.week);
     if (!week) {
       week = { week: row.week, games: [] };
-      acc.push(week);
+      weeks.push(week);
     }
+
+    // Get team1 roster
+    const team1Roster = await query(`
+      SELECT 
+        player_name,
+        position,
+        lineup_slot,
+        is_starter,
+        yahoo_player_id
+      FROM weekly_roster
+      WHERE season_id = $1 
+        AND week = $2 
+        AND team_id = $3
+      ORDER BY 
+        CASE lineup_slot
+          WHEN 'QB' THEN 1
+          WHEN 'RB' THEN 2
+          WHEN 'WR' THEN 3
+          WHEN 'TE' THEN 4
+          WHEN 'FLEX' THEN 5
+          WHEN 'K' THEN 6
+          WHEN 'DEF' THEN 7
+          WHEN 'BN' THEN 8
+          WHEN 'IR' THEN 9
+          ELSE 10
+        END,
+        player_name
+    `, [seasonId, row.week, row.team1_id]);
+
+    // Get team2 roster
+    const team2Roster = await query(`
+      SELECT 
+        player_name,
+        position,
+        lineup_slot,
+        is_starter,
+        yahoo_player_id
+      FROM weekly_roster
+      WHERE season_id = $1 
+        AND week = $2 
+        AND team_id = $3
+      ORDER BY 
+        CASE lineup_slot
+          WHEN 'QB' THEN 1
+          WHEN 'RB' THEN 2
+          WHEN 'WR' THEN 3
+          WHEN 'TE' THEN 4
+          WHEN 'FLEX' THEN 5
+          WHEN 'K' THEN 6
+          WHEN 'DEF' THEN 7
+          WHEN 'BN' THEN 8
+          WHEN 'IR' THEN 9
+          ELSE 10
+        END,
+        player_name
+    `, [seasonId, row.week, row.team2_id]);
+
     week.games.push({
       team1: row.team1,
       team1_logo: row.team1_logo,
       score1: row.score1,
       team2: row.team2,
       team2_logo: row.team2_logo,
-      score2: row.score2
+      score2: row.score2,
+      team1_roster: team1Roster.rows,
+      team2_roster: team2Roster.rows
     });
-    return acc;
-  }, []);
+  }
 
   return {
     season: 2015,
     weeks
   };
 }
-
