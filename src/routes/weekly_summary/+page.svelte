@@ -5,6 +5,7 @@
     
     let selectedSeason = '2025';
     let selectedWeek = '1';
+    let seasonType = 'regular'; // NEW: 'regular' or 'playoffs'
     let matchups = [];
     let loading = false;
     let importing = false;
@@ -25,9 +26,8 @@
     let videoData = null;
     let generatingVideo = false;
     let checkingVideo = false;
-    let testMode = true; // Enable test mode by default
+    let testMode = true;
     
-    // NEW: Avatar and Voice selection
     let availableAvatars = [];
     let availableVoices = [];
     let selectedAvatar = null;
@@ -39,7 +39,6 @@
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
     
-    // Only load prompts on mount - NOT weekly data
     onMount(() => {
         loadPrompts();
         loadAvatarsAndVoices();
@@ -52,7 +51,6 @@
             
             if (data.success) {
                 savedPrompts = data.prompts;
-                // Load the default prompt
                 const defaultPrompt = savedPrompts.find(p => p.is_default);
                 if (defaultPrompt) {
                     systemPrompt = defaultPrompt.system_prompt;
@@ -69,12 +67,10 @@
         loadingVoices = true;
 
         try {
-            // Load avatars
             const avatarsResponse = await fetch('/api/heygen_avatars');
             const avatarsData = await avatarsResponse.json();
             if (avatarsData.success && avatarsData.avatars) {
                 availableAvatars = avatarsData.avatars;
-                // Set default avatar (Annelise or first available)
                 selectedAvatar = availableAvatars.find(a => a.avatar_id?.includes('Annelise')) || availableAvatars[0];
             }
         } catch (err) {
@@ -84,12 +80,10 @@
         }
 
         try {
-            // Load voices
             const voicesResponse = await fetch('/api/heygen_voices');
             const voicesData = await voicesResponse.json();
             if (voicesData.success && voicesData.voices) {
                 availableVoices = voicesData.voices;
-                // Set default voice (Jenny or first available)
                 selectedVoice = availableVoices.find(v => v.voice_id?.includes('jenny')) || availableVoices[0];
             }
         } catch (err) {
@@ -143,11 +137,11 @@
         showRefinement = false;
         videoData = null;
         
-        console.log('Loading data for:', selectedSeason, selectedWeek);
+        console.log('Loading data for:', selectedSeason, selectedWeek, seasonType);
         
         try {
-            // Load matchups
-            const matchupsUrl = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}`;
+            // UPDATED: Pass season type to API
+            const matchupsUrl = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}&type=${seasonType}`;
             console.log('Fetching matchups:', matchupsUrl);
             
             const matchupsResponse = await fetch(matchupsUrl);
@@ -160,7 +154,6 @@
                 dataLoaded = true;
                 console.log(`Found ${matchups.length} matchups`);
                 
-                // If matchups exist, also load the summary and video
                 if (matchups.length > 0) {
                     await loadExistingSummary();
                     await loadExistingVideo();
@@ -279,7 +272,8 @@
                     prompt: summaryPrompt,
                     season: selectedSeason,
                     week: selectedWeek,
-                    systemPrompt: systemPrompt || undefined
+                    systemPrompt: systemPrompt || undefined,
+                    seasonType: seasonType // ADDED
                 })
             });
             
@@ -329,7 +323,6 @@
                 generatedSummary = data.summary;
                 refinementInstructions = '';
                 showRefinement = false;
-                // Don't auto-save refinements - user can manually save if they like it
             } else {
                 error = data.error || 'Failed to refine summary';
             }
@@ -419,7 +412,6 @@
                     : 'HeyGen video generation started! This usually takes 2-3 minutes.';
                 alert(message);
                 
-                // Poll for completion (both test and production mode)
                 pollVideoStatus(data.videoId);
             } else {
                 error = data.error || 'Failed to generate video';
@@ -433,12 +425,12 @@
     }
     
     async function pollVideoStatus(videoId, attempts = 0) {
-        const maxAttempts = testMode ? 20 : 60; // 10 seconds for test, 5 minutes for production
-        const pollInterval = testMode ? 500 : 5000; // 500ms for test, 5s for production
+        const maxAttempts = testMode ? 20 : 60;
+        const pollInterval = testMode ? 500 : 5000;
         
         if (attempts > maxAttempts) {
             console.log('Polling timeout');
-            await loadExistingVideo(); // Load final status
+            await loadExistingVideo();
             return;
         }
         
@@ -448,13 +440,10 @@
             
             if (data.success && data.video) {
                 if (data.video.generation_status === 'completed') {
-                    // Video is ready!
                     await loadExistingVideo();
                 } else if (data.video.generation_status === 'processing' || data.video.generation_status === 'pending') {
-                    // Still processing, poll again
                     setTimeout(() => pollVideoStatus(videoId, attempts + 1), pollInterval);
                 } else {
-                    // Failed or unknown status
                     await loadExistingVideo();
                 }
             }
@@ -469,20 +458,30 @@
     
     function cancelEdit() {
         editMode = false;
-        // Reload the original summary
         loadExistingSummary();
     }
     
+    // UPDATED: Handle playoff-specific formatting
     function formatDataForAI(matchups) {
-        let prompt = `You are a snarky fantasy football analyst creating a weekly recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
+        const typeLabel = seasonType === 'playoffs' ? 'PLAYOFF' : 'REGULAR SEASON';
+        let prompt = `You are a snarky fantasy football analyst creating a ${typeLabel} recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
         
         matchups.forEach((m, idx) => {
             const margin = parseFloat(m.margin) || 0;
-            prompt += `MATCHUP ${idx + 1}:\n`;
+            
+            // Add playoff-specific context
+            prompt += `MATCHUP ${idx + 1}`;
+            if (m.round_name) {
+                prompt += ` - ${m.round_name}`;
+            }
+            if (m.bracket) {
+                prompt += ` (${m.bracket} Bracket)`;
+            }
+            prompt += `:\n`;
+            
             prompt += `${m.team1_name} (${m.manager1_name}) ${m.team1_score} vs ${m.team2_name} (${m.manager2_name}) ${m.team2_score}\n`;
             prompt += `Winner: ${m.winner} by ${margin.toFixed(2)} points\n`;
             
-            // Add roster details if available
             if (m.team1_roster && m.team1_roster.length > 0) {
                 prompt += `\n${m.team1_name} TOP PERFORMERS:\n`;
                 const topScorers = m.team1_roster
@@ -493,7 +492,6 @@
                     prompt += `  - ${p.player_name} (${p.position}): ${(p.points || 0).toFixed(1)} pts\n`;
                 });
                 
-                // Check for bench mistakes
                 const benchBlunders = m.team1_roster
                     .filter(p => !p.is_starter && p.points > 10)
                     .sort((a, b) => (b.points || 0) - (a.points || 0));
@@ -516,7 +514,6 @@
                     prompt += `  - ${p.player_name} (${p.position}): ${(p.points || 0).toFixed(1)} pts\n`;
                 });
                 
-                // Check for bench mistakes
                 const benchBlunders = m.team2_roster
                     .filter(p => !p.is_starter && p.points > 10)
                     .sort((a, b) => (b.points || 0) - (a.points || 0));
@@ -532,12 +529,27 @@
             prompt += `\n`;
         });
         
+        // Add playoff-specific instruction
+        if (seasonType === 'playoffs') {
+            prompt += '\nRemember this is a playoff game - emphasize the high stakes, pressure, and what this means for championship hopes!';
+        }
+        
         return prompt;
     }
     
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text);
         alert('Summary copied!');
+    }
+    
+    // NEW: Handler for season type change
+    function handleSeasonTypeChange() {
+        // Clear data when switching types
+        matchups = [];
+        generatedSummary = '';
+        summaryExists = false;
+        dataLoaded = false;
+        videoData = null;
     }
 </script>
 
@@ -560,6 +572,15 @@
                 {#each weeks as week}
                     <option value={week}>Week {week}</option>
                 {/each}
+            </select>
+        </div>
+        
+        <!-- NEW: Season Type Selector -->
+        <div class="selector">
+            <label for="seasonType">Type:</label>
+            <select id="seasonType" bind:value={seasonType} on:change={handleSeasonTypeChange}>
+                <option value="regular">Regular Season</option>
+                <option value="playoffs">Playoffs</option>
             </select>
         </div>
         
@@ -589,7 +610,6 @@
         
         {#if showAdvancedSettings}
             <div class="settings-panel">
-                <!-- Test Mode Toggle - Moved to top for visibility -->
                 <div style="margin-bottom: 1.5rem; padding: 1rem; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 6px;">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
                         <input type="checkbox" bind:checked={testMode} style="width: 20px; height: 20px; cursor: pointer;">
@@ -644,22 +664,30 @@
         {#if matchups.length === 0}
             <div class="status-card warning-card">
                 <div class="status-message">
-                    <span class="warning">⚠️ No data found for Week {selectedWeek} of {selectedSeason}</span>
-                    <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
-                        Click the button below to import this week's data from Sleeper.
-                    </p>
+                    <span class="warning">⚠️ No {seasonType === 'playoffs' ? 'playoff' : 'regular season'} data found for Week {selectedWeek} of {selectedSeason}</span>
+                    {#if seasonType === 'regular'}
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
+                            Click the button below to import this week's data from Sleeper.
+                        </p>
+                    {:else}
+                        <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
+                            Playoff data must be manually entered in the database.
+                        </p>
+                    {/if}
                 </div>
-                <button 
-                    on:click={importWeek} 
-                    disabled={importing}
-                    class="btn-primary btn-large"
-                >
-                    {importing ? '⏳ Importing from Sleeper...' : '📥 Import Week from Sleeper'}
-                </button>
+                {#if seasonType === 'regular'}
+                    <button 
+                        on:click={importWeek} 
+                        disabled={importing}
+                        class="btn-primary btn-large"
+                    >
+                        {importing ? '⏳ Importing from Sleeper...' : '📥 Import Week from Sleeper'}
+                    </button>
+                {/if}
             </div>
         {:else}
             <div class="status-card success-card">
-                <span class="success">✓ Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
+                <span class="success">✓ {seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
                 <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
                     <button 
                         on:click={loadWeeklyData} 
@@ -753,7 +781,6 @@
                 <h3>🎥 AI Sportscaster Video</h3>
             </div>
             
-            <!-- Video Settings Toggle -->
             <button 
                 on:click={() => showVideoSettings = !showVideoSettings}
                 class="btn-secondary"
@@ -764,7 +791,6 @@
             
             {#if showVideoSettings}
                 <div class="settings-panel" style="margin-bottom: 1.5rem;">
-                    <!-- Avatar Selection -->
                     <div style="margin-bottom: 1.5rem;">
                         <h4 style="margin: 0 0 0.75rem 0;">Select Avatar</h4>
                         {#if loadingAvatars}
@@ -791,7 +817,6 @@
                         {/if}
                     </div>
                     
-                    <!-- Voice Selection -->
                     <div>
                         <h4 style="margin: 0 0 0.75rem 0;">Select Voice</h4>
                         {#if loadingVoices}
@@ -889,11 +914,20 @@
 
     {#if matchups.length > 0}
         <div class="matchups">
-            <h3>Week {selectedWeek} Matchups</h3>
+            <h3>{seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} Matchups</h3>
             
             {#each matchups as matchup, idx}
                 <div class="matchup-card">
-                    <div class="matchup-title">Matchup {idx + 1}</div>
+                    <div class="matchup-title">
+                        {#if matchup.round_name}
+                            {matchup.round_name} - Matchup {idx + 1}
+                        {:else}
+                            Matchup {idx + 1}
+                        {/if}
+                        {#if matchup.bracket}
+                            <span class="bracket-label">({matchup.bracket})</span>
+                        {/if}
+                    </div>
                     
                     <div class="matchup-score">
                         <div class="team">
@@ -1069,6 +1103,13 @@
         font-weight: 700;
         margin-bottom: 1rem;
         font-size: 1.1em;
+    }
+    
+    .bracket-label {
+        font-size: 0.9em;
+        color: #6b7280;
+        font-weight: 500;
+        margin-left: 0.5rem;
     }
     
     .matchup-score {

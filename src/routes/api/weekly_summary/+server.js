@@ -10,6 +10,7 @@ export async function GET({ url }) {
 	try {
 		const season = url.searchParams.get('season');
 		const week = url.searchParams.get('week');
+		const type = url.searchParams.get('type') || 'regular'; // NEW: default to regular season
 
 		if (!season || !week) {
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
@@ -26,44 +27,91 @@ export async function GET({ url }) {
 
 		const seasonId = seasonResult[0].season_id;
 
-		// Get matchups for the week
-		const matchups = await sql`
-			SELECT 
-				m.matchup_id,
-				m.week,
-				m.team1_id,
-				COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id) as team1_name,
-				mgr1.manager_id as manager1_id,
-				COALESCE(mgr1.real_name, mgr1.username) as manager1_name,
-				m.team1_score,
-				t1.platform_team_id as team1_platform_id,
-				m.team2_id,
-				COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id) as team2_name,
-				mgr2.manager_id as manager2_id,
-				COALESCE(mgr2.real_name, mgr2.username) as manager2_name,
-				m.team2_score,
-				t2.platform_team_id as team2_platform_id,
-				CASE 
-					WHEN m.team1_score > m.team2_score THEN COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id)
-					WHEN m.team2_score > m.team1_score THEN COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id)
-					ELSE 'TIE'
-				END as winner,
-				ABS(m.team1_score - m.team2_score) as margin
-			FROM matchups m
-			JOIN teams t1 ON m.team1_id = t1.team_id
-			JOIN managers mgr1 ON t1.manager_id = mgr1.manager_id
-			LEFT JOIN manager_team_names mtn1 ON mtn1.manager_id = mgr1.manager_id 
-				AND mtn1.season_year = ${parseInt(season)}
-			JOIN teams t2 ON m.team2_id = t2.team_id
-			JOIN managers mgr2 ON t2.manager_id = mgr2.manager_id
-			LEFT JOIN manager_team_names mtn2 ON mtn2.manager_id = mgr2.manager_id 
-				AND mtn2.season_year = ${parseInt(season)}
-			WHERE m.season_id = ${seasonId} 
-				AND m.week = ${parseInt(week)}
-				AND m.team1_score IS NOT NULL 
-				AND m.team2_score IS NOT NULL
-			ORDER BY m.matchup_id
-		`;
+		let matchups;
+
+		if (type === 'playoffs') {
+			// Query the playoffs table
+			matchups = await sql`
+				SELECT 
+					p.playoff_id as matchup_id,
+					p.week,
+					p.round_name,
+					p.bracket,
+					p.team1_id,
+					COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id) as team1_name,
+					mgr1.manager_id as manager1_id,
+					COALESCE(mgr1.real_name, mgr1.username) as manager1_name,
+					p.team1_score,
+					t1.platform_team_id as team1_platform_id,
+					p.team2_id,
+					COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id) as team2_name,
+					mgr2.manager_id as manager2_id,
+					COALESCE(mgr2.real_name, mgr2.username) as manager2_name,
+					p.team2_score,
+					t2.platform_team_id as team2_platform_id,
+					CASE 
+						WHEN p.team1_score > p.team2_score THEN COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id)
+						WHEN p.team2_score > p.team1_score THEN COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id)
+						ELSE 'TIE'
+					END as winner,
+					ABS(p.team1_score - p.team2_score) as margin
+				FROM playoffs p
+				JOIN teams t1 ON p.team1_id = t1.team_id
+				JOIN managers mgr1 ON t1.manager_id = mgr1.manager_id
+				LEFT JOIN manager_team_names mtn1 ON mtn1.manager_id = mgr1.manager_id 
+					AND mtn1.season_year = ${parseInt(season)}
+				JOIN teams t2 ON p.team2_id = t2.team_id
+				JOIN managers mgr2 ON t2.manager_id = mgr2.manager_id
+				LEFT JOIN manager_team_names mtn2 ON mtn2.manager_id = mgr2.manager_id 
+					AND mtn2.season_year = ${parseInt(season)}
+				WHERE p.season_id = ${seasonId} 
+					AND p.week = ${parseInt(week)}
+					AND p.team1_score IS NOT NULL 
+					AND p.team2_score IS NOT NULL
+				ORDER BY p.round_name, p.playoff_id
+			`;
+		} else {
+			// Query the regular season matchups table (original query)
+			matchups = await sql`
+				SELECT 
+					m.matchup_id,
+					m.week,
+					NULL as round_name,
+					NULL as bracket,
+					m.team1_id,
+					COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id) as team1_name,
+					mgr1.manager_id as manager1_id,
+					COALESCE(mgr1.real_name, mgr1.username) as manager1_name,
+					m.team1_score,
+					t1.platform_team_id as team1_platform_id,
+					m.team2_id,
+					COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id) as team2_name,
+					mgr2.manager_id as manager2_id,
+					COALESCE(mgr2.real_name, mgr2.username) as manager2_name,
+					m.team2_score,
+					t2.platform_team_id as team2_platform_id,
+					CASE 
+						WHEN m.team1_score > m.team2_score THEN COALESCE(mtn1.team_name, t1.team_name, 'Team ' || t1.platform_team_id)
+						WHEN m.team2_score > m.team1_score THEN COALESCE(mtn2.team_name, t2.team_name, 'Team ' || t2.platform_team_id)
+						ELSE 'TIE'
+					END as winner,
+					ABS(m.team1_score - m.team2_score) as margin
+				FROM matchups m
+				JOIN teams t1 ON m.team1_id = t1.team_id
+				JOIN managers mgr1 ON t1.manager_id = mgr1.manager_id
+				LEFT JOIN manager_team_names mtn1 ON mtn1.manager_id = mgr1.manager_id 
+					AND mtn1.season_year = ${parseInt(season)}
+				JOIN teams t2 ON m.team2_id = t2.team_id
+				JOIN managers mgr2 ON t2.manager_id = mgr2.manager_id
+				LEFT JOIN manager_team_names mtn2 ON mtn2.manager_id = mgr2.manager_id 
+					AND mtn2.season_year = ${parseInt(season)}
+				WHERE m.season_id = ${seasonId} 
+					AND m.week = ${parseInt(week)}
+					AND m.team1_score IS NOT NULL 
+					AND m.team2_score IS NOT NULL
+				ORDER BY m.matchup_id
+			`;
+		}
 
 		// For each matchup, get roster details with fantasy points
 		for (let matchup of matchups) {
@@ -84,6 +132,7 @@ export async function GET({ url }) {
 
 		return json({
 			success: true,
+			type: type,
 			matchups: matchups
 		});
 	} catch (error) {
