@@ -1,125 +1,92 @@
 import { query } from '$lib/db';
 import { fail } from '@sveltejs/kit';
 
+/** @type {import('./$types').PageServerLoad} */
 export async function load() {
   try {
-    // Get unique players with their position status and row counts
-    const playersQuery = `
+    // Query to get unique players with their position info
+    const result = await query(`
       SELECT 
         player_id,
-        player_name,
-        position,
-        lineup_slot,
+        name as player_name,
+        actual_position as position,
+        roster_slot as lineup_slot,
         COUNT(*) as row_count,
-        MIN(week) as first_week,
-        MAX(week) as last_week,
-        STRING_AGG(DISTINCT lineup_slot, ', ' ORDER BY lineup_slot) as all_slots
-      FROM staging_yahoo_weekly_player_points
-      GROUP BY player_id, player_name, position, lineup_slot
+        COUNT(DISTINCT week) as weeks_played,
+        position_source
+      FROM staging_yahoo_player_stats
+      GROUP BY player_id, name, actual_position, roster_slot, position_source
       ORDER BY 
-        CASE WHEN position IS NULL THEN 0 ELSE 1 END,
-        player_name
-    `;
-    
-    const players = (await query(playersQuery)).rows;
-    
-    // Get summary statistics
-    const statsQuery = `
-      SELECT 
-        COUNT(DISTINCT player_id) as total_unique_players,
-        COUNT(*) as total_rows,
-        COUNT(CASE WHEN position IS NULL THEN 1 END) as null_position_rows,
-        COUNT(CASE WHEN lineup_slot = 'W/R/T' THEN 1 END) as wrt_slot_rows,
-        COUNT(CASE WHEN lineup_slot = 'BN' THEN 1 END) as bn_slot_rows,
-        COUNT(DISTINCT CASE WHEN position IS NULL THEN player_id END) as players_needing_position
-      FROM staging_yahoo_weekly_player_points
-    `;
-    
-    const stats = (await query(statsQuery)).rows[0];
-    
+        CASE WHEN actual_position IS NULL THEN 0 ELSE 1 END,
+        name
+    `);
+
+    const players = result.rows;
+
+    // Calculate summary statistics
+    const summary = {
+      totalPlayers: players.length,
+      missingPosition: players.filter(p => p.position === null).length,
+      wrtSlots: players.filter(p => p.lineup_slot === 'W/R/T').length,
+      benchSlots: players.filter(p => p.lineup_slot === 'BN').length
+    };
+
     return {
       players,
-      stats
+      summary
     };
-    
   } catch (error) {
     console.error('Error loading staging data:', error);
+    
+    // Return empty data structure instead of crashing
     return {
       players: [],
-      stats: {
-        total_unique_players: 0,
-        total_rows: 0,
-        null_position_rows: 0,
-        wrt_slot_rows: 0,
-        bn_slot_rows: 0,
-        players_needing_position: 0
+      summary: {
+        totalPlayers: 0,
+        missingPosition: 0,
+        wrtSlots: 0,
+        benchSlots: 0
       },
-      error: error.message
+      error: 'Unable to load player data. Error: ' + error.message
     };
   }
 }
 
+/** @type {import('./$types').Actions} */
 export const actions = {
   updatePosition: async ({ request }) => {
     try {
-      const data = await request.formData();
-      const playerId = data.get('player_id');
-      const playerName = data.get('player_name');
-      const position = data.get('position');
-      
-      if (!playerId || !position) {
-        return fail(400, { error: 'Missing required fields' });
+      const formData = await request.formData();
+      const playerName = formData.get('playerName');
+      const position = formData.get('position');
+
+      if (!playerName || !position) {
+        return fail(400, { 
+          error: true, 
+          message: 'Player name and position are required' 
+        });
       }
-      
+
       // Update all rows for this player
-      const updateQuery = `
-        UPDATE staging_yahoo_weekly_player_points
-        SET position = $1
-        WHERE player_id = $2
-        RETURNING *
-      `;
-      
-      const result = await query(updateQuery, [position, playerId]);
-      
+      const result = await query(`
+        UPDATE staging_yahoo_player_stats
+        SET 
+          actual_position = $1,
+          position_source = 'manual_admin',
+          processed = TRUE
+        WHERE name = $2
+      `, [position, playerName]);
+
       return {
         success: true,
-        message: `Updated ${result.rowCount} rows for ${playerName} to position ${position}`,
-        rowCount: result.rowCount
+        message: `Updated ${result.rowCount} row(s) for ${playerName} to position ${position}`
       };
-      
     } catch (error) {
       console.error('Error updating position:', error);
-      return fail(500, { error: error.message });
-    }
-  },
-  
-  bulkUpdate: async ({ request }) => {
-    try {
-      const data = await request.formData();
-      const updates = JSON.parse(data.get('updates'));
-      
-      let totalUpdated = 0;
-      
-      for (const update of updates) {
-        const updateQuery = `
-          UPDATE staging_yahoo_weekly_player_points
-          SET position = $1
-          WHERE player_id = $2
-        `;
-        
-        const result = await query(updateQuery, [update.position, update.player_id]);
-        totalUpdated += result.rowCount;
-      }
-      
-      return {
-        success: true,
-        message: `Bulk updated ${totalUpdated} total rows for ${updates.length} players`,
-        totalUpdated
-      };
-      
-    } catch (error) {
-      console.error('Error in bulk update:', error);
-      return fail(500, { error: error.message });
+      return fail(500, { 
+        error: true, 
+        message: 'Failed to update position: ' + error.message 
+      });
     }
   }
 };
