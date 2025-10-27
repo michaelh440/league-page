@@ -1,301 +1,536 @@
 <script>
+  import StatsLayout from '$lib/components/StatsLayout.svelte';
+  import StatCard from '$lib/components/StatCard.svelte';
   import { enhance } from '$app/forms';
-  import { invalidateAll } from '$app/navigation';
-  
+
   export let data;
   export let form;
-  
-  let searchTerm = '';
-  let filterType = 'all'; // all, null, wrt, bn
+
+  const navItems = [
+    { label: "Confirm Yahoo Points", href: "/admin/confirm_yahoo_points_staging", active: true }
+  ];
+
   let selectedPlayer = null;
   let selectedPosition = '';
-  let saving = false;
-  
-  $: filteredPlayers = filterPlayers(data.players, searchTerm, filterType);
-  $: playersByName = groupPlayersByName(filteredPlayers);
-  
-  function filterPlayers(players, search, filter) {
-    let filtered = [...players];
+  let searchTerm = '';
+  let filterType = 'all';
+
+  // Filter players based on search and filter type
+  $: filteredPlayers = (data.players || []).filter(player => {
+    const matchesSearch = player.player_name.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // Apply search filter
-    if (search) {
-      filtered = filtered.filter(p => 
-        p.player_name.toLowerCase().includes(search.toLowerCase())
-      );
+    if (!matchesSearch) return false;
+    
+    switch (filterType) {
+      case 'missing':
+        return player.position === null;
+      case 'wrt':
+        return player.selected_position === 'W/R/T';
+      case 'bench':
+        return player.selected_position === 'BN';
+      default:
+        return true;
     }
-    
-    // Apply type filter
-    if (filter === 'null') {
-      filtered = filtered.filter(p => !p.position);
-    } else if (filter === 'wrt') {
-      filtered = filtered.filter(p => p.lineup_slot === 'W/R/T');
-    } else if (filter === 'bn') {
-      filtered = filtered.filter(p => p.lineup_slot === 'BN');
-    }
-    
-    return filtered;
-  }
-  
-  function groupPlayersByName(players) {
-    const grouped = {};
-    players.forEach(p => {
-      if (!grouped[p.player_name]) {
-        grouped[p.player_name] = {
-          player_id: p.player_id,
-          player_name: p.player_name,
-          position: p.position,
-          total_rows: 0,
-          slots: [],
-          weeks: { min: p.first_week, max: p.last_week }
-        };
-      }
-      grouped[p.player_name].total_rows += p.row_count;
-      if (!grouped[p.player_name].slots.includes(p.lineup_slot)) {
-        grouped[p.player_name].slots.push(p.lineup_slot);
-      }
-    });
-    return Object.values(grouped);
-  }
-  
+  });
+
   function selectPlayer(player) {
     selectedPlayer = player;
     selectedPosition = player.position || '';
   }
-  
-  function getStatusClass(player) {
-    if (player.position) return 'bg-green-50 border-green-200';
-    return 'bg-yellow-50 border-yellow-200';
-  }
-  
-  function getStatusBadge(player) {
-    if (player.position) return { text: 'Set', class: 'bg-green-100 text-green-800' };
-    return { text: 'Missing', class: 'bg-yellow-100 text-yellow-800' };
-  }
-  
-  async function handleSubmit() {
-    saving = true;
-    return async ({ result, update }) => {
-      saving = false;
-      if (result.type === 'success') {
-        await invalidateAll();
-        selectedPlayer = null;
-        selectedPosition = '';
-      }
-      await update();
-    };
-  }
 </script>
 
-<div class="min-h-screen bg-gray-50 p-6">
-  <div class="max-w-7xl mx-auto">
+<StatsLayout title="Confirm Yahoo Player Positions" {navItems}>
+  <div class="content-grid">
     
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-3xl font-bold text-gray-900 mb-2">
-        Confirm Yahoo Points Staging - Position Editor
-      </h1>
-      <p class="text-gray-600">
-        Update player positions for staging table entries. Changes apply to all rows for each player.
-      </p>
-    </div>
+    <!-- Stats Summary Row -->
+    <StatCard size="sm">
+      <div class="stat-summary">
+        <div class="stat-label">Total Players</div>
+        <div class="stat-value">{data.summary.totalPlayers}</div>
+      </div>
+    </StatCard>
 
-    <!-- Stats Summary -->
-    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-      <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-        <div class="text-sm text-gray-600">Total Players</div>
-        <div class="text-2xl font-bold text-gray-900">{data.stats.total_unique_players}</div>
+    <StatCard size="sm">
+      <div class="stat-summary">
+        <div class="stat-label">Missing Position</div>
+        <div class="stat-value highlight-warning">{data.summary.missingPosition}</div>
       </div>
-      <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-        <div class="text-sm text-gray-600">Total Rows</div>
-        <div class="text-2xl font-bold text-gray-900">{data.stats.total_rows}</div>
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-        <div class="text-sm text-gray-600">Needs Position</div>
-        <div class="text-2xl font-bold text-yellow-600">{data.stats.players_needing_position}</div>
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-        <div class="text-sm text-gray-600">NULL Positions</div>
-        <div class="text-2xl font-bold text-red-600">{data.stats.null_position_rows}</div>
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-        <div class="text-sm text-gray-600">W/R/T Slots</div>
-        <div class="text-2xl font-bold text-blue-600">{data.stats.wrt_slot_rows}</div>
-      </div>
-      <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
-        <div class="text-sm text-gray-600">BN Slots</div>
-        <div class="text-2xl font-bold text-gray-600">{data.stats.bn_slot_rows}</div>
-      </div>
-    </div>
+    </StatCard>
 
-    <!-- Success/Error Messages -->
+    <StatCard size="sm">
+      <div class="stat-summary">
+        <div class="stat-label">W/R/T Slots</div>
+        <div class="stat-value">{data.summary.wrtSlots}</div>
+      </div>
+    </StatCard>
+
+    <StatCard size="sm">
+      <div class="stat-summary">
+        <div class="stat-label">Bench Slots</div>
+        <div class="stat-value">{data.summary.benchSlots}</div>
+      </div>
+    </StatCard>
+
+    <!-- Search and Filter Controls -->
+    <StatCard size="full">
+      <div class="controls-wrapper">
+        <div class="search-box">
+          <input 
+            type="text" 
+            placeholder="Search players..." 
+            bind:value={searchTerm}
+          />
+        </div>
+        
+        <div class="filter-buttons">
+          <button 
+            class:active={filterType === 'all'} 
+            on:click={() => filterType = 'all'}
+          >
+            All Players
+          </button>
+          <button 
+            class:active={filterType === 'missing'} 
+            on:click={() => filterType = 'missing'}
+          >
+            Missing Position
+          </button>
+          <button 
+            class:active={filterType === 'wrt'} 
+            on:click={() => filterType = 'wrt'}
+          >
+            W/R/T Slots
+          </button>
+          <button 
+            class:active={filterType === 'bench'} 
+            on:click={() => filterType = 'bench'}
+          >
+            Bench Slots
+          </button>
+        </div>
+      </div>
+    </StatCard>
+
+    <!-- Message Display -->
     {#if form?.success}
-      <div class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
-        <svg class="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-        <span class="text-green-800">{form.message}</span>
-      </div>
-    {/if}
-    
-    {#if form?.error}
-      <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2">
-        <svg class="w-5 h-5 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
-        </svg>
-        <span class="text-red-800">{form.error}</span>
-      </div>
+      <StatCard size="full">
+        <div class="message-box success">
+          ✓ {form.message}
+        </div>
+      </StatCard>
     {/if}
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
-      <!-- Player List -->
-      <div class="lg:col-span-2">
-        <div class="bg-white rounded-lg shadow">
-          
-          <!-- Filters -->
-          <div class="p-4 border-b border-gray-200">
-            <div class="flex flex-col sm:flex-row gap-3">
-              
-              <!-- Search -->
-              <div class="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Search players..."
-                  bind:value={searchTerm}
-                  class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <svg class="absolute left-3 top-2.5 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
-                </svg>
-              </div>
-              
-              <!-- Filter Dropdown -->
-              <select
-                bind:value={filterType}
-                class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+    {#if form?.error}
+      <StatCard size="full">
+        <div class="message-box error">
+          ✗ {form.message}
+        </div>
+      </StatCard>
+    {/if}
+
+    <!-- Player List -->
+    <StatCard size="lg">
+      <div class="table-wrapper">
+        <table class="stats-table">
+          <thead>
+            <tr><th class="table-title" colspan="5">Players Needing Position Assignment</th></tr>
+            <tr>
+              <th>Player Name</th>
+              <th>Current Position</th>
+              <th>Slot</th>
+              <th>Rows</th>
+              <th>Weeks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each filteredPlayers as player}
+              <tr 
+                class:selected={selectedPlayer?.player_name === player.player_name}
+                on:click={() => selectPlayer(player)}
               >
-                <option value="all">All Players</option>
-                <option value="null">Missing Position</option>
-                <option value="wrt">W/R/T Slots</option>
-                <option value="bn">Bench Slots</option>
+                <td class="player-name-cell">{player.player_name}</td>
+                <td class="position-cell">
+                  {#if player.position}
+                    <span class="badge badge-position">{player.position}</span>
+                  {:else}
+                    <span class="badge badge-missing">NULL</span>
+                  {/if}
+                </td>
+                <td class="slot-cell">{player.selected_position || 'N/A'}</td>
+                <td class="count-cell">{player.row_count}</td>
+                <td class="weeks-cell">{player.weeks_played}</td>
+              </tr>
+            {:else}
+              <tr><td colspan="5" class="text-center text-gray-600">No players found</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+
+    <!-- Update Form -->
+    <StatCard size="lg">
+      <div class="form-wrapper">
+        <div class="form-title">Update Player Position</div>
+        
+        {#if selectedPlayer}
+          <form method="POST" action="?/updatePosition" use:enhance>
+            <input type="hidden" name="playerName" value={selectedPlayer.player_name} />
+            
+            <div class="form-group">
+              <label>Selected Player:</label>
+              <div class="selected-player-display">{selectedPlayer.player_name}</div>
+            </div>
+
+            <div class="form-group">
+              <label>Current Position:</label>
+              <div class="current-position-display">
+                {#if selectedPlayer.position}
+                  <span class="badge badge-position">{selectedPlayer.position}</span>
+                {:else}
+                  <span class="badge badge-missing">Not Set</span>
+                {/if}
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>New Position:</label>
+              <select name="position" bind:value={selectedPosition} required>
+                <option value="">-- Select Position --</option>
+                <option value="QB">QB - Quarterback</option>
+                <option value="RB">RB - Running Back</option>
+                <option value="WR">WR - Wide Receiver</option>
+                <option value="TE">TE - Tight End</option>
+                <option value="K">K - Kicker</option>
+                <option value="DEF">DEF - Defense</option>
               </select>
             </div>
-          </div>
 
-          <!-- Player List -->
-          <div class="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
-            {#each playersByName as player}
-              <button
-                on:click={() => selectPlayer(player)}
-                class="w-full p-4 hover:bg-gray-50 transition-colors text-left {selectedPlayer?.player_id === player.player_id ? 'bg-blue-50' : ''}"
-              >
-                <div class="flex items-start justify-between gap-4">
-                  <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-1">
-                      <h3 class="font-semibold text-gray-900">{player.player_name}</h3>
-                      {#if player.position}
-                        <span class="px-2 py-0.5 text-xs font-semibold bg-blue-100 text-blue-800 rounded">
-                          {player.position}
-                        </span>
-                      {:else}
-                        <span class="px-2 py-0.5 text-xs font-semibold bg-red-100 text-red-800 rounded">
-                          No Position
-                        </span>
-                      {/if}
-                    </div>
-                    
-                    <div class="text-sm text-gray-600">
-                      <span class="font-medium">{player.total_rows} rows</span>
-                      <span class="mx-2">•</span>
-                      <span>Weeks {player.weeks.min}-{player.weeks.max}</span>
-                      <span class="mx-2">•</span>
-                      <span>Slots: {player.slots.join(', ')}</span>
-                    </div>
-                  </div>
-                  
-                  <div class="flex-shrink-0">
-                    {#if selectedPlayer?.player_id === player.player_id}
-                      <svg class="w-5 h-5 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd"/>
-                      </svg>
-                    {/if}
-                  </div>
-                </div>
-              </button>
-            {:else}
-              <div class="p-8 text-center text-gray-500">
-                No players found matching your filters
-              </div>
-            {/each}
-          </div>
-        </div>
-      </div>
-
-      <!-- Update Form -->
-      <div class="lg:col-span-1">
-        <div class="bg-white rounded-lg shadow p-6 sticky top-6">
-          
-          {#if selectedPlayer}
-            <h2 class="text-xl font-bold text-gray-900 mb-4">Update Position</h2>
-            
-            <div class="mb-4">
-              <div class="text-sm font-medium text-gray-700 mb-2">Selected Player</div>
-              <div class="p-3 bg-gray-50 rounded-lg">
-                <div class="font-semibold text-gray-900">{selectedPlayer.player_name}</div>
-                <div class="text-sm text-gray-600 mt-1">
-                  Will update {selectedPlayer.total_rows} rows
-                </div>
-              </div>
+            <div class="form-info">
+              This will update <strong>{selectedPlayer.row_count}</strong> row(s) for {selectedPlayer.player_name}
             </div>
 
-            <form method="POST" action="?/updatePosition" use:enhance={handleSubmit}>
-              <input type="hidden" name="player_id" value={selectedPlayer.player_id} />
-              <input type="hidden" name="player_name" value={selectedPlayer.player_name} />
-              
-              <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                  Position
-                </label>
-                <select
-                  name="position"
-                  bind:value={selectedPosition}
-                  required
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select position...</option>
-                  <option value="QB">QB - Quarterback</option>
-                  <option value="RB">RB - Running Back</option>
-                  <option value="WR">WR - Wide Receiver</option>
-                  <option value="TE">TE - Tight End</option>
-                  <option value="K">K - Kicker</option>
-                  <option value="DEF">DEF - Defense</option>
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                disabled={!selectedPosition || saving}
-                class="w-full px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-              >
-                {#if saving}
-                  Updating...
-                {:else}
-                  Update Position
-                {/if}
-              </button>
-            </form>
-            
-          {:else}
-            <div class="text-center text-gray-500 py-12">
-              <svg class="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
-              </svg>
-              <p class="text-lg font-medium mb-2">No Player Selected</p>
-              <p class="text-sm">Select a player from the list to update their position</p>
-            </div>
-          {/if}
-        </div>
+            <button type="submit" class="submit-button" disabled={!selectedPosition}>
+              Update Position
+            </button>
+          </form>
+        {:else}
+          <div class="no-selection">
+            Select a player from the list to update their position
+          </div>
+        {/if}
       </div>
-    </div>
+    </StatCard>
+
   </div>
-</div>
+</StatsLayout>
+
+<style>
+  .content-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  /* Stat Summary Cards */
+  .stat-summary {
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #003366;
+  }
+
+  .highlight-warning {
+    color: #dc3545;
+  }
+
+  /* Controls */
+  .controls-wrapper {
+    padding: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .search-box {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .search-box input {
+    width: 100%;
+    padding: 0.5rem 1rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  .filter-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .filter-buttons button {
+    padding: 0.5rem 1rem;
+    border: 1px solid #ced4da;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+  }
+
+  .filter-buttons button:hover {
+    background: #f8f9fa;
+  }
+
+  .filter-buttons button.active {
+    background: #003366;
+    color: white;
+    border-color: #003366;
+  }
+
+  /* Message Box */
+  .message-box {
+    padding: 1rem;
+    border-radius: 4px;
+    font-weight: 500;
+    text-align: center;
+  }
+
+  .message-box.success {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+
+  .message-box.error {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+
+  /* Table Styles */
+  .table-wrapper {
+    overflow-x: auto;
+    border-radius: 8px;
+  }
+
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: white;
+  }
+
+  .stats-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    background: #e9ecef;
+    color: #495057;
+    font-size: 0.85rem;
+  }
+
+  .table-title {
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    text-align: center !important;
+    font-size: 1rem;
+    padding: 1rem;
+  }
+
+  .stats-table td {
+    padding: 0.75rem;
+    border-top: 1px solid #dee2e6;
+    font-size: 0.9rem;
+  }
+
+  .stats-table tbody tr {
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .stats-table tbody tr:hover {
+    background: #f8f9fa;
+  }
+
+  .stats-table tbody tr.selected {
+    background: #e3f2fd;
+  }
+
+  .player-name-cell {
+    font-weight: 600;
+    color: #212529;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .badge-position {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .badge-missing {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  .count-cell,
+  .weeks-cell {
+    text-align: center;
+    color: #6c757d;
+    font-weight: 500;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .text-gray-600 {
+    color: #6c757d;
+  }
+
+  /* Form Styles */
+  .form-wrapper {
+    padding: 1.5rem;
+  }
+
+  .form-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #003366;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+
+  .form-group {
+    margin-bottom: 1.25rem;
+  }
+
+  .form-group label {
+    display: block;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  .selected-player-display,
+  .current-position-display {
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+
+  .form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    background: white;
+  }
+
+  .form-info {
+    padding: 0.75rem;
+    background: #e7f3ff;
+    border-left: 3px solid #007bff;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #004085;
+    margin-bottom: 1rem;
+  }
+
+  .submit-button {
+    width: 100%;
+    padding: 0.75rem;
+    background: linear-gradient(135deg, #003366, #004080);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .submit-button:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .submit-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .no-selection {
+    text-align: center;
+    padding: 2rem;
+    color: #6c757d;
+    font-style: italic;
+  }
+
+  /* Mobile Styles */
+  @media (max-width: 768px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      padding: 0 0.5rem;
+    }
+
+    .controls-wrapper {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    .search-box {
+      min-width: 100%;
+    }
+
+    .filter-buttons {
+      justify-content: stretch;
+    }
+
+    .filter-buttons button {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .stats-table {
+      font-size: 0.8rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.5rem 0.4rem;
+    }
+
+    .stat-value {
+      font-size: 1.5rem;
+    }
+  }
+</style>
