@@ -168,121 +168,53 @@
 <script>
 	import { page } from '$app/stores';
 	
-	// Current route for active link highlighting
 	$: currentPath = $page.url.pathname;
 	
-	// Navigation items
 	const navItems = [
 		{ href: '/admin', label: 'Dashboard', icon: '📊' },
 		{ href: '/admin/seasons', label: 'Seasons', icon: '📅' },
-		{ href: '/admin/weekly-summary', label: 'Weekly Summary', icon: '📝' },
+		{ href: '/admin/weekly_summary', label: 'Weekly Summary', icon: '📝' },
 		{ href: '/admin/managers', label: 'Managers', icon: '👥' },
-		{ href: '/admin/settings', label: 'Settings', icon: '⚙️' }
 	];
 	
 	function isActive(path) {
-		if (path === '/admin') {
-			return currentPath === '/admin';
-		}
+		if (path === '/admin') return currentPath === '/admin';
 		return currentPath.startsWith(path);
 	}
 </script>
 
-<div class="admin-wrapper">
-	<!-- Top Navigation Bar -->
-	<nav class="top-nav">
-		<div class="nav-container">
-			<div class="nav-content">
-				<!-- Left: Logo and Nav -->
-				<div class="nav-left">
-					<!-- Logo -->
-					<div class="logo-section">
-						<a href="/" class="logo-link">
-							⚡ Fantasy League
-						</a>
-						<span class="admin-badge">ADMIN</span>
-					</div>
-					
-					<!-- Desktop Navigation -->
-					<div class="desktop-nav">
-						{#each navItems as item}
-							<a
-								href={item.href}
-								class="nav-link {isActive(item.href) ? 'active' : ''}"
-							>
-								<span class="nav-icon">{item.icon}</span>
-								{item.label}
-							</a>
-						{/each}
-					</div>
-				</div>
-				
-				<!-- Right: User Menu -->
-				<div class="nav-right">
-					<a href="/" class="back-link">
-						← Back to Site
-					</a>
-					
-					<!-- Future: User dropdown -->
-					<div class="user-avatar">
-						A
-					</div>
-				</div>
-			</div>
-		</div>
+<!-- Admin Navigation -->
+<div class="admin-nav">
+	<div class="nav-container">
+		<a href="/" class="logo">⚡ Fantasy League <span class="badge">ADMIN</span></a>
 		
-		<!-- Mobile Navigation -->
-		<div class="mobile-nav">
+		<div class="nav-links">
 			{#each navItems as item}
-				<a
-					href={item.href}
-					class="mobile-nav-link {isActive(item.href) ? 'active' : ''}"
-				>
-					<span class="nav-icon">{item.icon}</span>
-					{item.label}
+				<a href={item.href} class="nav-link {isActive(item.href) ? 'active' : ''}">
+					{item.icon} {item.label}
 				</a>
 			{/each}
 		</div>
-	</nav>
-	
-	<!-- Main Content Area -->
-	<main class="main-content">
-		<slot />
-	</main>
-	
-	<!-- Footer -->
-	<footer class="footer">
-		<div class="footer-container">
-			<div class="footer-content">
-				<div>
-					<p>Fantasy Football League Admin Panel</p>
-				</div>
-				<div>
-					<p>© {new Date().getFullYear()} All rights reserved</p>
-				</div>
-			</div>
-		</div>
-	</footer>
+		
+		<a href="/" class="back-link">← Back to Site</a>
+	</div>
+</div>
+
+<!-- Content -->
+<div class="admin-content">
+	<slot />
 </div>
 
 <style>
 	:global(body) {
 		margin: 0;
-		padding: 0;
-		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-	}
-
-	.admin-wrapper {
-		min-height: 100vh;
 		background: #f5f5f5;
-		display: flex;
-		flex-direction: column;
 	}
 
-	/* Top Navigation */
-	.top-nav {
+	.admin-nav {
 		background: white;
-		border-bottom: 2px solid #e0e0e0;
+		border-bottom: 2px solid #ddd;
+		padding: 1rem 0;
 		position: sticky;
 		top: 0;
 		z-index: 100;
@@ -291,60 +223,42 @@
 	.nav-container {
 		max-width: 1400px;
 		margin: 0 auto;
-		padding: 0 1.5rem;
-	}
-
-	.nav-content {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		height: 64px;
-	}
-
-	.nav-left {
+		padding: 0 2rem;
 		display: flex;
 		align-items: center;
 		gap: 2rem;
 	}
 
-	.logo-section {
-		display: flex;
-		align-items: center;
-		gap: 0.75rem;
-	}
-
-	.logo-link {
+	.logo {
 		font-size: 1.25rem;
 		font-weight: bold;
 		color: #333;
 		text-decoration: none;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
 	}
 
-	.admin-badge {
-		padding: 0.25rem 0.5rem;
+	.badge {
 		background: #dc3545;
 		color: white;
-		font-size: 0.75rem;
-		font-weight: 600;
+		padding: 0.25rem 0.5rem;
 		border-radius: 4px;
+		font-size: 0.75rem;
 	}
 
-	.desktop-nav {
+	.nav-links {
 		display: flex;
 		gap: 0.5rem;
+		flex: 1;
 	}
 
 	.nav-link {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.5rem;
 		padding: 0.5rem 1rem;
 		text-decoration: none;
 		color: #666;
-		font-size: 0.95rem;
-		font-weight: 500;
-		border-radius: 8px;
-		transition: all 0.2s ease;
+		border-radius: 6px;
+		transition: all 0.2s;
 	}
 
 	.nav-link:hover {
@@ -353,133 +267,23 @@
 	}
 
 	.nav-link.active {
-		background: #e3f2fd;
-		color: #007bff;
-	}
-
-	.nav-icon {
-		font-size: 1.1rem;
-	}
-
-	.nav-right {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
+		background: #007bff;
+		color: white;
 	}
 
 	.back-link {
 		color: #666;
 		text-decoration: none;
-		font-size: 0.95rem;
 	}
 
-	.back-link:hover {
-		color: #333;
-	}
-
-	.user-avatar {
-		width: 36px;
-		height: 36px;
-		background: #007bff;
-		border-radius: 50%;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		color: white;
-		font-weight: 600;
-	}
-
-	/* Mobile Navigation */
-	.mobile-nav {
-		display: none;
-		border-top: 1px solid #e0e0e0;
-		padding: 0.5rem;
-	}
-
-	.mobile-nav-link {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		text-decoration: none;
-		color: #666;
-		font-size: 0.95rem;
-		font-weight: 500;
-		border-radius: 8px;
-		transition: all 0.2s ease;
-	}
-
-	.mobile-nav-link:hover {
-		background: #f5f5f5;
-		color: #333;
-	}
-
-	.mobile-nav-link.active {
-		background: #e3f2fd;
-		color: #007bff;
-	}
-
-	/* Main Content */
-	.main-content {
-		flex: 1;
-		max-width: 1400px;
-		width: 100%;
-		margin: 0 auto;
-		padding: 2rem 1.5rem;
-	}
-
-	/* Footer */
-	.footer {
-		background: white;
-		border-top: 2px solid #e0e0e0;
-		margin-top: 3rem;
-	}
-
-	.footer-container {
+	.admin-content {
 		max-width: 1400px;
 		margin: 0 auto;
-		padding: 1.5rem;
+		padding: 2rem;
 	}
 
-	.footer-content {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		color: #666;
-		font-size: 0.875rem;
-	}
-
-	.footer-content p {
-		margin: 0;
-	}
-
-	/* Mobile Responsive */
-	@media screen and (max-width: 768px) {
-		.desktop-nav {
-			display: none;
-		}
-
-		.mobile-nav {
-			display: flex;
-			flex-direction: column;
-			gap: 0.25rem;
-		}
-
-		.main-content {
-			padding: 1rem;
-		}
-
-		.footer-content {
-			flex-direction: column;
-			gap: 0.5rem;
-			text-align: center;
-		}
-
-		.logo-link {
-			font-size: 1rem;
-		}
-
-		.back-link {
+	@media (max-width: 768px) {
+		.nav-links {
 			display: none;
 		}
 	}
