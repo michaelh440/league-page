@@ -166,251 +166,321 @@
 </style-->
 
 <script>
-	import { onMount } from 'svelte';
-
-	let stats = {
-		seasons: { count: 0, loading: true },
-		activeSeasons: { count: 0, loading: true },
-		managers: { count: 0, loading: true },
-		teams: { count: 0, loading: true }
-	};
-
-	let loading = true;
-	let error = '';
-
-	onMount(async () => {
-		await loadDashboardData();
-	});
-
-	async function loadDashboardData() {
-		try {
-			// Load stats in parallel
-			const [seasonsRes, managersRes] = await Promise.all([
-				fetch('/api/admin/seasons'),
-				fetch('/api/admin/managers')
-			]);
-
-			if (seasonsRes.ok) {
-				const seasons = await seasonsRes.json();
-				stats.seasons.count = seasons.length;
-				stats.activeSeasons.count = seasons.filter(s => s.is_active).length;
-				
-				// Count total teams across all seasons
-				stats.teams.count = seasons.reduce((sum, s) => sum + (parseInt(s.team_count) || 0), 0);
-			}
-
-			if (managersRes.ok) {
-				const managers = await managersRes.json();
-				stats.managers.count = managers.length;
-			}
-
-			stats.seasons.loading = false;
-			stats.activeSeasons.loading = false;
-			stats.managers.loading = false;
-			stats.teams.loading = false;
-
-		} catch (err) {
-			console.error('Error loading dashboard data:', err);
-			error = err.message;
-		} finally {
-			loading = false;
-		}
-	}
-
-	// Quick action buttons
-	const quickActions = [
-		{
-			title: 'Create New Season',
-			description: 'Set up a new fantasy season',
-			href: '/admin/seasons/new',
-			icon: '📅',
-			color: 'blue'
-		},
-		{
-			title: 'Generate Weekly Summary',
-			description: 'Create AI-powered recap',
-			href: '/admin/weekly-summary',
-			icon: '📝',
-			color: 'green'
-		},
-		{
-			title: 'Manage Seasons',
-			description: 'View and edit all seasons',
-			href: '/admin/seasons',
-			icon: '⚙️',
-			color: 'purple'
-		},
-		{
-			title: 'View Managers',
-			description: 'Manage league members',
-			href: '/admin/managers',
-			icon: '👥',
-			color: 'orange'
-		}
+	import { page } from '$app/stores';
+	
+	// Current route for active link highlighting
+	$: currentPath = $page.url.pathname;
+	
+	// Navigation items
+	const navItems = [
+		{ href: '/admin', label: 'Dashboard', icon: '📊' },
+		{ href: '/admin/seasons', label: 'Seasons', icon: '📅' },
+		{ href: '/admin/weekly-summary', label: 'Weekly Summary', icon: '📝' },
+		{ href: '/admin/managers', label: 'Managers', icon: '👥' },
+		{ href: '/admin/settings', label: 'Settings', icon: '⚙️' }
 	];
+	
+	function isActive(path) {
+		if (path === '/admin') {
+			return currentPath === '/admin';
+		}
+		return currentPath.startsWith(path);
+	}
 </script>
 
-<div class="space-y-6">
-	<!-- Page Header -->
-	<div class="mb-8">
-		<h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-		<p class="mt-2 text-gray-600">Welcome back! Here's what's happening in your league.</p>
-	</div>
-
-	{#if error}
-		<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-			<strong class="font-semibold">Error:</strong> {error}
-		</div>
-	{/if}
-
-	<!-- Stats Grid -->
-	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-		<!-- Total Seasons -->
-		<div class="bg-white overflow-hidden shadow rounded-lg">
-			<div class="p-5">
-				<div class="flex items-center">
-					<div class="flex-shrink-0">
-						<div class="text-3xl">📅</div>
+<div class="admin-wrapper">
+	<!-- Top Navigation Bar -->
+	<nav class="top-nav">
+		<div class="nav-container">
+			<div class="nav-content">
+				<!-- Left: Logo and Nav -->
+				<div class="nav-left">
+					<!-- Logo -->
+					<div class="logo-section">
+						<a href="/" class="logo-link">
+							⚡ Fantasy League
+						</a>
+						<span class="admin-badge">ADMIN</span>
 					</div>
-					<div class="ml-5 w-0 flex-1">
-						<dl>
-							<dt class="text-sm font-medium text-gray-500 truncate">
-								Total Seasons
-							</dt>
-							<dd class="flex items-baseline">
-								{#if stats.seasons.loading}
-									<div class="text-2xl font-semibold text-gray-400">...</div>
-								{:else}
-									<div class="text-2xl font-semibold text-gray-900">
-										{stats.seasons.count}
-									</div>
-								{/if}
-							</dd>
-						</dl>
+					
+					<!-- Desktop Navigation -->
+					<div class="desktop-nav">
+						{#each navItems as item}
+							<a
+								href={item.href}
+								class="nav-link {isActive(item.href) ? 'active' : ''}"
+							>
+								<span class="nav-icon">{item.icon}</span>
+								{item.label}
+							</a>
+						{/each}
+					</div>
+				</div>
+				
+				<!-- Right: User Menu -->
+				<div class="nav-right">
+					<a href="/" class="back-link">
+						← Back to Site
+					</a>
+					
+					<!-- Future: User dropdown -->
+					<div class="user-avatar">
+						A
 					</div>
 				</div>
 			</div>
 		</div>
-
-		<!-- Active Seasons -->
-		<div class="bg-white overflow-hidden shadow rounded-lg">
-			<div class="p-5">
-				<div class="flex items-center">
-					<div class="flex-shrink-0">
-						<div class="text-3xl">✅</div>
-					</div>
-					<div class="ml-5 w-0 flex-1">
-						<dl>
-							<dt class="text-sm font-medium text-gray-500 truncate">
-								Active Seasons
-							</dt>
-							<dd class="flex items-baseline">
-								{#if stats.activeSeasons.loading}
-									<div class="text-2xl font-semibold text-gray-400">...</div>
-								{:else}
-									<div class="text-2xl font-semibold text-green-600">
-										{stats.activeSeasons.count}
-									</div>
-								{/if}
-							</dd>
-						</dl>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Total Managers -->
-		<div class="bg-white overflow-hidden shadow rounded-lg">
-			<div class="p-5">
-				<div class="flex items-center">
-					<div class="flex-shrink-0">
-						<div class="text-3xl">👥</div>
-					</div>
-					<div class="ml-5 w-0 flex-1">
-						<dl>
-							<dt class="text-sm font-medium text-gray-500 truncate">
-								Total Managers
-							</dt>
-							<dd class="flex items-baseline">
-								{#if stats.managers.loading}
-									<div class="text-2xl font-semibold text-gray-400">...</div>
-								{:else}
-									<div class="text-2xl font-semibold text-gray-900">
-										{stats.managers.count}
-									</div>
-								{/if}
-							</dd>
-						</dl>
-					</div>
-				</div>
-			</div>
-		</div>
-
-		<!-- Total Teams -->
-		<div class="bg-white overflow-hidden shadow rounded-lg">
-			<div class="p-5">
-				<div class="flex items-center">
-					<div class="flex-shrink-0">
-						<div class="text-3xl">🏈</div>
-					</div>
-					<div class="ml-5 w-0 flex-1">
-						<dl>
-							<dt class="text-sm font-medium text-gray-500 truncate">
-								Total Teams
-							</dt>
-							<dd class="flex items-baseline">
-								{#if stats.teams.loading}
-									<div class="text-2xl font-semibold text-gray-400">...</div>
-								{:else}
-									<div class="text-2xl font-semibold text-gray-900">
-										{stats.teams.count}
-									</div>
-								{/if}
-							</dd>
-						</dl>
-					</div>
-				</div>
-			</div>
-		</div>
-	</div>
-
-	<!-- Quick Actions -->
-	<div class="mt-8">
-		<h2 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-			{#each quickActions as action}
+		
+		<!-- Mobile Navigation -->
+		<div class="mobile-nav">
+			{#each navItems as item}
 				<a
-					href={action.href}
-					class="block p-6 rounded-lg border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all bg-white"
+					href={item.href}
+					class="mobile-nav-link {isActive(item.href) ? 'active' : ''}"
 				>
-					<div class="text-3xl mb-3">{action.icon}</div>
-					<h3 class="text-lg font-semibold mb-1 text-gray-900">{action.title}</h3>
-					<p class="text-sm text-gray-600">{action.description}</p>
+					<span class="nav-icon">{item.icon}</span>
+					{item.label}
 				</a>
 			{/each}
 		</div>
-	</div>
-
-	<!-- System Status -->
-	<div class="bg-white shadow rounded-lg p-6 mt-8">
-		<h2 class="text-lg font-semibold text-gray-900 mb-4">System Status</h2>
-		<div class="space-y-3">
-			<div class="flex items-center justify-between">
-				<span class="text-sm text-gray-600">Database Connection</span>
-				<span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
-					✓ Connected
-				</span>
-			</div>
-			<div class="flex items-center justify-between">
-				<span class="text-sm text-gray-600">API Status</span>
-				<span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
-					✓ Operational
-				</span>
-			</div>
-			<div class="flex items-center justify-between">
-				<span class="text-sm text-gray-600">Last Data Sync</span>
-				<span class="text-sm text-gray-900">Just now</span>
+	</nav>
+	
+	<!-- Main Content Area -->
+	<main class="main-content">
+		<slot />
+	</main>
+	
+	<!-- Footer -->
+	<footer class="footer">
+		<div class="footer-container">
+			<div class="footer-content">
+				<div>
+					<p>Fantasy Football League Admin Panel</p>
+				</div>
+				<div>
+					<p>© {new Date().getFullYear()} All rights reserved</p>
+				</div>
 			</div>
 		</div>
-	</div>
+	</footer>
 </div>
+
+<style>
+	:global(body) {
+		margin: 0;
+		padding: 0;
+		font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+	}
+
+	.admin-wrapper {
+		min-height: 100vh;
+		background: #f5f5f5;
+		display: flex;
+		flex-direction: column;
+	}
+
+	/* Top Navigation */
+	.top-nav {
+		background: white;
+		border-bottom: 2px solid #e0e0e0;
+		position: sticky;
+		top: 0;
+		z-index: 100;
+	}
+
+	.nav-container {
+		max-width: 1400px;
+		margin: 0 auto;
+		padding: 0 1.5rem;
+	}
+
+	.nav-content {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		height: 64px;
+	}
+
+	.nav-left {
+		display: flex;
+		align-items: center;
+		gap: 2rem;
+	}
+
+	.logo-section {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.logo-link {
+		font-size: 1.25rem;
+		font-weight: bold;
+		color: #333;
+		text-decoration: none;
+	}
+
+	.admin-badge {
+		padding: 0.25rem 0.5rem;
+		background: #dc3545;
+		color: white;
+		font-size: 0.75rem;
+		font-weight: 600;
+		border-radius: 4px;
+	}
+
+	.desktop-nav {
+		display: flex;
+		gap: 0.5rem;
+	}
+
+	.nav-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.5rem 1rem;
+		text-decoration: none;
+		color: #666;
+		font-size: 0.95rem;
+		font-weight: 500;
+		border-radius: 8px;
+		transition: all 0.2s ease;
+	}
+
+	.nav-link:hover {
+		background: #f5f5f5;
+		color: #333;
+	}
+
+	.nav-link.active {
+		background: #e3f2fd;
+		color: #007bff;
+	}
+
+	.nav-icon {
+		font-size: 1.1rem;
+	}
+
+	.nav-right {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+	}
+
+	.back-link {
+		color: #666;
+		text-decoration: none;
+		font-size: 0.95rem;
+	}
+
+	.back-link:hover {
+		color: #333;
+	}
+
+	.user-avatar {
+		width: 36px;
+		height: 36px;
+		background: #007bff;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		font-weight: 600;
+	}
+
+	/* Mobile Navigation */
+	.mobile-nav {
+		display: none;
+		border-top: 1px solid #e0e0e0;
+		padding: 0.5rem;
+	}
+
+	.mobile-nav-link {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		text-decoration: none;
+		color: #666;
+		font-size: 0.95rem;
+		font-weight: 500;
+		border-radius: 8px;
+		transition: all 0.2s ease;
+	}
+
+	.mobile-nav-link:hover {
+		background: #f5f5f5;
+		color: #333;
+	}
+
+	.mobile-nav-link.active {
+		background: #e3f2fd;
+		color: #007bff;
+	}
+
+	/* Main Content */
+	.main-content {
+		flex: 1;
+		max-width: 1400px;
+		width: 100%;
+		margin: 0 auto;
+		padding: 2rem 1.5rem;
+	}
+
+	/* Footer */
+	.footer {
+		background: white;
+		border-top: 2px solid #e0e0e0;
+		margin-top: 3rem;
+	}
+
+	.footer-container {
+		max-width: 1400px;
+		margin: 0 auto;
+		padding: 1.5rem;
+	}
+
+	.footer-content {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		color: #666;
+		font-size: 0.875rem;
+	}
+
+	.footer-content p {
+		margin: 0;
+	}
+
+	/* Mobile Responsive */
+	@media screen and (max-width: 768px) {
+		.desktop-nav {
+			display: none;
+		}
+
+		.mobile-nav {
+			display: flex;
+			flex-direction: column;
+			gap: 0.25rem;
+		}
+
+		.main-content {
+			padding: 1rem;
+		}
+
+		.footer-content {
+			flex-direction: column;
+			gap: 0.5rem;
+			text-align: center;
+		}
+
+		.logo-link {
+			font-size: 1rem;
+		}
+
+		.back-link {
+			display: none;
+		}
+	}
+</style>
