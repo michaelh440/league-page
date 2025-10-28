@@ -1,4 +1,4 @@
-<!-- src/routes/weekly_summary/+page.svelte -->
+<!-- src/routes/admin/weekly_summary/+page.svelte -->
 <!--Adding comment to force-->
 <script>
     import { onMount } from 'svelte';
@@ -140,7 +140,6 @@
         console.log('Loading data for:', selectedSeason, selectedWeek, seasonType);
         
         try {
-            // UPDATED: Pass season type to API
             const matchupsUrl = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}&type=${seasonType}`;
             console.log('Fetching matchups:', matchupsUrl);
             
@@ -273,7 +272,7 @@
                     season: selectedSeason,
                     week: selectedWeek,
                     systemPrompt: systemPrompt || undefined,
-                    seasonType: seasonType // ADDED
+                    seasonType: seasonType
                 })
             });
             
@@ -461,7 +460,6 @@
         loadExistingSummary();
     }
     
-    // UPDATED: Handle playoff-specific formatting
     function formatDataForAI(matchups) {
         const typeLabel = seasonType === 'playoffs' ? 'PLAYOFF' : 'REGULAR SEASON';
         let prompt = `You are a snarky fantasy football analyst creating a ${typeLabel} recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
@@ -469,7 +467,6 @@
         matchups.forEach((m, idx) => {
             const margin = parseFloat(m.margin) || 0;
             
-            // Add playoff-specific context
             prompt += `MATCHUP ${idx + 1}`;
             if (m.round_name) {
                 prompt += ` - ${m.round_name}`;
@@ -529,7 +526,6 @@
             prompt += `\n`;
         });
         
-        // Add playoff-specific instruction
         if (seasonType === 'playoffs') {
             prompt += '\nRemember this is a playoff game - emphasize the high stakes, pressure, and what this means for championship hopes!';
         }
@@ -542,9 +538,7 @@
         alert('Summary copied!');
     }
     
-    // NEW: Handler for season type change
     function handleSeasonTypeChange() {
-        // Clear data when switching types
         matchups = [];
         generatedSummary = '';
         summaryExists = false;
@@ -554,7 +548,7 @@
 </script>
 
 <div class="content">
-    <h2>Weekly Summary Generator</h2>
+    <h2>📊 Weekly Summary Generator (Admin)</h2>
     
     <div class="controls">
         <div class="selector">
@@ -575,7 +569,6 @@
             </select>
         </div>
         
-        <!-- NEW: Season Type Selector -->
         <div class="selector">
             <label for="seasonType">Type:</label>
             <select id="seasonType" bind:value={seasonType} on:change={handleSeasonTypeChange}>
@@ -659,7 +652,6 @@
         {/if}
     </div>
     
-    <!-- Show status after data is loaded -->
     {#if dataLoaded}
         {#if matchups.length === 0}
             <div class="status-card warning-card">
