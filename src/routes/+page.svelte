@@ -10,8 +10,27 @@
   import { PowerRankings, HomePost, Standings } from '$lib/components';
 
   export let data;
-  const { standingsData, leagueTeamManagersData, champions, managersByCount } = data;
+  const { standingsData, leagueTeamManagersData, champions, managersByCount, featuredVideo } = data;
   
+  // Function to get video embed URL
+  function getEmbedUrl(url) {
+    if (!url) return '';
+    // YouTube
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      const videoId = url.includes('youtu.be') 
+        ? url.split('youtu.be/')[1]?.split('?')[0]
+        : new URLSearchParams(url.split('?')[1]).get('v');
+      return `https://www.youtube.com/embed/${videoId}?rel=0`;
+    }
+    // Vimeo
+    if (url.includes('vimeo.com')) {
+      const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+      return `https://player.vimeo.com/video/${videoId}`;
+    }
+    return url;
+  }
+
+
 </script>
 
 <style>
@@ -39,6 +58,97 @@
     max-width: 800px;
     margin: 0 auto;
   }
+
+  /* Featured Video Section - Replaces League History */
+  .featured-video-section {
+    background: linear-gradient(135deg, #f5f7fa 0%, #e9ecef 100%);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+
+  .video-header {
+    background: #00316b;
+    color: white;
+    padding: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .video-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    font-weight: bold;
+  }
+
+  .view-all-link {
+    color: white;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    transition: background 0.2s;
+  }
+
+  .view-all-link:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+
+  .video-content {
+    padding: 1.5rem;
+    background: white;
+  }
+
+  .video-player-wrapper {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    margin-bottom: 1rem;
+  }
+
+  .video-player-wrapper iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+  }
+
+  .video-details {
+    text-align: center;
+  }
+
+  .video-details h4 {
+    font-size: 1.25rem;
+    margin: 0.5rem 0;
+    color: #1f2937;
+  }
+
+  .video-date {
+    font-size: 0.9rem;
+    color: #6b7280;
+    margin-bottom: 0.75rem;
+  }
+
+  .video-description {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #4b5563;
+  }
+
+  .no-video {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: #6b7280;
+  }
+
 
   /* Wall of Champions spans full width */
   .champions-row {
@@ -202,14 +312,50 @@
 </style>
 
 <div class="page-container">
-  <!-- League Description -->
-  <div class="card league-description">
+  <!-- League Description >
+  <--div class="card league-description">
     <h2>{leagueName}</h2>
     {@html homepageText }
     {#if enableBlog}
       <HomePost />
     {/if}
-  </div>
+  </div-->
+
+
+  <!-- Featured Video Section (replaces old league history section) -->
+  {#if featuredVideo}
+    <div class="featured-video-section">
+      <div class="video-header">
+        <h3>📹 Latest Weekly Video</h3>
+        <a href="/video" class="view-all-link">View All Videos →</a>
+      </div>
+      <div class="video-content">
+        <div class="video-player-wrapper">
+          <iframe
+            src={getEmbedUrl(featuredVideo.url)}
+            title={featuredVideo.title}
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
+          ></iframe>
+        </div>
+        <div class="video-details">
+          <h4>{featuredVideo.title}</h4>
+          <p class="video-date">
+            {new Date(featuredVideo.date).toLocaleDateString('en-US', { 
+              year: 'numeric', 
+              month: 'long', 
+              day: 'numeric' 
+            })}
+          </p>
+          {#if featuredVideo.description}
+            <p class="video-description">{featuredVideo.description}</p>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
+
 
   <!-- Wall of Champions (replaces both champion sections) -->
   <div class="champions-row">
