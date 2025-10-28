@@ -226,14 +226,7 @@
 			icon: '📅',
 			color: '#007bff'
 		},
-		{
-			title: 'Generate Weekly Summary',
-			description: 'Create AI-powered recap',
-			href: '/admin/weekly-summary',
-			icon: '📝',
-			color: '#28a745'
-		},
-		{
+        {
 			title: 'Manage Seasons',
 			description: 'View and edit all seasons',
 			href: '/admin/seasons',
@@ -241,11 +234,25 @@
 			color: '#6f42c1'
 		},
 		{
+			title: 'Generate Weekly Summary',
+			description: 'Create AI-powered recap',
+			href: '/admin/weekly_summary',
+			icon: '📝',
+			color: '#28a745'
+		},
+		{
 			title: 'View Managers',
 			description: 'Manage league members',
 			href: '/admin/managers',
 			icon: '👥',
 			color: '#fd7e14'
+		},
+        {
+			title: 'Correct Position Data',
+			description: 'View and correct NFL player position data',
+			href: '/admin/confirm_yahoo_points_staging',
+            icon: '🔧',
+			color: '#6f42c1'
 		}
 	];
 </script>
