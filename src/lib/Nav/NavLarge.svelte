@@ -94,7 +94,31 @@
     margin-right: 0.4rem;
     font-size: 1.2rem;
   }
+/* Video button special styling */
+  .nav-link.video-btn {
+    background: linear-gradient(135deg, rgba(0, 49, 107, 0.1), rgba(0, 123, 255, 0.1));
+    border: 2px solid #00316b;
+    border-radius: 8px;
+    margin-left: 0.75rem;
+    padding: 0.75rem 1.25rem !important;
+    border-bottom: 2px solid #00316b !important;
+    transition: all 0.3s ease;
+  }
 
+  .nav-link.video-btn:hover {
+    background: linear-gradient(135deg, #00316b, #007bff);
+    color: white;
+    border-color: #00316b;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 49, 107, 0.3);
+  }
+
+  .nav-link.video-btn.active {
+    background: linear-gradient(135deg, #00316b, #007bff);
+    color: white;
+    border-color: #00316b;
+  }
+  
   /* dropdown menu */
   .dropdown {
     position: absolute;
