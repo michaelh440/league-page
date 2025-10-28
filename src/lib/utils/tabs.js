@@ -164,5 +164,5 @@ export const tabs = [
       { icon: 'history_edu', label: 'Manager Draft Room', dest: '/managers/drafts' }
     ]
   },
-  //{ icon: 'rss_feed', label: 'Blog', dest: '/blog', key: 'blog' }
+  { icon: 'videocam', label: 'Video', dest: '/video', key: 'video' }
 ];
