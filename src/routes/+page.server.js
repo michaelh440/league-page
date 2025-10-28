@@ -195,7 +195,7 @@ export async function load() {
   const featuredVideo = {
     id: '1',
     title: 'Week 8 Recap - Thriller Finishes!',
-    url: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID', // ← UPDATE THIS
+    url: 'https://youtu.be/jeh1rnTPk_k', // ← UPDATE THIS
     date: '2025-10-27',
     description: 'An incredible week of fantasy football with multiple games decided by less than 5 points!',
     featured: true
