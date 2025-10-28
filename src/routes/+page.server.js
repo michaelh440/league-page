@@ -190,10 +190,23 @@ export async function load() {
     managersByCountCount: managersByCount.length
   });
 
+  // TODO: Replace this with actual video data from your database or API
+  // For now, here's sample data structure - UPDATE WITH YOUR ACTUAL VIDEO
+  const featuredVideo = {
+    id: '1',
+    title: 'Week 8 Recap - Thriller Finishes!',
+    url: 'https://youtu.be/jeh1rnTPk_k', // ← UPDATE THIS
+    date: '2025-10-27',
+    description: 'An incredible week of fantasy football with multiple games decided by less than 5 points!',
+    featured: true
+  };
+
+
   return {
     standingsData,
     leagueTeamManagersData,
     champions: processedChampions,
-    managersByCount
+    managersByCount,
+    featuredVideo // Add featured video to return data
   };
 }
