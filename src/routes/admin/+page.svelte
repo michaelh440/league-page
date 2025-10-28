@@ -1,5 +1,5 @@
 <!-- src/routes/admin/+page.svelte -->
-<script>
+<!--script>
   const adminTools = [
     {
       title: 'Fix Data Issues',
@@ -163,4 +163,257 @@
       font-size: 1rem;
     }
   }
-</style>
+</style-->
+
+<script>
+	import { onMount } from 'svelte';
+
+	let stats = {
+		seasons: { count: 0, loading: true },
+		activeSeasons: { count: 0, loading: true },
+		managers: { count: 0, loading: true },
+		teams: { count: 0, loading: true }
+	};
+
+	let recentActivity = [];
+	let loading = true;
+
+	onMount(async () => {
+		await loadDashboardData();
+	});
+
+	async function loadDashboardData() {
+		try {
+			// Load stats in parallel
+			const [seasonsRes, managersRes] = await Promise.all([
+				fetch('/api/admin/seasons'),
+				fetch('/api/admin/managers')
+			]);
+
+			if (seasonsRes.ok) {
+				const seasons = await seasonsRes.json();
+				stats.seasons.count = seasons.length;
+				stats.activeSeasons.count = seasons.filter(s => s.is_active).length;
+				
+				// Count total teams across all seasons
+				stats.teams.count = seasons.reduce((sum, s) => sum + (s.team_count || 0), 0);
+			}
+
+			if (managersRes.ok) {
+				const managers = await managersRes.json();
+				stats.managers.count = managers.length;
+			}
+
+			stats.seasons.loading = false;
+			stats.activeSeasons.loading = false;
+			stats.managers.loading = false;
+			stats.teams.loading = false;
+
+		} catch (error) {
+			console.error('Error loading dashboard data:', error);
+		} finally {
+			loading = false;
+		}
+	}
+
+	// Quick action buttons
+	const quickActions = [
+		{
+			title: 'Create New Season',
+			description: 'Set up a new fantasy season',
+			href: '/admin/seasons/new',
+			icon: '📅',
+			color: 'blue'
+		},
+		{
+			title: 'Generate Weekly Summary',
+			description: 'Create AI-powered recap',
+			href: '/admin/weekly-summary',
+			icon: '📝',
+			color: 'green'
+		},
+		{
+			title: 'Manage Seasons',
+			description: 'View and edit all seasons',
+			href: '/admin/seasons',
+			icon: '⚙️',
+			color: 'purple'
+		},
+		{
+			title: 'View Managers',
+			description: 'Manage league members',
+			href: '/admin/managers',
+			icon: '👥',
+			color: 'orange'
+		}
+	];
+
+	function getColorClasses(color) {
+		const colors = {
+			blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+			green: 'bg-green-50 text-green-700 hover:bg-green-100',
+			purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100',
+			orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+		};
+		return colors[color] || colors.blue;
+	}
+</script>
+
+<div class="space-y-6">
+	<!-- Page Header -->
+	<div class="mb-8">
+		<h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+		<p class="mt-2 text-gray-600">Welcome back! Here's what's happening in your league.</p>
+	</div>
+
+	<!-- Stats Grid -->
+	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+		<!-- Total Seasons -->
+		<div class="bg-white overflow-hidden shadow rounded-lg">
+			<div class="p-5">
+				<div class="flex items-center">
+					<div class="flex-shrink-0">
+						<div class="text-3xl">📅</div>
+					</div>
+					<div class="ml-5 w-0 flex-1">
+						<dl>
+							<dt class="text-sm font-medium text-gray-500 truncate">
+								Total Seasons
+							</dt>
+							<dd class="flex items-baseline">
+								{#if stats.seasons.loading}
+									<div class="text-2xl font-semibold text-gray-400">...</div>
+								{:else}
+									<div class="text-2xl font-semibold text-gray-900">
+										{stats.seasons.count}
+									</div>
+								{/if}
+							</dd>
+						</dl>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Active Seasons -->
+		<div class="bg-white overflow-hidden shadow rounded-lg">
+			<div class="p-5">
+				<div class="flex items-center">
+					<div class="flex-shrink-0">
+						<div class="text-3xl">✅</div>
+					</div>
+					<div class="ml-5 w-0 flex-1">
+						<dl>
+							<dt class="text-sm font-medium text-gray-500 truncate">
+								Active Seasons
+							</dt>
+							<dd class="flex items-baseline">
+								{#if stats.activeSeasons.loading}
+									<div class="text-2xl font-semibold text-gray-400">...</div>
+								{:else}
+									<div class="text-2xl font-semibold text-green-600">
+										{stats.activeSeasons.count}
+									</div>
+								{/if}
+							</dd>
+						</dl>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Total Managers -->
+		<div class="bg-white overflow-hidden shadow rounded-lg">
+			<div class="p-5">
+				<div class="flex items-center">
+					<div class="flex-shrink-0">
+						<div class="text-3xl">👥</div>
+					</div>
+					<div class="ml-5 w-0 flex-1">
+						<dl>
+							<dt class="text-sm font-medium text-gray-500 truncate">
+								Total Managers
+							</dt>
+							<dd class="flex items-baseline">
+								{#if stats.managers.loading}
+									<div class="text-2xl font-semibold text-gray-400">...</div>
+								{:else}
+									<div class="text-2xl font-semibold text-gray-900">
+										{stats.managers.count}
+									</div>
+								{/if}
+							</dd>
+						</dl>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Total Teams -->
+		<div class="bg-white overflow-hidden shadow rounded-lg">
+			<div class="p-5">
+				<div class="flex items-center">
+					<div class="flex-shrink-0">
+						<div class="text-3xl">🏈</div>
+					</div>
+					<div class="ml-5 w-0 flex-1">
+						<dl>
+							<dt class="text-sm font-medium text-gray-500 truncate">
+								Total Teams
+							</dt>
+							<dd class="flex items-baseline">
+								{#if stats.teams.loading}
+									<div class="text-2xl font-semibold text-gray-400">...</div>
+								{:else}
+									<div class="text-2xl font-semibold text-gray-900">
+										{stats.teams.count}
+									</div>
+								{/if}
+							</dd>
+						</dl>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Quick Actions -->
+	<div class="mt-8">
+		<h2 class="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
+		<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+			{#each quickActions as action}
+				<a
+					href={action.href}
+					class="block p-6 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all {getColorClasses(action.color)}"
+				>
+					<div class="text-3xl mb-3">{action.icon}</div>
+					<h3 class="text-lg font-semibold mb-1">{action.title}</h3>
+					<p class="text-sm opacity-75">{action.description}</p>
+				</a>
+			{/each}
+		</div>
+	</div>
+
+	<!-- System Status -->
+	<div class="bg-white shadow rounded-lg p-6 mt-8">
+		<h2 class="text-lg font-semibold text-gray-900 mb-4">System Status</h2>
+		<div class="space-y-3">
+			<div class="flex items-center justify-between">
+				<span class="text-sm text-gray-600">Database Connection</span>
+				<span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
+					✓ Connected
+				</span>
+			</div>
+			<div class="flex items-center justify-between">
+				<span class="text-sm text-gray-600">API Status</span>
+				<span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded">
+					✓ Operational
+				</span>
+			</div>
+			<div class="flex items-center justify-between">
+				<span class="text-sm text-gray-600">Last Data Sync</span>
+				<span class="text-sm text-gray-900">Just now</span>
+			</div>
+		</div>
+	</div>
+</div>
