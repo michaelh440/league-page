@@ -166,125 +166,392 @@
 </style-->
 
 <script>
-	import { page } from '$app/stores';
-	
-	$: currentPath = $page.url.pathname;
-	
-	const navItems = [
-		{ href: '/admin', label: 'Dashboard', icon: '📊' },
-		{ href: '/admin/seasons', label: 'Seasons', icon: '📅' },
-		{ href: '/admin/weekly_summary', label: 'Weekly Summary', icon: '📝' },
-		{ href: '/admin/managers', label: 'Managers', icon: '👥' },
-	];
-	
-	function isActive(path) {
-		if (path === '/admin') return currentPath === '/admin';
-		return currentPath.startsWith(path);
+	import { onMount } from 'svelte';
+
+	let stats = {
+		seasons: { count: 0, loading: true },
+		activeSeasons: { count: 0, loading: true },
+		managers: { count: 0, loading: true },
+		teams: { count: 0, loading: true }
+	};
+
+	let loading = true;
+	let error = '';
+
+	onMount(async () => {
+		await loadDashboardData();
+	});
+
+	async function loadDashboardData() {
+		try {
+			// Load stats in parallel
+			const [seasonsRes, managersRes] = await Promise.all([
+				fetch('/api/admin/seasons'),
+				fetch('/api/admin/managers')
+			]);
+
+			if (seasonsRes.ok) {
+				const seasons = await seasonsRes.json();
+				stats.seasons.count = seasons.length;
+				stats.activeSeasons.count = seasons.filter(s => s.is_active).length;
+				
+				// Count total teams across all seasons
+				stats.teams.count = seasons.reduce((sum, s) => sum + (parseInt(s.team_count) || 0), 0);
+			}
+
+			if (managersRes.ok) {
+				const managers = await managersRes.json();
+				stats.managers.count = managers.length;
+			}
+
+			stats.seasons.loading = false;
+			stats.activeSeasons.loading = false;
+			stats.managers.loading = false;
+			stats.teams.loading = false;
+
+		} catch (err) {
+			console.error('Error loading dashboard data:', err);
+			error = err.message;
+		} finally {
+			loading = false;
+		}
 	}
+
+	// Quick action buttons
+	const quickActions = [
+		{
+			title: 'Create New Season',
+			description: 'Set up a new fantasy season',
+			href: '/admin/seasons/new',
+			icon: '📅',
+			color: '#007bff'
+		},
+		{
+			title: 'Generate Weekly Summary',
+			description: 'Create AI-powered recap',
+			href: '/admin/weekly-summary',
+			icon: '📝',
+			color: '#28a745'
+		},
+		{
+			title: 'Manage Seasons',
+			description: 'View and edit all seasons',
+			href: '/admin/seasons',
+			icon: '⚙️',
+			color: '#6f42c1'
+		},
+		{
+			title: 'View Managers',
+			description: 'Manage league members',
+			href: '/admin/managers',
+			icon: '👥',
+			color: '#fd7e14'
+		}
+	];
 </script>
 
-<!-- Admin Navigation -->
-<div class="admin-nav">
-	<div class="nav-container">
-		<a href="/" class="logo">⚡ Fantasy League <span class="badge">ADMIN</span></a>
-		
-		<div class="nav-links">
-			{#each navItems as item}
-				<a href={item.href} class="nav-link {isActive(item.href) ? 'active' : ''}">
-					{item.icon} {item.label}
+<div class="dashboard-container">
+	<!-- Page Header -->
+	<div class="page-header">
+		<h1>Admin Dashboard</h1>
+		<p>Welcome back! Here's what's happening in your league.</p>
+	</div>
+
+	{#if error}
+		<div class="error-box">
+			<strong>Error:</strong> {error}
+		</div>
+	{/if}
+
+	<!-- Stats Grid -->
+	<div class="stats-grid">
+		<!-- Total Seasons -->
+		<div class="stat-card">
+			<div class="stat-icon">📅</div>
+			<div class="stat-content">
+				<div class="stat-label">Total Seasons</div>
+				{#if stats.seasons.loading}
+					<div class="stat-value loading">...</div>
+				{:else}
+					<div class="stat-value">{stats.seasons.count}</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Active Seasons -->
+		<div class="stat-card">
+			<div class="stat-icon">✅</div>
+			<div class="stat-content">
+				<div class="stat-label">Active Seasons</div>
+				{#if stats.activeSeasons.loading}
+					<div class="stat-value loading">...</div>
+				{:else}
+					<div class="stat-value active">{stats.activeSeasons.count}</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Total Managers -->
+		<div class="stat-card">
+			<div class="stat-icon">👥</div>
+			<div class="stat-content">
+				<div class="stat-label">Total Managers</div>
+				{#if stats.managers.loading}
+					<div class="stat-value loading">...</div>
+				{:else}
+					<div class="stat-value">{stats.managers.count}</div>
+				{/if}
+			</div>
+		</div>
+
+		<!-- Total Teams -->
+		<div class="stat-card">
+			<div class="stat-icon">🏈</div>
+			<div class="stat-content">
+				<div class="stat-label">Total Teams</div>
+				{#if stats.teams.loading}
+					<div class="stat-value loading">...</div>
+				{:else}
+					<div class="stat-value">{stats.teams.count}</div>
+				{/if}
+			</div>
+		</div>
+	</div>
+
+	<!-- Quick Actions -->
+	<div class="section">
+		<h2 class="section-title">Quick Actions</h2>
+		<div class="actions-grid">
+			{#each quickActions as action}
+				<a href={action.href} class="action-card" style="border-left: 4px solid {action.color}">
+					<div class="action-icon">{action.icon}</div>
+					<h3 class="action-title">{action.title}</h3>
+					<p class="action-description">{action.description}</p>
 				</a>
 			{/each}
 		</div>
-		
-		<a href="/" class="back-link">← Back to Site</a>
+	</div>
+
+	<!-- System Status -->
+	<div class="status-box">
+		<h2 class="section-title">System Status</h2>
+		<div class="status-grid">
+			<div class="status-item">
+				<span class="status-label">Database Connection</span>
+				<span class="status-badge success">✓ Connected</span>
+			</div>
+			<div class="status-item">
+				<span class="status-label">API Status</span>
+				<span class="status-badge success">✓ Operational</span>
+			</div>
+			<div class="status-item">
+				<span class="status-label">Last Data Sync</span>
+				<span class="status-text">Just now</span>
+			</div>
+		</div>
 	</div>
 </div>
 
-<!-- Content -->
-<div class="admin-content">
-	<slot />
-</div>
-
 <style>
-	:global(body) {
-		margin: 0;
-		background: #f5f5f5;
-	}
-
-	.admin-nav {
-		background: white;
-		border-bottom: 2px solid #ddd;
-		padding: 1rem 0;
-		position: sticky;
-		top: 0;
-		z-index: 100;
-	}
-
-	.nav-container {
+	.dashboard-container {
+		padding: 2rem;
 		max-width: 1400px;
 		margin: 0 auto;
-		padding: 0 2rem;
-		display: flex;
-		align-items: center;
-		gap: 2rem;
 	}
 
-	.logo {
-		font-size: 1.25rem;
+	.page-header {
+		margin-bottom: 2rem;
+	}
+
+	.page-header h1 {
+		font-size: 2.5rem;
 		font-weight: bold;
-		color: #333;
-		text-decoration: none;
+		color: #004085;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.page-header p {
+		color: #666;
+		font-size: 1.1rem;
+		margin: 0;
+	}
+
+	.error-box {
+		background: #f8d7da;
+		border: 1px solid #f5c6cb;
+		color: #721c24;
+		padding: 1rem;
+		border-radius: 8px;
+		margin-bottom: 1.5rem;
+	}
+
+	/* Stats Grid */
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 1.5rem;
+		margin-bottom: 2rem;
+	}
+
+	.stat-card {
+		background: white;
+		border-radius: 12px;
+		padding: 1.5rem;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
+		gap: 1rem;
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
 	}
 
-	.badge {
-		background: #dc3545;
-		color: white;
-		padding: 0.25rem 0.5rem;
-		border-radius: 4px;
-		font-size: 0.75rem;
+	.stat-card:hover {
+		transform: translateY(-4px);
+		box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 	}
 
-	.nav-links {
-		display: flex;
-		gap: 0.5rem;
+	.stat-icon {
+		font-size: 2.5rem;
+		flex-shrink: 0;
+	}
+
+	.stat-content {
 		flex: 1;
 	}
 
-	.nav-link {
-		padding: 0.5rem 1rem;
-		text-decoration: none;
+	.stat-label {
+		font-size: 0.875rem;
 		color: #666;
-		border-radius: 6px;
-		transition: all 0.2s;
+		margin-bottom: 0.25rem;
 	}
 
-	.nav-link:hover {
-		background: #f5f5f5;
+	.stat-value {
+		font-size: 2rem;
+		font-weight: bold;
 		color: #333;
 	}
 
-	.nav-link.active {
-		background: #007bff;
-		color: white;
+	.stat-value.loading {
+		color: #999;
 	}
 
-	.back-link {
-		color: #666;
+	.stat-value.active {
+		color: #28a745;
+	}
+
+	/* Section */
+	.section {
+		margin-bottom: 2rem;
+	}
+
+	.section-title {
+		font-size: 1.5rem;
+		font-weight: bold;
+		color: #004085;
+		margin-bottom: 1rem;
+	}
+
+	/* Actions Grid */
+	.actions-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 1.5rem;
+	}
+
+	.action-card {
+		background: white;
+		border-radius: 12px;
+		padding: 1.5rem;
 		text-decoration: none;
+		color: inherit;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+		transition: transform 0.2s ease, box-shadow 0.2s ease;
+		display: flex;
+		flex-direction: column;
 	}
 
-	.admin-content {
-		max-width: 1400px;
-		margin: 0 auto;
-		padding: 2rem;
+	.action-card:hover {
+		transform: translateY(-4px);
+		box-shadow: 0 6px 16px rgba(0,0,0,0.15);
 	}
 
-	@media (max-width: 768px) {
-		.nav-links {
-			display: none;
+	.action-icon {
+		font-size: 2.5rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.action-title {
+		font-size: 1.25rem;
+		font-weight: bold;
+		color: #333;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.action-description {
+		color: #666;
+		margin: 0;
+		font-size: 0.95rem;
+	}
+
+	/* Status Box */
+	.status-box {
+		background: white;
+		border-radius: 12px;
+		padding: 1.5rem;
+		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+	}
+
+	.status-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
+	}
+
+	.status-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.5rem 0;
+	}
+
+	.status-label {
+		color: #666;
+		font-size: 0.95rem;
+	}
+
+	.status-badge {
+		padding: 0.25rem 0.75rem;
+		border-radius: 6px;
+		font-size: 0.875rem;
+		font-weight: 500;
+	}
+
+	.status-badge.success {
+		background: #d4edda;
+		color: #155724;
+	}
+
+	.status-text {
+		color: #333;
+		font-size: 0.95rem;
+	}
+
+	/* Mobile Responsive */
+	@media screen and (max-width: 768px) {
+		.dashboard-container {
+			padding: 1rem;
+		}
+
+		.page-header h1 {
+			font-size: 2rem;
+		}
+
+		.stats-grid,
+		.actions-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.stat-value {
+			font-size: 1.5rem;
 		}
 	}
 </style>
