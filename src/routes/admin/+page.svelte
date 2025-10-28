@@ -175,8 +175,8 @@
 		teams: { count: 0, loading: true }
 	};
 
-	let recentActivity = [];
 	let loading = true;
+	let error = '';
 
 	onMount(async () => {
 		await loadDashboardData();
@@ -196,7 +196,7 @@
 				stats.activeSeasons.count = seasons.filter(s => s.is_active).length;
 				
 				// Count total teams across all seasons
-				stats.teams.count = seasons.reduce((sum, s) => sum + (s.team_count || 0), 0);
+				stats.teams.count = seasons.reduce((sum, s) => sum + (parseInt(s.team_count) || 0), 0);
 			}
 
 			if (managersRes.ok) {
@@ -209,8 +209,9 @@
 			stats.managers.loading = false;
 			stats.teams.loading = false;
 
-		} catch (error) {
-			console.error('Error loading dashboard data:', error);
+		} catch (err) {
+			console.error('Error loading dashboard data:', err);
+			error = err.message;
 		} finally {
 			loading = false;
 		}
@@ -247,16 +248,6 @@
 			color: 'orange'
 		}
 	];
-
-	function getColorClasses(color) {
-		const colors = {
-			blue: 'bg-blue-50 text-blue-700 hover:bg-blue-100',
-			green: 'bg-green-50 text-green-700 hover:bg-green-100',
-			purple: 'bg-purple-50 text-purple-700 hover:bg-purple-100',
-			orange: 'bg-orange-50 text-orange-700 hover:bg-orange-100'
-		};
-		return colors[color] || colors.blue;
-	}
 </script>
 
 <div class="space-y-6">
@@ -265,6 +256,12 @@
 		<h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
 		<p class="mt-2 text-gray-600">Welcome back! Here's what's happening in your league.</p>
 	</div>
+
+	{#if error}
+		<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
+			<strong class="font-semibold">Error:</strong> {error}
+		</div>
+	{/if}
 
 	<!-- Stats Grid -->
 	<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -384,11 +381,11 @@
 			{#each quickActions as action}
 				<a
 					href={action.href}
-					class="block p-6 rounded-lg border-2 border-gray-200 hover:border-gray-300 transition-all {getColorClasses(action.color)}"
+					class="block p-6 rounded-lg border-2 border-gray-200 hover:border-gray-300 hover:shadow-md transition-all bg-white"
 				>
 					<div class="text-3xl mb-3">{action.icon}</div>
-					<h3 class="text-lg font-semibold mb-1">{action.title}</h3>
-					<p class="text-sm opacity-75">{action.description}</p>
+					<h3 class="text-lg font-semibold mb-1 text-gray-900">{action.title}</h3>
+					<p class="text-sm text-gray-600">{action.description}</p>
 				</a>
 			{/each}
 		</div>
