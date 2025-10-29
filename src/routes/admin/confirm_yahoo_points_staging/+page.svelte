@@ -118,9 +118,9 @@
     }[confidence] || '#6c757d';
   }
 
-  function hasAnySuggestions() {
-    return Object.keys(aiSuggestions).length > 0;
-  }
+  // Reactive statement to check if we have suggestions
+  $: hasAnySuggestions = Object.keys(aiSuggestions).length > 0;
+  $: suggestionCount = Object.keys(aiSuggestions).length;
 
   function getSuggestionsToApply() {
     return Object.entries(aiSuggestions)
@@ -232,11 +232,11 @@
     {/if}
 
     <!-- Confirm Suggestions Button -->
-    {#if hasAnySuggestions()}
+    {#if hasAnySuggestions}
       <StatCard size="full">
         <div class="confirm-section">
           <div class="confirm-info">
-            <strong>Ready to apply {Object.keys(aiSuggestions).length} AI suggestion(s)</strong>
+            <strong>Ready to apply {suggestionCount} AI suggestion(s)</strong>
             <p>Review the suggestions in the table below, then click confirm to apply all changes.</p>
           </div>
           <form method="POST" action="?/applyAISuggestions" use:enhance>
