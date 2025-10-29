@@ -52,23 +52,43 @@
       return;
     }
 
+    console.log('Starting AI detection...');
+    console.log('Players to analyze:', playersNeedingPosition.length);
+    
     aiLoading = true;
     aiSuggestions = {}; // Clear previous suggestions
     
     const playerIds = playersNeedingPosition.map(p => p.player_id);
+    console.log('Player IDs:', playerIds);
 
     const formData = new FormData();
     formData.append('playerIds', JSON.stringify(playerIds));
 
     try {
+      console.log('Sending request to server...');
       const response = await fetch('?/aiDetectPositions', {
         method: 'POST',
         body: formData
       });
 
-      const result = await response.json();
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      const text = await response.text();
+      console.log('Raw response:', text.substring(0, 500));
+
+      let result;
+      try {
+        result = JSON.parse(text);
+        console.log('Parsed result:', result);
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        alert('Server returned invalid response. Check browser console for details.');
+        return;
+      }
       
       if (result.type === 'success' && result.data?.suggestions) {
+        console.log('Success! Suggestions received:', result.data.suggestions.length);
         // Convert array to map for easy lookup
         result.data.suggestions.forEach(suggestion => {
           aiSuggestions[suggestion.player_id] = {
@@ -77,13 +97,23 @@
           };
         });
         aiSuggestions = { ...aiSuggestions }; // Trigger reactivity
-      } else {
+        console.log('AI suggestions stored:', Object.keys(aiSuggestions).length);
+      } else if (result.type === 'failure') {
+        console.error('Server returned failure:', result);
         alert('AI detection failed: ' + (result.data?.message || 'Unknown error'));
+      } else {
+        console.error('Unexpected result format:', result);
+        alert('Unexpected response format. Check browser console.');
       }
     } catch (error) {
-      alert('Error running AI detection: ' + error.message);
+      console.error('Error in runAIDetection:', error);
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+      alert('Network error: ' + error.message + '\nCheck browser console for details.');
     } finally {
       aiLoading = false;
+      console.log('AI detection complete');
     }
   }
 
