@@ -1,40 +1,99 @@
 // src/routes/api/generate_summary/+server.js
 import { json } from '@sveltejs/kit';
 import Anthropic from '@anthropic-ai/sdk';
-import { env } from '$env/dynamic/private';
+import { query } from '$lib/db';
 
 export async function POST({ request }) {
     try {
-        const { prompt, season, week } = await request.json();
+        const { prompt, season, week, systemPrompt, refinementMode, existingSummary, refinementInstructions } = await request.json();
         
-        if (!prompt) {
+        if (!prompt && !refinementMode) {
             return json({
                 success: false,
                 error: 'Prompt is required'
             }, { status: 400 });
         }
         
-        // Use env object instead of direct import
         const anthropic = new Anthropic({
-            apiKey: env.ANTHROPIC_API_KEY
+            apiKey: process.env.ANTHROPIC_API_KEY
         });
+        
+        let userPrompt;
+        let systemMessage;
+        
+        if (refinementMode && existingSummary && refinementInstructions) {
+            // Refinement mode - modify existing summary
+            userPrompt = `Here is an existing weekly fantasy football recap:
+
+${existingSummary}
+
+Please refine this recap with the following instructions:
+${refinementInstructions}
+
+Keep the same general format and length (300-500 words), but make the requested changes.`;
+            
+            systemMessage = systemPrompt || `You are a witty, snarky fantasy football analyst writing weekly recaps for "The Hou Dat League". 
+Your writing style is entertaining and slightly sarcastic. Call out bad performances and celebrate great ones.
+Use sports commentary language. Keep it fun and lighthearted. Format as a narrative, not bullet points.`;
+            
+        } else {
+            // Normal generation mode
+            userPrompt = prompt;
+            systemMessage = systemPrompt || `You are a witty, snarky fantasy football analyst writing weekly recaps for "The Hou Dat League". 
+Your writing style is entertaining and slightly sarcastic. Call out bad performances and celebrate great ones.
+Use sports commentary language. Keep it fun and lighthearted. Format as a narrative, not bullet points.
+Keep it around 300-500 words.`;
+        }
         
         const message = await anthropic.messages.create({
             model: 'claude-sonnet-4-5-20250929',
             max_tokens: 2048,
             messages: [{
                 role: 'user',
-                content: prompt
+                content: userPrompt
             }],
-            system: `You are a witty, snarky fantasy football analyst writing weekly recaps for "The Hou Dat League". 
-Your writing style is entertaining and slightly sarcastic. Call out bad performances and celebrate great ones.
-Use sports commentary language. Keep it fun and lighthearted. Format as a narrative, not bullet points.
-Keep it around 300-500 words.`
+            system: systemMessage
         });
         
         const summary = message.content[0].type === 'text' 
             ? message.content[0].text 
             : '';
+        
+        // Save the summary to the database (only in normal mode or if explicitly requested)
+        if (season && week && !refinementMode) {
+            try {
+                console.log('💾 Attempting to save summary for season:', season, 'week:', week);
+                
+                const seasonResult = await query(
+                    'SELECT season_id FROM seasons WHERE season_year = $1',
+                    [season]
+                );
+
+                if (seasonResult.rows.length > 0) {
+                    const seasonId = seasonResult.rows[0].season_id;
+                    console.log('✅ Found season_id:', seasonId);
+
+                    await query(
+                        `INSERT INTO weekly_summaries (
+                            season_id,
+                            week,
+                            summary_text
+                        ) VALUES ($1, $2, $3)
+                        ON CONFLICT (season_id, week) 
+                        DO UPDATE SET
+                            summary_text = EXCLUDED.summary_text,
+                            generated_at = CURRENT_TIMESTAMP`,
+                        [seasonId, week, summary]
+                    );
+                    
+                    console.log('✅ Summary saved successfully');
+                } else {
+                    console.error('❌ Season not found for year:', season);
+                }
+            } catch (dbError) {
+                console.error('❌ DATABASE SAVE ERROR:', dbError);
+            }
+        }
         
         return json({
             success: true,

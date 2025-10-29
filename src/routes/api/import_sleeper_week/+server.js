@@ -1,4 +1,4 @@
-// src/routes/api/import-week/+server.js
+// src/routes/api/import_sleeper_week/+server.js
 import { json } from '@sveltejs/kit';
 import { query } from '$lib/db';
 import { SleeperDataAdapter } from '$lib/services/sleeperDataAdapter';
