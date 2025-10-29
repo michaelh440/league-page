@@ -4,14 +4,11 @@ import { DATABASE_URL } from '$env/static/private';
 
 const sql = neon(DATABASE_URL);
 
-/** @type {import('@sveltejs/kit').Handle} */
 export async function handle({ event, resolve }) {
-	// Get session cookie
 	const sessionId = event.cookies.get('session');
 
 	if (sessionId) {
 		try {
-			// Verify session in database
 			const sessions = await sql`
 				SELECT 
 					s.session_id,
@@ -38,7 +35,6 @@ export async function handle({ event, resolve }) {
 			const session = sessions[0];
 
 			if (session) {
-				// Attach user to locals
 				event.locals.user = {
 					user_id: session.user_id,
 					username: session.username,
@@ -51,26 +47,21 @@ export async function handle({ event, resolve }) {
 					can_manage_managers: session.can_manage_managers
 				};
 			} else {
-				// Session invalid or expired, clear cookie
 				event.cookies.delete('session', { path: '/' });
 			}
 		} catch (error) {
 			console.error('Session verification error:', error);
-			// On error, clear cookie
 			event.cookies.delete('session', { path: '/' });
 		}
 	}
 
 	// Check if accessing admin routes
 	if (event.url.pathname.startsWith('/admin')) {
-		// Allow login page without authentication
 		if (event.url.pathname === '/admin/login') {
-			// If already logged in, redirect to admin dashboard
 			if (event.locals.user && event.locals.user.is_admin) {
 				throw redirect(303, '/admin');
 			}
 		} else {
-			// All other admin routes require authentication
 			if (!event.locals.user || !event.locals.user.is_admin) {
 				throw redirect(303, '/admin/login');
 			}

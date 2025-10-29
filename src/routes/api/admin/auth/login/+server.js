@@ -6,6 +6,20 @@ import crypto from 'crypto';
 
 const sql = neon(DATABASE_URL);
 
+// Handle GET requests (returns error message)
+export async function GET() {
+	return json({ 
+		error: 'GET method not allowed. Use POST to login.',
+		endpoint: '/api/admin/auth/login',
+		method: 'POST',
+		required: {
+			username: 'string',
+			password: 'string'
+		}
+	}, { status: 405 });
+}
+
+// Handle POST requests (actual login)
 export async function POST({ request, cookies }) {
 	try {
 		const { username, password } = await request.json();
@@ -82,11 +96,11 @@ export async function POST({ request, cookies }) {
 			)
 		`;
 
-		// Set session cookie
+		// Set session cookie - IMPORTANT: secure: true for Vercel
 		cookies.set('session', sessionId, {
 			path: '/',
 			httpOnly: true,
-			secure: true,
+			secure: true,  // Always true for Vercel (HTTPS)
 			sameSite: 'lax',
 			maxAge: 60 * 60 * 24 * 7 // 7 days in seconds
 		});
@@ -108,6 +122,9 @@ export async function POST({ request, cookies }) {
 		});
 	} catch (error) {
 		console.error('Login error:', error);
-		return json({ error: 'Server error during login' }, { status: 500 });
+		return json({ 
+			error: 'Server error during login',
+			details: error.message 
+		}, { status: 500 });
 	}
 }

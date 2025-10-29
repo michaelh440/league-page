@@ -23,27 +23,30 @@
 	}
 
 	async function handleLogin(e) {
-		e.preventDefault();
+		e.preventDefault(); // Prevent default form submission
 		error = '';
 		loading = true;
 
 		try {
 			const response = await fetch('/api/admin/auth/login', {
-				method: 'POST',
+				method: 'POST', // Explicitly set POST
 				headers: {
 					'Content-Type': 'application/json'
 				},
+				credentials: 'include', // Include cookies
 				body: JSON.stringify({ username, password })
 			});
 
 			const data = await response.json();
 
 			if (response.ok) {
-				goto('/admin');
+				// Login successful, redirect to admin
+				window.location.href = '/admin'; // Use window.location for hard redirect
 			} else {
 				error = data.error || 'Invalid credentials';
 			}
 		} catch (err) {
+			console.error('Login error:', err);
 			error = 'Network error. Please try again.';
 		} finally {
 			loading = false;
@@ -79,17 +82,19 @@
 		{/if}
 
 		<!-- Login Form -->
-		<form on:submit={handleLogin} class="login-form">
+		<form on:submit|preventDefault={handleLogin} class="login-form" method="POST" action="/api/admin/auth/login">
 			<!-- Username Field -->
 			<div class="form-group">
 				<label for="username">Username</label>
 				<input
 					type="text"
 					id="username"
+					name="username"
 					bind:value={username}
 					required
 					disabled={loading}
 					placeholder="Enter your username"
+					autocomplete="username"
 				/>
 			</div>
 
@@ -99,10 +104,12 @@
 				<input
 					type="password"
 					id="password"
+					name="password"
 					bind:value={password}
 					required
 					disabled={loading}
 					placeholder="Enter your password"
+					autocomplete="current-password"
 				/>
 			</div>
 
