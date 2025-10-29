@@ -1,57 +1,34 @@
 import { json } from '@sveltejs/kit';
-import bcrypt from 'bcryptjs';
 import { neon } from '@neondatabase/serverless';
+import { DATABASE_URL } from '$env/static/private';
+import bcrypt from 'bcryptjs';
 
-const sql = neon(process.env.DATABASE_URL);
+const sql = neon(DATABASE_URL);
 
-export async function POST({ request, cookies }) {
+export async function POST({ request, locals }) {
+	// Check authentication
+	if (!locals.user) {
+		return json({ error: 'Unauthorized' }, { status: 401 });
+	}
+
 	try {
-		// Check if user is authenticated
-		const sessionId = cookies.get('session');
-		if (!sessionId) {
-			return json({ error: 'Not authenticated' }, { status: 401 });
-		}
-
-		// Get session from database
-		const sessions = await sql`
-			SELECT user_id, expires_at 
-			FROM sessions 
-			WHERE session_id = ${sessionId}
-		`;
-
-		if (sessions.length === 0) {
-			return json({ error: 'Invalid session' }, { status: 401 });
-		}
-
-		const session = sessions[0];
-
-		// Check if session is expired
-		if (new Date(session.expires_at) < new Date()) {
-			return json({ error: 'Session expired' }, { status: 401 });
-		}
-
-		// Get request body
 		const { currentPassword, newPassword } = await request.json();
 
+		// Validate input
 		if (!currentPassword || !newPassword) {
-			return json(
-				{ error: 'Current password and new password are required' },
-				{ status: 400 }
-			);
+			return json({ error: 'Current password and new password are required' }, { status: 400 });
 		}
 
 		if (newPassword.length < 8) {
-			return json(
-				{ error: 'New password must be at least 8 characters' },
-				{ status: 400 }
-			);
+			return json({ error: 'New password must be at least 8 characters' }, { status: 400 });
 		}
 
-		// Get user's current password hash
+		// Get current user's password hash
 		const users = await sql`
-			SELECT user_id, password_hash 
-			FROM users 
-			WHERE user_id = ${session.user_id}
+			SELECT user_id, password_hash
+			FROM users
+			WHERE user_id = ${locals.user.user_id}
+			LIMIT 1
 		`;
 
 		if (users.length === 0) {
@@ -62,7 +39,6 @@ export async function POST({ request, cookies }) {
 
 		// Verify current password
 		const passwordMatch = await bcrypt.compare(currentPassword, user.password_hash);
-
 		if (!passwordMatch) {
 			return json({ error: 'Current password is incorrect' }, { status: 401 });
 		}
@@ -70,13 +46,14 @@ export async function POST({ request, cookies }) {
 		// Hash new password
 		const newPasswordHash = await bcrypt.hash(newPassword, 10);
 
-		// Update password in database
+		// Update password (no updated_at column)
 		await sql`
-			UPDATE users 
-			SET password_hash = ${newPasswordHash},
-				updated_at = CURRENT_TIMESTAMP
-			WHERE user_id = ${user.user_id}
+			UPDATE users
+			SET password_hash = ${newPasswordHash}
+			WHERE user_id = ${locals.user.user_id}
 		`;
+
+		console.log('Password updated successfully for user:', locals.user.user_id);
 
 		return json({
 			success: true,
@@ -84,9 +61,9 @@ export async function POST({ request, cookies }) {
 		});
 	} catch (error) {
 		console.error('Change password error:', error);
-		return json(
-			{ error: 'An error occurred while changing password' },
-			{ status: 500 }
-		);
+		return json({ 
+			error: 'Server error',
+			details: error.message 
+		}, { status: 500 });
 	}
 }
