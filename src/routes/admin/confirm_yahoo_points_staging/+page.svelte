@@ -135,6 +135,18 @@
 <StatsLayout title="Confirm Yahoo Player Positions" {navItems}>
   <div class="content-grid">
     
+    <!-- Confirm Button (Top Right) -->
+    {#if hasAnySuggestions}
+      <div class="confirm-button-container">
+        <form method="POST" action="?/applyAISuggestions" use:enhance class="confirm-form-inline">
+          <input type="hidden" name="suggestions" value={JSON.stringify(getSuggestionsToApply())} />
+          <button type="submit" class="confirm-button-small">
+            ✓ Confirm {suggestionCount}
+          </button>
+        </form>
+      </div>
+    {/if}
+    
     <!-- Stats Summary Row -->
     <StatCard size="sm">
       <div class="stat-summary">
@@ -227,24 +239,6 @@
       <StatCard size="full">
         <div class="message-box error">
           ✗ {form.message}
-        </div>
-      </StatCard>
-    {/if}
-
-    <!-- Confirm Suggestions Button -->
-    {#if hasAnySuggestions}
-      <StatCard size="full">
-        <div class="confirm-section">
-          <div class="confirm-info">
-            <strong>Ready to apply {suggestionCount} AI suggestion(s)</strong>
-            <p>Review the suggestions in the table below, then click confirm to apply all changes.</p>
-          </div>
-          <form method="POST" action="?/applyAISuggestions" use:enhance>
-            <input type="hidden" name="suggestions" value={JSON.stringify(getSuggestionsToApply())} />
-            <button type="submit" class="confirm-button">
-              ✓ Confirm All Suggestions
-            </button>
-          </form>
         </div>
       </StatCard>
     {/if}
@@ -410,6 +404,36 @@
 </StatsLayout>
 
 <style>
+  .confirm-button-container {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
+  }
+
+  .confirm-form-inline {
+    margin: 0;
+  }
+
+  .confirm-button-small {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  }
+
+  .confirm-button-small:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+  }
+
   .content-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -507,46 +531,6 @@
     border: 1px solid #ced4da;
     border-radius: 4px;
     font-size: 0.9rem;
-  }
-
-  /* Confirm Section */
-  .confirm-section {
-    padding: 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color: white;
-    border-radius: 8px;
-  }
-
-  .confirm-info strong {
-    display: block;
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .confirm-info p {
-    font-size: 0.9rem;
-    opacity: 0.9;
-  }
-
-  .confirm-button {
-    padding: 0.75rem 1.5rem;
-    background: white;
-    color: #28a745;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 1rem;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: transform 0.2s;
-  }
-
-  .confirm-button:hover {
-    transform: translateY(-2px);
   }
 
   /* Message Box */
