@@ -14,9 +14,9 @@
   let selectedPosition = '';
   let searchTerm = '';
   let filterType = 'all';
-  let aiSuggestions = [];
-  let showAIModal = false;
+  let aiSuggestions = {}; // Map of player_id -> suggestion
   let aiLoading = false;
+  let playerLimit = 100;
 
   // Filter players
   $: filteredPlayers = (data.players || []).filter(player => {
@@ -36,8 +36,10 @@
     }
   });
 
-  // Players missing positions
-  $: playersNeedingPosition = (data.players || []).filter(p => p.position === null);
+  // Players missing positions (limited for display)
+  $: playersNeedingPosition = filteredPlayers
+    .filter(p => p.position === null)
+    .slice(0, playerLimit);
 
   function selectPlayer(player) {
     selectedPlayer = player;
@@ -51,6 +53,8 @@
     }
 
     aiLoading = true;
+    aiSuggestions = {}; // Clear previous suggestions
+    
     const playerIds = playersNeedingPosition.map(p => p.player_id);
 
     const formData = new FormData();
@@ -65,11 +69,14 @@
       const result = await response.json();
       
       if (result.type === 'success' && result.data?.suggestions) {
-        aiSuggestions = result.data.suggestions.map(s => ({
-          ...s,
-          approved: s.confidence === 'high' // Auto-approve high confidence
-        }));
-        showAIModal = true;
+        // Convert array to map for easy lookup
+        result.data.suggestions.forEach(suggestion => {
+          aiSuggestions[suggestion.player_id] = {
+            ...suggestion,
+            edited: false // Track if user manually changed it
+          };
+        });
+        aiSuggestions = { ...aiSuggestions }; // Trigger reactivity
       } else {
         alert('AI detection failed: ' + (result.data?.message || 'Unknown error'));
       }
@@ -80,17 +87,35 @@
     }
   }
 
-  function toggleSuggestion(index) {
-    aiSuggestions[index].approved = !aiSuggestions[index].approved;
-    aiSuggestions = [...aiSuggestions]; // Trigger reactivity
+  function changeSuggestion(playerId, newPosition) {
+    if (aiSuggestions[playerId]) {
+      aiSuggestions[playerId].position = newPosition;
+      aiSuggestions[playerId].edited = true;
+      aiSuggestions[playerId].confidence = 'edited';
+      aiSuggestions = { ...aiSuggestions }; // Trigger reactivity
+    }
   }
 
   function getConfidenceColor(confidence) {
     return {
       'high': '#28a745',
       'medium': '#ffc107',
-      'low': '#dc3545'
+      'low': '#dc3545',
+      'edited': '#007bff'
     }[confidence] || '#6c757d';
+  }
+
+  function hasAnySuggestions() {
+    return Object.keys(aiSuggestions).length > 0;
+  }
+
+  function getSuggestionsToApply() {
+    return Object.entries(aiSuggestions)
+      .map(([player_id, suggestion]) => ({
+        player_id: parseInt(player_id),
+        position: suggestion.position,
+        source: suggestion.edited ? 'manual_admin' : 'ai_detected'
+      }));
   }
 </script>
 
@@ -125,29 +150,6 @@
         <div class="stat-value">{data.summary.benchSlots}</div>
       </div>
     </StatCard>
-
-    <!-- AI Detection Button -->
-    {#if playersNeedingPosition.length > 0}
-      <StatCard size="full">
-        <div class="ai-section">
-          <div class="ai-info">
-            <strong>🤖 AI Position Detection</strong>
-            <p>Let Claude AI analyze {playersNeedingPosition.length} player(s) and suggest positions based on their names and stats.</p>
-          </div>
-          <button 
-            class="ai-button" 
-            on:click={runAIDetection}
-            disabled={aiLoading}
-          >
-            {#if aiLoading}
-              ⏳ Analyzing...
-            {:else}
-              🤖 Run AI Detection
-            {/if}
-          </button>
-        </div>
-      </StatCard>
-    {/if}
 
     <!-- Search and Filter Controls -->
     <StatCard size="full">
@@ -186,6 +188,16 @@
             Bench Slots
           </button>
         </div>
+
+        <div class="limit-control">
+          <label>Show:</label>
+          <select bind:value={playerLimit}>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+            <option value={200}>200</option>
+          </select>
+        </div>
       </div>
     </StatCard>
 
@@ -206,25 +218,57 @@
       </StatCard>
     {/if}
 
-    <!-- Player List -->
-    <StatCard size="lg">
+    <!-- Confirm Suggestions Button -->
+    {#if hasAnySuggestions()}
+      <StatCard size="full">
+        <div class="confirm-section">
+          <div class="confirm-info">
+            <strong>Ready to apply {Object.keys(aiSuggestions).length} AI suggestion(s)</strong>
+            <p>Review the suggestions in the table below, then click confirm to apply all changes.</p>
+          </div>
+          <form method="POST" action="?/applyAISuggestions" use:enhance>
+            <input type="hidden" name="suggestions" value={JSON.stringify(getSuggestionsToApply())} />
+            <button type="submit" class="confirm-button">
+              ✓ Confirm All Suggestions
+            </button>
+          </form>
+        </div>
+      </StatCard>
+    {/if}
+
+    <!-- Player List with AI Suggestions -->
+    <StatCard size="full">
       <div class="table-wrapper">
         <table class="stats-table">
           <thead>
-            <tr><th class="table-title" colspan="5">Players Needing Position Assignment</th></tr>
+            <tr><th class="table-title" colspan="7">Players Needing Position Assignment</th></tr>
             <tr>
               <th>Player Name</th>
               <th>Current Position</th>
               <th>Slot</th>
               <th>Rows</th>
               <th>Weeks</th>
+              <th>
+                <button 
+                  class="ai-header-button" 
+                  on:click={runAIDetection}
+                  disabled={aiLoading || playersNeedingPosition.length === 0}
+                >
+                  {#if aiLoading}
+                    ⏳ Analyzing...
+                  {:else}
+                    🤖 AI Suggestion
+                  {/if}
+                </button>
+              </th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {#each filteredPlayers as player}
+            {#each playersNeedingPosition as player}
               <tr 
                 class:selected={selectedPlayer?.player_name === player.player_name}
-                on:click={() => selectPlayer(player)}
+                class:has-suggestion={aiSuggestions[player.player_id]}
               >
                 <td class="player-name-cell">{player.player_name}</td>
                 <td class="position-cell">
@@ -237,21 +281,63 @@
                 <td class="slot-cell">{player.lineup_slot || 'N/A'}</td>
                 <td class="count-cell">{player.row_count}</td>
                 <td class="weeks-cell">{player.weeks_played}</td>
+                <td class="ai-suggestion-cell">
+                  {#if aiSuggestions[player.player_id]}
+                    <div class="suggestion-container">
+                      <select 
+                        class="position-select"
+                        value={aiSuggestions[player.player_id].position}
+                        on:change={(e) => changeSuggestion(player.player_id, e.target.value)}
+                      >
+                        <option value="QB">QB</option>
+                        <option value="RB">RB</option>
+                        <option value="WR">WR</option>
+                        <option value="TE">TE</option>
+                        <option value="K">K</option>
+                        <option value="DEF">DEF</option>
+                      </select>
+                      <span 
+                        class="confidence-dot"
+                        style="background-color: {getConfidenceColor(aiSuggestions[player.player_id].confidence)}"
+                        title="{aiSuggestions[player.player_id].confidence} confidence: {aiSuggestions[player.player_id].reasoning}"
+                      ></span>
+                    </div>
+                  {:else if aiLoading}
+                    <span class="loading-text">...</span>
+                  {:else}
+                    <span class="no-suggestion">—</span>
+                  {/if}
+                </td>
+                <td class="actions-cell">
+                  <button 
+                    class="manual-button"
+                    on:click={() => selectPlayer(player)}
+                    title="Manual edit"
+                  >
+                    ✏️
+                  </button>
+                </td>
               </tr>
             {:else}
-              <tr><td colspan="5" class="text-center text-gray-600">No players found</td></tr>
+              <tr><td colspan="7" class="text-center text-gray-600">No players found</td></tr>
             {/each}
           </tbody>
         </table>
       </div>
+      
+      {#if playersNeedingPosition.length === 0 && data.summary.missingPosition > 0}
+        <div class="table-footer">
+          Showing {playerLimit} of {data.summary.missingPosition} players. Increase limit to see more.
+        </div>
+      {/if}
     </StatCard>
 
-    <!-- Update Form -->
-    <StatCard size="lg">
-      <div class="form-wrapper">
-        <div class="form-title">Update Player Position</div>
-        
-        {#if selectedPlayer}
+    <!-- Manual Update Form (appears when player selected) -->
+    {#if selectedPlayer}
+      <StatCard size="lg">
+        <div class="form-wrapper">
+          <div class="form-title">Manual Position Update</div>
+          
           <form method="POST" action="?/updatePosition" use:enhance>
             <input type="hidden" name="playerName" value={selectedPlayer.player_name} />
             
@@ -292,74 +378,12 @@
               Update Position
             </button>
           </form>
-        {:else}
-          <div class="no-selection">
-            Select a player from the list to update their position
-          </div>
-        {/if}
-      </div>
-    </StatCard>
+        </div>
+      </StatCard>
+    {/if}
 
   </div>
 </StatsLayout>
-
-<!-- AI Suggestions Modal -->
-{#if showAIModal}
-  <div class="modal-overlay" on:click={() => showAIModal = false}>
-    <div class="modal-content" on:click|stopPropagation>
-      <div class="modal-header">
-        <h2>🤖 AI Position Suggestions</h2>
-        <button class="close-button" on:click={() => showAIModal = false}>✕</button>
-      </div>
-      
-      <div class="modal-body">
-        <p class="modal-description">
-          Review AI suggestions below. Check/uncheck players to approve or reject suggestions.
-          High confidence suggestions are pre-approved.
-        </p>
-
-        <div class="suggestions-list">
-          {#each aiSuggestions as suggestion, index}
-            <div class="suggestion-item" class:approved={suggestion.approved}>
-              <div class="suggestion-checkbox">
-                <input 
-                  type="checkbox" 
-                  checked={suggestion.approved}
-                  on:change={() => toggleSuggestion(index)}
-                />
-              </div>
-              <div class="suggestion-content">
-                <div class="suggestion-name">{suggestion.name}</div>
-                <div class="suggestion-position">
-                  <span class="position-badge">{suggestion.position}</span>
-                  <span 
-                    class="confidence-badge"
-                    style="background-color: {getConfidenceColor(suggestion.confidence)}"
-                  >
-                    {suggestion.confidence} confidence
-                  </span>
-                </div>
-                <div class="suggestion-reasoning">{suggestion.reasoning}</div>
-              </div>
-            </div>
-          {/each}
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button class="cancel-button" on:click={() => showAIModal = false}>
-          Cancel
-        </button>
-        <form method="POST" action="?/applyAISuggestions" use:enhance>
-          <input type="hidden" name="suggestions" value={JSON.stringify(aiSuggestions)} />
-          <button type="submit" class="apply-button">
-            Apply {aiSuggestions.filter(s => s.approved).length} Suggestion(s)
-          </button>
-        </form>
-      </div>
-    </div>
-  </div>
-{/if}
 
 <style>
   .content-grid {
@@ -367,211 +391,6 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 1.5rem;
     margin-bottom: 2rem;
-  }
-
-  /* AI Section */
-  .ai-section {
-    padding: 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-radius: 8px;
-  }
-
-  .ai-info strong {
-    display: block;
-    font-size: 1.1rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .ai-info p {
-    font-size: 0.9rem;
-    opacity: 0.9;
-  }
-
-  .ai-button {
-    padding: 0.75rem 1.5rem;
-    background: white;
-    color: #667eea;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-    transition: transform 0.2s;
-  }
-
-  .ai-button:hover:not(:disabled) {
-    transform: translateY(-2px);
-  }
-
-  .ai-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  /* Modal Styles */
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.7);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-    padding: 1rem;
-  }
-
-  .modal-content {
-    background: white;
-    border-radius: 12px;
-    max-width: 800px;
-    width: 100%;
-    max-height: 90vh;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  }
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem;
-    border-bottom: 1px solid #dee2e6;
-  }
-
-  .modal-header h2 {
-    margin: 0;
-    color: #333;
-  }
-
-  .close-button {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: #6c757d;
-    padding: 0;
-    width: 30px;
-    height: 30px;
-  }
-
-  .modal-body {
-    padding: 1.5rem;
-    overflow-y: auto;
-    flex: 1;
-  }
-
-  .modal-description {
-    color: #666;
-    margin-bottom: 1.5rem;
-    line-height: 1.6;
-  }
-
-  .suggestions-list {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .suggestion-item {
-    display: flex;
-    gap: 1rem;
-    padding: 1rem;
-    border: 2px solid #dee2e6;
-    border-radius: 8px;
-    transition: all 0.2s;
-  }
-
-  .suggestion-item.approved {
-    border-color: #28a745;
-    background: #f0fff4;
-  }
-
-  .suggestion-checkbox input {
-    width: 20px;
-    height: 20px;
-    cursor: pointer;
-  }
-
-  .suggestion-content {
-    flex: 1;
-  }
-
-  .suggestion-name {
-    font-weight: 600;
-    font-size: 1.05rem;
-    margin-bottom: 0.5rem;
-    color: #333;
-  }
-
-  .suggestion-position {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-  }
-
-  .position-badge {
-    padding: 0.25rem 0.75rem;
-    background: #007bff;
-    color: white;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .confidence-badge {
-    padding: 0.25rem 0.75rem;
-    color: white;
-    border-radius: 12px;
-    font-size: 0.75rem;
-    font-weight: 600;
-  }
-
-  .suggestion-reasoning {
-    font-size: 0.85rem;
-    color: #666;
-    font-style: italic;
-  }
-
-  .modal-footer {
-    padding: 1.5rem;
-    border-top: 1px solid #dee2e6;
-    display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
-  }
-
-  .cancel-button,
-  .apply-button {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: opacity 0.2s;
-  }
-
-  .cancel-button {
-    background: #6c757d;
-    color: white;
-  }
-
-  .apply-button {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-  }
-
-  .cancel-button:hover,
-  .apply-button:hover {
-    opacity: 0.9;
   }
 
   /* Stat Summary Cards */
@@ -647,6 +466,65 @@
     border-color: #003366;
   }
 
+  .limit-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .limit-control label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #495057;
+  }
+
+  .limit-control select {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+  }
+
+  /* Confirm Section */
+  .confirm-section {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border-radius: 8px;
+  }
+
+  .confirm-info strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .confirm-info p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+
+  .confirm-button {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    color: #28a745;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s;
+  }
+
+  .confirm-button:hover {
+    transform: translateY(-2px);
+  }
+
   /* Message Box */
   .message-box {
     padding: 1rem;
@@ -696,6 +574,28 @@
     padding: 1rem;
   }
 
+  .ai-header-button {
+    width: 100%;
+    padding: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .ai-header-button:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+
+  .ai-header-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   .stats-table td {
     padding: 0.75rem;
     border-top: 1px solid #dee2e6;
@@ -703,7 +603,6 @@
   }
 
   .stats-table tbody tr {
-    cursor: pointer;
     transition: background 0.2s;
   }
 
@@ -713,6 +612,10 @@
 
   .stats-table tbody tr.selected {
     background: #e3f2fd;
+  }
+
+  .stats-table tbody tr.has-suggestion {
+    background: #f0fff4;
   }
 
   .player-name-cell {
@@ -744,6 +647,74 @@
     text-align: center;
     color: #6c757d;
     font-weight: 500;
+  }
+
+  /* AI Suggestion Cell */
+  .ai-suggestion-cell {
+    text-align: center;
+  }
+
+  .suggestion-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+  }
+
+  .position-select {
+    padding: 0.4rem 0.6rem;
+    border: 2px solid #667eea;
+    border-radius: 4px;
+    font-weight: 600;
+    font-size: 0.85rem;
+    background: white;
+    cursor: pointer;
+  }
+
+  .confidence-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    cursor: help;
+  }
+
+  .loading-text {
+    color: #6c757d;
+    font-style: italic;
+  }
+
+  .no-suggestion {
+    color: #dee2e6;
+  }
+
+  /* Actions Cell */
+  .actions-cell {
+    text-align: center;
+  }
+
+  .manual-button {
+    padding: 0.4rem 0.6rem;
+    background: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: background 0.2s;
+  }
+
+  .manual-button:hover {
+    background: #5a6268;
+  }
+
+  .table-footer {
+    padding: 1rem;
+    text-align: center;
+    color: #6c757d;
+    font-size: 0.9rem;
+    background: #f8f9fa;
+    border-top: 1px solid #dee2e6;
   }
 
   .text-center {
@@ -828,13 +799,6 @@
     cursor: not-allowed;
   }
 
-  .no-selection {
-    text-align: center;
-    padding: 2rem;
-    color: #6c757d;
-    font-style: italic;
-  }
-
   /* Mobile Styles */
   @media (max-width: 768px) {
     .content-grid {
@@ -843,7 +807,7 @@
       padding: 0 0.5rem;
     }
 
-    .ai-section {
+    .confirm-section {
       flex-direction: column;
       text-align: center;
     }
@@ -877,10 +841,6 @@
 
     .stat-value {
       font-size: 1.5rem;
-    }
-
-    .modal-content {
-      max-height: 95vh;
     }
   }
 </style>

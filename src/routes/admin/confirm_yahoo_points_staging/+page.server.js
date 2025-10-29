@@ -197,24 +197,22 @@ Confidence: "high" (certain), "medium" (likely), "low" (uncertain)`;
       let updatedCount = 0;
 
       for (const suggestion of suggestions) {
-        if (suggestion.approved) {
-          const result = await query(`
-            UPDATE staging_yahoo_player_stats
-            SET 
-              actual_position = $1,
-              position_source = 'ai_detected',
-              processed = TRUE
-            WHERE player_id = $2
-            AND actual_position IS NULL
-          `, [suggestion.position, suggestion.player_id]);
+        const result = await query(`
+          UPDATE staging_yahoo_player_stats
+          SET 
+            actual_position = $1,
+            position_source = $2,
+            processed = TRUE
+          WHERE player_id = $3
+          AND actual_position IS NULL
+        `, [suggestion.position, suggestion.source, suggestion.player_id]);
 
-          updatedCount += result.rowCount;
-        }
+        updatedCount += result.rowCount;
       }
 
       return {
         success: true,
-        message: `Applied AI suggestions: updated ${updatedCount} row(s)`
+        message: `Applied ${suggestions.length} suggestion(s), updated ${updatedCount} row(s)`
       };
 
     } catch (error) {
