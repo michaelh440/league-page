@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { neon } from '@neondatabase/serverless';
 import { DATABASE_URL } from '$env/static/private';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
 const sql = neon(DATABASE_URL);
