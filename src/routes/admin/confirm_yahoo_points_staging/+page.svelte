@@ -14,8 +14,11 @@
   let selectedPosition = '';
   let searchTerm = '';
   let filterType = 'all';
+  let aiSuggestions = [];
+  let showAIModal = false;
+  let aiLoading = false;
 
-  // Filter players based on search and filter type
+  // Filter players
   $: filteredPlayers = (data.players || []).filter(player => {
     const matchesSearch = player.player_name.toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -25,17 +28,69 @@
       case 'missing':
         return player.position === null;
       case 'wrt':
-        return player.selected_position === 'W/R/T';
+        return player.lineup_slot === 'W/R/T';
       case 'bench':
-        return player.selected_position === 'BN';
+        return player.lineup_slot === 'BN';
       default:
         return true;
     }
   });
 
+  // Players missing positions
+  $: playersNeedingPosition = (data.players || []).filter(p => p.position === null);
+
   function selectPlayer(player) {
     selectedPlayer = player;
     selectedPosition = player.position || '';
+  }
+
+  async function runAIDetection() {
+    if (playersNeedingPosition.length === 0) {
+      alert('No players need position detection');
+      return;
+    }
+
+    aiLoading = true;
+    const playerIds = playersNeedingPosition.map(p => p.player_id);
+
+    const formData = new FormData();
+    formData.append('playerIds', JSON.stringify(playerIds));
+
+    try {
+      const response = await fetch('?/aiDetectPositions', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+      
+      if (result.type === 'success' && result.data?.suggestions) {
+        aiSuggestions = result.data.suggestions.map(s => ({
+          ...s,
+          approved: s.confidence === 'high' // Auto-approve high confidence
+        }));
+        showAIModal = true;
+      } else {
+        alert('AI detection failed: ' + (result.data?.message || 'Unknown error'));
+      }
+    } catch (error) {
+      alert('Error running AI detection: ' + error.message);
+    } finally {
+      aiLoading = false;
+    }
+  }
+
+  function toggleSuggestion(index) {
+    aiSuggestions[index].approved = !aiSuggestions[index].approved;
+    aiSuggestions = [...aiSuggestions]; // Trigger reactivity
+  }
+
+  function getConfidenceColor(confidence) {
+    return {
+      'high': '#28a745',
+      'medium': '#ffc107',
+      'low': '#dc3545'
+    }[confidence] || '#6c757d';
   }
 </script>
 
@@ -70,6 +125,29 @@
         <div class="stat-value">{data.summary.benchSlots}</div>
       </div>
     </StatCard>
+
+    <!-- AI Detection Button -->
+    {#if playersNeedingPosition.length > 0}
+      <StatCard size="full">
+        <div class="ai-section">
+          <div class="ai-info">
+            <strong>🤖 AI Position Detection</strong>
+            <p>Let Claude AI analyze {playersNeedingPosition.length} player(s) and suggest positions based on their names and stats.</p>
+          </div>
+          <button 
+            class="ai-button" 
+            on:click={runAIDetection}
+            disabled={aiLoading}
+          >
+            {#if aiLoading}
+              ⏳ Analyzing...
+            {:else}
+              🤖 Run AI Detection
+            {/if}
+          </button>
+        </div>
+      </StatCard>
+    {/if}
 
     <!-- Search and Filter Controls -->
     <StatCard size="full">
@@ -156,7 +234,7 @@
                     <span class="badge badge-missing">NULL</span>
                   {/if}
                 </td>
-                <td class="slot-cell">{player.selected_position || 'N/A'}</td>
+                <td class="slot-cell">{player.lineup_slot || 'N/A'}</td>
                 <td class="count-cell">{player.row_count}</td>
                 <td class="weeks-cell">{player.weeks_played}</td>
               </tr>
@@ -225,12 +303,275 @@
   </div>
 </StatsLayout>
 
+<!-- AI Suggestions Modal -->
+{#if showAIModal}
+  <div class="modal-overlay" on:click={() => showAIModal = false}>
+    <div class="modal-content" on:click|stopPropagation>
+      <div class="modal-header">
+        <h2>🤖 AI Position Suggestions</h2>
+        <button class="close-button" on:click={() => showAIModal = false}>✕</button>
+      </div>
+      
+      <div class="modal-body">
+        <p class="modal-description">
+          Review AI suggestions below. Check/uncheck players to approve or reject suggestions.
+          High confidence suggestions are pre-approved.
+        </p>
+
+        <div class="suggestions-list">
+          {#each aiSuggestions as suggestion, index}
+            <div class="suggestion-item" class:approved={suggestion.approved}>
+              <div class="suggestion-checkbox">
+                <input 
+                  type="checkbox" 
+                  checked={suggestion.approved}
+                  on:change={() => toggleSuggestion(index)}
+                />
+              </div>
+              <div class="suggestion-content">
+                <div class="suggestion-name">{suggestion.name}</div>
+                <div class="suggestion-position">
+                  <span class="position-badge">{suggestion.position}</span>
+                  <span 
+                    class="confidence-badge"
+                    style="background-color: {getConfidenceColor(suggestion.confidence)}"
+                  >
+                    {suggestion.confidence} confidence
+                  </span>
+                </div>
+                <div class="suggestion-reasoning">{suggestion.reasoning}</div>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="cancel-button" on:click={() => showAIModal = false}>
+          Cancel
+        </button>
+        <form method="POST" action="?/applyAISuggestions" use:enhance>
+          <input type="hidden" name="suggestions" value={JSON.stringify(aiSuggestions)} />
+          <button type="submit" class="apply-button">
+            Apply {aiSuggestions.filter(s => s.approved).length} Suggestion(s)
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+{/if}
+
 <style>
   .content-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 1.5rem;
     margin-bottom: 2rem;
+  }
+
+  /* AI Section */
+  .ai-section {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 8px;
+  }
+
+  .ai-info strong {
+    display: block;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .ai-info p {
+    font-size: 0.9rem;
+    opacity: 0.9;
+  }
+
+  .ai-button {
+    padding: 0.75rem 1.5rem;
+    background: white;
+    color: #667eea;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: transform 0.2s;
+  }
+
+  .ai-button:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+
+  .ai-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 800px;
+    width: 100%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+  }
+
+  .modal-header h2 {
+    margin: 0;
+    color: #333;
+  }
+
+  .close-button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    cursor: pointer;
+    color: #6c757d;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+  }
+
+  .modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .modal-description {
+    color: #666;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+  }
+
+  .suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .suggestion-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    border: 2px solid #dee2e6;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .suggestion-item.approved {
+    border-color: #28a745;
+    background: #f0fff4;
+  }
+
+  .suggestion-checkbox input {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+  }
+
+  .suggestion-content {
+    flex: 1;
+  }
+
+  .suggestion-name {
+    font-weight: 600;
+    font-size: 1.05rem;
+    margin-bottom: 0.5rem;
+    color: #333;
+  }
+
+  .suggestion-position {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .position-badge {
+    padding: 0.25rem 0.75rem;
+    background: #007bff;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .confidence-badge {
+    padding: 0.25rem 0.75rem;
+    color: white;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .suggestion-reasoning {
+    font-size: 0.85rem;
+    color: #666;
+    font-style: italic;
+  }
+
+  .modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid #dee2e6;
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+  }
+
+  .cancel-button,
+  .apply-button {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+
+  .cancel-button {
+    background: #6c757d;
+    color: white;
+  }
+
+  .apply-button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+  }
+
+  .cancel-button:hover,
+  .apply-button:hover {
+    opacity: 0.9;
   }
 
   /* Stat Summary Cards */
@@ -502,6 +843,11 @@
       padding: 0 0.5rem;
     }
 
+    .ai-section {
+      flex-direction: column;
+      text-align: center;
+    }
+
     .controls-wrapper {
       flex-direction: column;
       align-items: stretch;
@@ -531,6 +877,10 @@
 
     .stat-value {
       font-size: 1.5rem;
+    }
+
+    .modal-content {
+      max-height: 95vh;
     }
   }
 </style>
