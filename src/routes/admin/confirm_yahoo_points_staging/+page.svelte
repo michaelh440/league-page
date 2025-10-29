@@ -46,6 +46,8 @@
     selectedPosition = player.position || '';
   }
 
+  let aiFormElement;
+
   async function runAIDetection() {
     if (playersNeedingPosition.length === 0) {
       alert('No players need position detection');
@@ -58,63 +60,44 @@
     aiLoading = true;
     aiSuggestions = {}; // Clear previous suggestions
     
-    const playerIds = playersNeedingPosition.map(p => p.player_id);
-    console.log('Player IDs:', playerIds);
+    // Trigger the form submission
+    if (aiFormElement) {
+      aiFormElement.requestSubmit();
+    }
+  }
 
-    const formData = new FormData();
-    formData.append('playerIds', JSON.stringify(playerIds));
-
-    try {
-      console.log('Sending request to server...');
-      const response = await fetch('?/aiDetectPositions', {
-        method: 'POST',
-        body: formData
-      });
-
-      console.log('Response status:', response.status);
-      console.log('Response ok:', response.ok);
-
-      const text = await response.text();
-      console.log('Raw response:', text.substring(0, 500));
-
-      let result;
-      try {
-        result = JSON.parse(text);
-        console.log('Parsed result:', result);
-      } catch (parseError) {
-        console.error('Failed to parse response as JSON:', parseError);
-        alert('Server returned invalid response. Check browser console for details.');
-        return;
+  function handleAIResponse() {
+    return async ({ result, update }) => {
+      console.log('Form action result:', result);
+      
+      if (result.type === 'success' && result.data) {
+        const data = result.data;
+        console.log('Success data:', data);
+        
+        if (data.success && data.suggestions && Array.isArray(data.suggestions)) {
+          console.log('Processing', data.suggestions.length, 'suggestions');
+          
+          // Convert array to map for easy lookup
+          data.suggestions.forEach(suggestion => {
+            aiSuggestions[suggestion.player_id] = {
+              ...suggestion,
+              edited: false
+            };
+          });
+          aiSuggestions = { ...aiSuggestions }; // Trigger reactivity
+          console.log('AI suggestions stored:', Object.keys(aiSuggestions).length);
+        } else {
+          console.error('Unexpected data structure:', data);
+          alert('Received response but in unexpected format: ' + (data.message || 'No suggestions'));
+        }
+      } else if (result.type === 'failure') {
+        console.error('Form action failed:', result);
+        alert('AI detection failed: ' + (result.data?.message || 'Unknown error'));
       }
       
-      if (result.type === 'success' && result.data?.suggestions) {
-        console.log('Success! Suggestions received:', result.data.suggestions.length);
-        // Convert array to map for easy lookup
-        result.data.suggestions.forEach(suggestion => {
-          aiSuggestions[suggestion.player_id] = {
-            ...suggestion,
-            edited: false // Track if user manually changed it
-          };
-        });
-        aiSuggestions = { ...aiSuggestions }; // Trigger reactivity
-        console.log('AI suggestions stored:', Object.keys(aiSuggestions).length);
-      } else if (result.type === 'failure') {
-        console.error('Server returned failure:', result);
-        alert('AI detection failed: ' + (result.data?.message || 'Unknown error'));
-      } else {
-        console.error('Unexpected result format:', result);
-        alert('Unexpected response format. Check browser console.');
-      }
-    } catch (error) {
-      console.error('Error in runAIDetection:', error);
-      console.error('Error type:', error.constructor.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      alert('Network error: ' + error.message + '\nCheck browser console for details.');
-    } finally {
       aiLoading = false;
-      console.log('AI detection complete');
-    }
+      await update();
+    };
   }
 
   function changeSuggestion(playerId, newPosition) {
@@ -268,6 +251,17 @@
 
     <!-- Player List with AI Suggestions -->
     <StatCard size="full">
+      <!-- Hidden form for AI detection -->
+      <form 
+        bind:this={aiFormElement}
+        method="POST" 
+        action="?/aiDetectPositions" 
+        use:enhance={handleAIResponse}
+        style="display: none;"
+      >
+        <input type="hidden" name="playerIds" value={JSON.stringify(playersNeedingPosition.map(p => p.player_id))} />
+      </form>
+
       <div class="table-wrapper">
         <table class="stats-table">
           <thead>
