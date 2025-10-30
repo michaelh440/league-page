@@ -1,14 +1,18 @@
 import { getUpcomingDraft, getPreviousDrafts, getLeagueTeamManagers, loadPlayers } from '$lib/utils/helper';
 
 export async function load({ fetch }) {
-    const upcomingDraftData = getUpcomingDraft();
-    const previousDraftsData = getPreviousDrafts();
-    const leagueTeamManagersData = getLeagueTeamManagers();
-    const playersData = loadPlayers(fetch);
+    const allPreviousDrafts = await getPreviousDrafts();
+    
+    // Get the most recent draft (last item in array)
+    const lastDraft = allPreviousDrafts && allPreviousDrafts.length > 0 
+        ? allPreviousDrafts[allPreviousDrafts.length - 1] 
+        : null;
+    
+    const leagueTeamManagersData = await getLeagueTeamManagers();
+    const playersData = await loadPlayers(fetch);
 
     return {
-        upcomingDraftData,
-        previousDraftsData,
+        previousDraftsData: lastDraft ? [lastDraft] : [], // Wrap in array for component compatibility
         leagueTeamManagersData,
         playersData,
     };
