@@ -7,7 +7,7 @@
     { label: "All Time Scoring", href: "/league/all_time_stats"},
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats" },
-    //{ label: "Streaks", href: "/league/streaks" },
+    { label: "Streaks", href: "/league/streaks" },
     //{ label: "Potential Points", href: "/league/potential_points" },
     { label: "Ranking", href: "/league/ranking", active: true  },
     { label: "Rivalries", href: "/league/rivalries" },

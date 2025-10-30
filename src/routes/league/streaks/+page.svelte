@@ -4,15 +4,15 @@
   export let data;
 
   const navItems = [
-    { label: "All Time Scoring", href: "/league/all_time_stats"},
+    { label: "All Time Scoring", href: "/league/all_time_stats" },
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats" },
-    { label: "Streaks", href: "/league/streaks", active: true },
+    { label: "Streaks", href: "/league/streaks", active: true  },
     //{ label: "Potential Points", href: "/league/potential_points" },
     { label: "Ranking", href: "/league/ranking" },
-    { label: "Rivalries", href: "/league/rivalries" },
-    { label: "Trophy Room", href: "/league/trophy_room" },
-    { label: "Draft Room", href: "/league/drafts" }
+    { label: "Rivalries", href: "/league/rivalries"},
+    //{ label: "Trophy Room", href: "/league/trophy_room" },
+    { label: "Draft Room", href: "/league/drafts" }  
   ];
 
   function formatStreakPeriod(start_season, start_week, end_season, end_week) {
