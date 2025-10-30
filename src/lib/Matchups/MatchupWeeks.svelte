@@ -4,7 +4,7 @@
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
 
-    export let queryWeek, players, matchupWeeks, year, week, regularSeasonLength, selection, leagueTeamManagers;
+    export let queryWeek, players, matchupWeeks, year, week, regularSeasonLength, selection, leagueTeamManagers, weeklySummary = null;
 
     let displayWeek = queryWeek * 1 || 1;
 
@@ -51,6 +51,9 @@
         active = null;
         goto(`/current_season/matchups?week=${displayWeek}`, {noscroll: true});
     }
+
+    // NEW: Collapsible summary state
+    let summaryExpanded = true;
 </script>
 
 <style>
@@ -102,6 +105,93 @@
             font-size: 1.2em;
         }
     }
+
+    /* NEW: Weekly Summary Styles */
+    .weekly-summary-card {
+        background: var(--bracketMatch, white);
+        border: 2px solid var(--ccc, #e5e7eb);
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin: 2rem auto;
+        max-width: 800px;
+        width: 90%;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .summary-header {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.75rem;
+        border-bottom: 2px solid var(--ccc, #e5e7eb);
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .summary-header:hover {
+        opacity: 0.8;
+    }
+    
+    .summary-header h3 {
+        margin: 0;
+        font-size: 1.5rem;
+        color: var(--g444, #1f2937);
+        flex-grow: 1;
+    }
+
+    .toggle-icon {
+        font-size: 1.2rem;
+        color: var(--g999, #6b7280);
+        transition: transform 0.2s;
+    }
+
+    .toggle-icon.expanded {
+        transform: rotate(180deg);
+    }
+    
+    .summary-content {
+        color: var(--g333, #374151);
+        line-height: 1.7;
+        white-space: pre-wrap;
+        font-size: 1rem;
+        animation: slideDown 0.2s ease-out;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @media (max-width: 800px) {
+        .summary-header h3 {
+            font-size: 1.3rem;
+        }
+
+        .summary-content {
+            font-size: 0.95rem;
+        }
+    }
+
+    @media (max-width: 400px) {
+        .weekly-summary-card {
+            padding: 1rem;
+        }
+
+        .summary-header h3 {
+            font-size: 1.1rem;
+        }
+
+        .summary-content {
+            font-size: 0.9rem;
+        }
+    }
 </style>
 
 <div class="matchups">
@@ -118,6 +208,28 @@
             <span class="spacer" />
         {/if}
     </div>
+
+    <!-- NEW: Weekly Summary Section -->
+    {#if weeklySummary && queryWeek == displayWeek}
+        <div class="weekly-summary-card">
+            <div 
+                class="summary-header" 
+                on:click={() => summaryExpanded = !summaryExpanded}
+                role="button"
+                tabindex="0"
+                on:keypress={(e) => e.key === 'Enter' && (summaryExpanded = !summaryExpanded)}
+            >
+                <h3>📰 Week {displayWeek} Recap</h3>
+                <span class="toggle-icon {summaryExpanded ? 'expanded' : ''}">▼</span>
+            </div>
+            {#if summaryExpanded}
+                <div class="summary-content">
+                    {weeklySummary}
+                </div>
+            {/if}
+        </div>
+    {/if}
+
     {#each matchupArray as matchup, ix (rand * (ix + 1))}
         <Matchup {ix} {matchup} {players} {displayWeek} bind:active={active} {leagueTeamManagers} />
     {/each}

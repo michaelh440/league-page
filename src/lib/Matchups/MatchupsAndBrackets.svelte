@@ -1,4 +1,3 @@
-
 <script>
 	import LinearProgress from '@smui/linear-progress';
 	import MatchupWeeks from './MatchupWeeks.svelte';
@@ -8,7 +7,7 @@
     import { onMount } from 'svelte';
     import { loadPlayers } from '$lib/utils/helper';
 
-	export let queryWeek, leagueTeamManagersData, matchupsData, bracketsData, playersData;
+	export let queryWeek, leagueTeamManagersData, matchupsData, bracketsData, playersData, weeklySummary = null;
 
     let players, matchupWeeks, year, week, regularSeasonLength, brackets, leagueTeamManagers;
 
@@ -62,8 +61,6 @@
     }
 </style>
 
-
-
 {#if loading}
     <!-- promise is pending -->
     <div class="message">
@@ -97,7 +94,17 @@
             {/if}
         </div>
         {#if selection == 'regular'}
-            <MatchupWeeks {players} {queryWeek} {matchupWeeks} {regularSeasonLength} {year} {week} bind:selection={selection} {leagueTeamManagers} />
+            <MatchupWeeks 
+                {players} 
+                {queryWeek} 
+                {matchupWeeks} 
+                {regularSeasonLength} 
+                {year} 
+                {week} 
+                bind:selection={selection} 
+                {leagueTeamManagers}
+                {weeklySummary}
+            />
         {/if}
     {:else}
         <div class="message">
