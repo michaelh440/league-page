@@ -12,25 +12,43 @@
   export let data;
   const { standingsData, leagueTeamManagersData, champions, managersByCount, featuredVideo } = data;
   
-  // Function to get video embed URL
+  // Function to get video embed URL - FIXED VERSION
   function getEmbedUrl(url) {
     if (!url) return '';
+    
     // YouTube
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      const videoId = url.includes('youtu.be') 
-        ? url.split('youtu.be/')[1]?.split('?')[0]
-        : new URLSearchParams(url.split('?')[1]).get('v');
-      return `https://www.youtube.com/embed/${videoId}?rel=0`;
+      let videoId = '';
+      
+      if (url.includes('youtu.be/')) {
+        // Short URL format: https://youtu.be/VIDEO_ID
+        videoId = url.split('youtu.be/')[1]?.split('?')[0]?.split('/')[0];
+      } else if (url.includes('youtube.com')) {
+        // Long URL format: https://www.youtube.com/watch?v=VIDEO_ID
+        try {
+          const urlObj = new URL(url);
+          videoId = urlObj.searchParams.get('v');
+        } catch (e) {
+          // Fallback if URL parsing fails
+          const match = url.match(/[?&]v=([^&]+)/);
+          videoId = match ? match[1] : '';
+        }
+      }
+      
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?rel=0`;
+      }
     }
+    
     // Vimeo
     if (url.includes('vimeo.com')) {
       const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
       return `https://player.vimeo.com/video/${videoId}`;
     }
+    
+    // If it's already an embed URL or direct video URL, return as-is
     return url;
   }
-
-
 </script>
 
 <style>
@@ -50,6 +68,7 @@
     border-radius: 8px;
     padding: 1rem;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    color: #1f2937;
   }
 
   /* League description */
@@ -57,6 +76,16 @@
     text-align: center;
     max-width: 800px;
     margin: 0 auto;
+  }
+
+  .league-description p {
+    color: #1f2937;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .league-description h2 {
+    color: #1f2937;
   }
 
   /* Featured Video Section - Replaces League History */
@@ -149,7 +178,6 @@
     color: #6b7280;
   }
 
-
   /* Wall of Champions spans full width */
   .champions-row {
     width: 100%;
@@ -161,6 +189,7 @@
     flex-wrap: wrap;
     gap: 2rem;
   }
+  
   .bottom-row > * {
     flex: 1 1 0;
     min-width: 300px;
@@ -291,36 +320,19 @@
       flex-direction: column;
     }
   }
-.league-description p {
-  color: #1f2937; /* Dark gray text */
-  line-height: 1.6;
-  margin-bottom: 1rem;
-}
-
-.league-description h2 {
-  color: #1f2937; /* Ensure header is also dark on mobile*/
-}
-/* Ensure all text in cards is readable on mobile */
-.card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  color: #1f2937; /* Add explicit text color to all cards */
-}
 </style>
 
 <div class="page-container">
-  <!-- League Description >
-  <--div class="card league-description">
+  <!-- League Description -->
+  <!--
+  <div class="card league-description">
     <h2>{leagueName}</h2>
     {@html homepageText }
     {#if enableBlog}
       <HomePost />
     {/if}
-  </div-->
-
+  </div>
+  -->
 
   <!-- Featured Video Section (replaces old league history section) -->
   {#if featuredVideo}
@@ -356,7 +368,6 @@
     </div>
   {/if}
 
-
   <!-- Wall of Champions (replaces both champion sections) -->
   <div class="champions-row">
     {#if champions && managersByCount}
@@ -369,7 +380,10 @@
             {#each managersByCount as manager}
               <div 
                 class="champion-card"
-                onclick={() => window.location.href = `/manager/${manager.manager_id}`}
+                on:click={() => window.location.href = `/manager/${manager.manager_id}`}
+                on:keypress={(e) => e.key === 'Enter' && (window.location.href = `/manager/${manager.manager_id}`)}
+                role="button"
+                tabindex="0"
               >
                 <div class="champion-avatar-container">
                   <img 
@@ -383,10 +397,18 @@
                   {#each manager.championship_years as year}
                     <span 
                       class="year-badge"
-                      onclick={(e) => {
+                      on:click={(e) => {
                         e.stopPropagation();
                         window.location.href = `/season/${year}`;
                       }}
+                      on:keypress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.stopPropagation();
+                          window.location.href = `/season/${year}`;
+                        }
+                      }}
+                      role="button"
+                      tabindex="0"
                     >
                       {year}
                     </span>

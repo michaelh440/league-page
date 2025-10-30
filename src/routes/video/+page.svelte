@@ -4,16 +4,32 @@
   export let data;
   const { videos } = data;
   
-  // Function to get video embed URL based on platform
+  // Function to get video embed URL based on platform - FIXED VERSION
   function getEmbedUrl(url) {
     if (!url) return '';
     
     // YouTube
     if (url.includes('youtube.com') || url.includes('youtu.be')) {
-      const videoId = url.includes('youtu.be') 
-        ? url.split('youtu.be/')[1]?.split('?')[0]
-        : new URLSearchParams(url.split('?')[1]).get('v');
-      return `https://www.youtube.com/embed/${videoId}?rel=0`;
+      let videoId = '';
+      
+      if (url.includes('youtu.be/')) {
+        // Short URL format: https://youtu.be/VIDEO_ID
+        videoId = url.split('youtu.be/')[1]?.split('?')[0]?.split('/')[0];
+      } else if (url.includes('youtube.com')) {
+        // Long URL format: https://www.youtube.com/watch?v=VIDEO_ID
+        try {
+          const urlObj = new URL(url);
+          videoId = urlObj.searchParams.get('v');
+        } catch (e) {
+          // Fallback if URL parsing fails
+          const match = url.match(/[?&]v=([^&]+)/);
+          videoId = match ? match[1] : '';
+        }
+      }
+      
+      if (videoId) {
+        return `https://www.youtube.com/embed/${videoId}?rel=0`;
+      }
     }
     
     // Vimeo
@@ -22,6 +38,7 @@
       return `https://player.vimeo.com/video/${videoId}`;
     }
     
+    // If it's already an embed URL or direct video URL, return as-is
     return url;
   }
 </script>
