@@ -7,6 +7,25 @@
     export let queryWeek, players, matchupWeeks, year, week, regularSeasonLength, selection, leagueTeamManagers, weeklySummary = null;
 
     let displayWeek = queryWeek * 1 || 1;
+    let currentSummary = weeklySummary; // Local copy of summary
+
+    // Fetch summary when week changes
+    async function fetchSummaryForWeek(weekNum) {
+        currentSummary = null; // Clear current summary
+        try {
+            const currentYear = new Date().getFullYear();
+            const response = await fetch(`/api/weekly_summary_text?season=${currentYear}&week=${weekNum}`);
+            const data = await response.json();
+            
+            console.log('Fetched summary for week', weekNum, ':', data);
+            
+            if (data.success && data.summary) {
+                currentSummary = data.summary.summary_text;
+            }
+        } catch (err) {
+            console.error('Error loading weekly summary:', err);
+        }
+    }
 
     onMount(() => {
         if(!queryWeek || queryWeek < 1) {
@@ -17,14 +36,16 @@
                 selection = 'champions';
                 return;
             }
-            processDisplayMatchup(queryWeek)
+            processDisplayMatchup(queryWeek);
+            fetchSummaryForWeek(queryWeek);
             return;
         }
         if(queryWeek > regularSeasonLength) {
             selection = 'champions';
             return;
         }
-        processDisplayMatchup(displayWeek)
+        processDisplayMatchup(displayWeek);
+        fetchSummaryForWeek(displayWeek);
     })
 
     let matchupArray = [];
@@ -49,11 +70,15 @@
         displayWeek = newWeek;
         processDisplayMatchup(displayWeek);
         active = null;
+        fetchSummaryForWeek(newWeek);
         goto(`/current_season/matchups?week=${displayWeek}`, {noscroll: true});
     }
 
-    // NEW: Collapsible summary state
+    // Collapsible summary state
     let summaryExpanded = true;
+
+    // Debug reactive statement
+    $: console.log('MatchupWeeks - currentSummary exists:', !!currentSummary, 'displayWeek:', displayWeek);
 </script>
 
 <style>
@@ -106,7 +131,7 @@
         }
     }
 
-    /* NEW: Weekly Summary Styles */
+    /* Weekly Summary Styles */
     .weekly-summary-card {
         background: var(--bracketMatch, white);
         border: 2px solid var(--ccc, #e5e7eb);
@@ -209,8 +234,8 @@
         {/if}
     </div>
 
-    <!-- NEW: Weekly Summary Section -->
-    {#if weeklySummary && queryWeek == displayWeek}
+    <!-- Weekly Summary Section -->
+    {#if currentSummary}
         <div class="weekly-summary-card">
             <div 
                 class="summary-header" 
@@ -224,7 +249,7 @@
             </div>
             {#if summaryExpanded}
                 <div class="summary-content">
-                    {weeklySummary}
+                    {currentSummary}
                 </div>
             {/if}
         </div>
