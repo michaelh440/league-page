@@ -17,3 +17,4 @@ export async function load({ fetch }) {
         playersData,
     };
 }
+//adding comment to trigger rebuild
