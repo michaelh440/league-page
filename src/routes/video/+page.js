@@ -24,14 +24,14 @@ export async function load() {
       description: 'Halloween Edition of the Week 8 Standings Update',
       featured: true
     },
-    /*{
+    {
       id: '2',
       title: 'Week 7 Highlights',
-      url: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID', // ← UPDATE THIS
+      url: 'https://youtu.be/ZzznhH1n_wc', // ← UPDATE THIS
       date: '2025-10-20',
-      description: 'Check out the biggest plays and most dramatic moments from week 7.'
+      description: 'The season is halfway over.  Check out the midway point standings update.'
     },
-    {
+    /*{
       id: '3',
       title: 'Week 6 Recap',
       url: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID', // ← UPDATE THIS
