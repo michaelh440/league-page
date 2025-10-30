@@ -35,10 +35,10 @@
     const changeSelection = (s) => {
         if(s == 'regular') {
             queryWeek = 1;
-            goto(`/matchups?week=1`, {noscroll: true});
+            goto(`/current_season/matchups?week=1`, {noscroll: true});
         } else if(selection == 'regular') {
             queryWeek = 99;
-            goto(`/matchups?week=99`, {noscroll: true});
+            goto(`/current_season/matchups?week=99`, {noscroll: true});
         }
         selection = s;
     }
