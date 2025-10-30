@@ -9,15 +9,25 @@ export async function load({ url, fetch }) {
     if (weekNum) {
         try {
             const currentYear = new Date().getFullYear();
-            const response = await fetch(`/api/weekly_summary_text?season=${currentYear}&week=${weekNum}`);
+            const summaryUrl = `/api/weekly_summary_text?season=${currentYear}&week=${weekNum}`;
+            console.log('Fetching summary from:', summaryUrl);
+            
+            const response = await fetch(summaryUrl);
             const data = await response.json();
+            
+            console.log('Summary API response:', data);
+            
             if (data.success && data.summary) {
                 weeklySummary = data.summary.summary_text;
+                console.log('Weekly summary loaded:', weeklySummary ? 'YES' : 'NO');
+                console.log('Summary length:', weeklySummary?.length);
             }
         } catch (err) {
             console.error('Error loading weekly summary:', err);
         }
     }
+    
+    console.log('Returning weeklySummary:', weeklySummary ? 'EXISTS' : 'NULL');
     
     return {
         queryWeek: weekNum,
