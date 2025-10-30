@@ -46,7 +46,7 @@
               <th>#</th>
               <th>Manager</th>
               <th>Streak</th>
-              <th>Period</th>
+              <th>Week</th>
               <th>Type</th>
             </tr>
           </thead>
@@ -93,7 +93,7 @@
               <th>#</th>
               <th>Manager</th>
               <th>Streak</th>
-              <th>Period</th>
+              <th>Week</th>
               <th>Type</th>
             </tr>
           </thead>
