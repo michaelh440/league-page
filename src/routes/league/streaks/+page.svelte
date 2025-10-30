@@ -11,11 +11,11 @@
     //{ label: "Potential Points", href: "/league/potential_points" },
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
-    //{ label: "Trophy Room", href: "/league/trophy_room" },
+    { label: "Trophy Room", href: "/league/trophy_room" },
     { label: "Draft Room", href: "/league/drafts" }
   ];
 
-   function formatStreakPeriod(start_season, start_week, end_season, end_week) {
+  function formatStreakPeriod(start_season, start_week, end_season, end_week) {
     if (start_season === end_season) {
       return `${start_season} (Weeks ${start_week}-${end_week})`;
     }
@@ -25,470 +25,414 @@
   function formatSeasonPeriod(season_year, start_week, end_week) {
     return `${season_year} (Weeks ${start_week}-${end_week})`;
   }
+
+  function formatScope(scope) {
+    if (scope === 'playoffs') return 'Playoffs';
+    if (scope === 'regular_season') return 'Regular';
+    return scope;
+  }
 </script>
 
 <StatsLayout title="Streaks" {navItems}>
-  <div class="stats-container">
+  <div class="content-grid">
     
     <!-- Current Hot Streaks -->
     {#if data.currentHotStreaks && data.currentHotStreaks.length > 0}
-      <div class="stats-section hot-section">
-        <div class="section-header hot-header">
-          <h2>🔥 Current Hot Streaks</h2>
-          <p>Teams on fire right now (3+ wins)</p>
-        </div>
-        
-        <div class="table-wrapper">
-          <table class="stats-table">
-            <thead>
+      <div class="stat-card">
+        <table class="stats-table">
+          <thead>
+            <tr><th class="table-title hot-title" colspan="5">🔥 Current Hot Streaks</th></tr>
+            <tr>
+              <th>#</th>
+              <th>Manager</th>
+              <th>Streak</th>
+              <th>Period</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.currentHotStreaks as manager, index}
               <tr>
-                <th class="rank-col">#</th>
-                <th class="manager-col">Manager</th>
-                <th class="stat-col">Streak</th>
-                <th class="stat-col">Period</th>
-                <th class="stat-col">Scope</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each data.currentHotStreaks as manager, index}
-                <tr class="stat-row">
-                  <td class="rank-cell">{index + 1}</td>
-                  <td class="manager-cell">
-                    <div class="manager-info">
-                      {#if manager.manager_logo}
-                        <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                <td>{index + 1}</td>
+                <td class="manager-cell">
+                  <div class="manager-info">
+                    {#if manager.manager_logo}
+                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                    {/if}
+                    <div class="manager-details">
+                      <span class="manager-name">{manager.manager_name}</span>
+                      {#if manager.team_name}
+                        <span class="team-name">{manager.team_name}</span>
                       {/if}
-                      <div class="manager-details">
-                        <span class="manager-name">{manager.manager_name}</span>
-                        <span class="team-name">{manager.team_name || ''}</span>
-                      </div>
                     </div>
-                  </td>
-                  <td class="stat-cell highlight hot-stat">{manager.streak_length}W</td>
-                  <td class="stat-cell">{manager.season_year} (W{manager.start_week}-W{manager.current_week})</td>
-                  <td class="stat-cell scope-badge">
-                    <span class="badge {manager.streak_scope === 'playoffs' ? 'playoff-badge' : 'regular-badge'}">
-                      {manager.streak_scope === 'playoffs' ? 'Playoffs' : 'Regular'}
-                    </span>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </td>
+                <td class="streak-cell hot-streak">{manager.streak_length}W</td>
+                <td class="period-cell">{manager.season_year} W{manager.start_week}-{manager.current_week}</td>
+                <td class="scope-cell">
+                  <span class="badge {manager.streak_scope === 'playoffs' ? 'playoff-badge' : 'regular-badge'}">
+                    {formatScope(manager.streak_scope)}
+                  </span>
+                </td>
+              </tr>
+            {:else}
+              <tr><td colspan="5" class="text-center text-gray-600">No current hot streaks</td></tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {/if}
 
     <!-- Current Cold Streaks -->
     {#if data.currentColdStreaks && data.currentColdStreaks.length > 0}
-      <div class="stats-section cold-section">
-        <div class="section-header cold-header">
-          <h2>🧊 Current Cold Streaks</h2>
-          <p>Teams struggling right now (3+ losses)</p>
-        </div>
-        
-        <div class="table-wrapper">
-          <table class="stats-table">
-            <thead>
+      <div class="stat-card">
+        <table class="stats-table">
+          <thead>
+            <tr><th class="table-title cold-title" colspan="5">🧊 Current Cold Streaks</th></tr>
+            <tr>
+              <th>#</th>
+              <th>Manager</th>
+              <th>Streak</th>
+              <th>Period</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each data.currentColdStreaks as manager, index}
               <tr>
-                <th class="rank-col">#</th>
-                <th class="manager-col">Manager</th>
-                <th class="stat-col">Streak</th>
-                <th class="stat-col">Period</th>
-                <th class="stat-col">Scope</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each data.currentColdStreaks as manager, index}
-                <tr class="stat-row">
-                  <td class="rank-cell">{index + 1}</td>
-                  <td class="manager-cell">
-                    <div class="manager-info">
-                      {#if manager.manager_logo}
-                        <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                <td>{index + 1}</td>
+                <td class="manager-cell">
+                  <div class="manager-info">
+                    {#if manager.manager_logo}
+                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                    {/if}
+                    <div class="manager-details">
+                      <span class="manager-name">{manager.manager_name}</span>
+                      {#if manager.team_name}
+                        <span class="team-name">{manager.team_name}</span>
                       {/if}
-                      <div class="manager-details">
-                        <span class="manager-name">{manager.manager_name}</span>
-                        <span class="team-name">{manager.team_name || ''}</span>
-                      </div>
                     </div>
-                  </td>
-                  <td class="stat-cell highlight cold-stat">{manager.streak_length}L</td>
-                  <td class="stat-cell">{manager.season_year} (W{manager.start_week}-W{manager.current_week})</td>
-                  <td class="stat-cell scope-badge">
-                    <span class="badge {manager.streak_scope === 'playoffs' ? 'playoff-badge' : 'regular-badge'}">
-                      {manager.streak_scope === 'playoffs' ? 'Playoffs' : 'Regular'}
-                    </span>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
+                  </div>
+                </td>
+                <td class="streak-cell cold-streak">{manager.streak_length}L</td>
+                <td class="period-cell">{manager.season_year} W{manager.start_week}-{manager.current_week}</td>
+                <td class="scope-cell">
+                  <span class="badge {manager.streak_scope === 'playoffs' ? 'playoff-badge' : 'regular-badge'}">
+                    {formatScope(manager.streak_scope)}
+                  </span>
+                </td>
+              </tr>
+            {:else}
+              <tr><td colspan="5" class="text-center text-gray-600">No current cold streaks</td></tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {/if}
 
     <!-- All Time Winning Streaks -->
-    <div class="stats-section">
-      <div class="section-header">
-        <h2>All Time Winning Streaks</h2>
-        <p>Longest winning streaks across all seasons</p>
-      </div>
-      
-      <div class="table-wrapper">
-        <table class="stats-table">
-          <thead>
+    <div class="stat-card">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All Time Winning Streaks</th></tr>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.allTimeWinningStreaks as manager, index}
             <tr>
-              <th class="rank-col">#</th>
-              <th class="manager-col">Manager</th>
-              <th class="stat-col">Streak</th>
-              <th class="stat-col">Period</th>
+              <td>{index + 1}</td>
+              <td class="manager-cell">
+                <div class="manager-info">
+                  {#if manager.manager_logo}
+                    <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                  {/if}
+                  <span class="manager-name">{manager.manager_name}</span>
+                </div>
+              </td>
+              <td class="streak-cell winning-streak">{manager.streak_length}W</td>
+              <td class="period-cell">
+                {formatStreakPeriod(manager.start_season, manager.start_week, manager.end_season, manager.end_week)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each data.allTimeWinningStreaks as manager, index}
-              <tr class="stat-row">
-                <td class="rank-cell">{index + 1}</td>
-                <td class="manager-cell">
-                  <div class="manager-info">
-                    {#if manager.manager_logo}
-                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
-                    {/if}
-                    <span class="manager-name">{manager.manager_name}</span>
-                  </div>
-                </td>
-                <td class="stat-cell highlight">{manager.streak_length}W</td>
-                <td class="stat-cell">
-                  {formatStreakPeriod(manager.start_season, manager.start_week, manager.end_season, manager.end_week)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
 
     <!-- All Time Losing Streaks -->
-    <div class="stats-section">
-      <div class="section-header">
-        <h2>All Time Losing Streaks</h2>
-        <p>Longest losing streaks across all seasons</p>
-      </div>
-      
-      <div class="table-wrapper">
-        <table class="stats-table">
-          <thead>
+    <div class="stat-card">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">All Time Losing Streaks</th></tr>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.allTimeLosingStreaks as manager, index}
             <tr>
-              <th class="rank-col">#</th>
-              <th class="manager-col">Manager</th>
-              <th class="stat-col">Streak</th>
-              <th class="stat-col">Period</th>
+              <td>{index + 1}</td>
+              <td class="manager-cell">
+                <div class="manager-info">
+                  {#if manager.manager_logo}
+                    <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                  {/if}
+                  <span class="manager-name">{manager.manager_name}</span>
+                </div>
+              </td>
+              <td class="streak-cell losing-streak">{manager.streak_length}L</td>
+              <td class="period-cell">
+                {formatStreakPeriod(manager.start_season, manager.start_week, manager.end_season, manager.end_week)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each data.allTimeLosingStreaks as manager, index}
-              <tr class="stat-row">
-                <td class="rank-cell">{index + 1}</td>
-                <td class="manager-cell">
-                  <div class="manager-info">
-                    {#if manager.manager_logo}
-                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
-                    {/if}
-                    <span class="manager-name">{manager.manager_name}</span>
-                  </div>
-                </td>
-                <td class="stat-cell highlight losing">{manager.streak_length}L</td>
-                <td class="stat-cell">
-                  {formatStreakPeriod(manager.start_season, manager.start_week, manager.end_season, manager.end_week)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
 
     <!-- Regular Season Winning Streaks -->
-    <div class="stats-section">
-      <div class="section-header">
-        <h2>Regular Season Winning Streaks</h2>
-        <p>Best winning streaks during regular season play</p>
-      </div>
-      
-      <div class="table-wrapper">
-        <table class="stats-table">
-          <thead>
+    <div class="stat-card">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">Regular Season Winning Streaks</th></tr>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.regularSeasonWinningStreaks as manager, index}
             <tr>
-              <th class="rank-col">#</th>
-              <th class="manager-col">Manager</th>
-              <th class="stat-col">Streak</th>
-              <th class="stat-col">Season & Period</th>
+              <td>{index + 1}</td>
+              <td class="manager-cell">
+                <div class="manager-info">
+                  {#if manager.manager_logo}
+                    <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                  {/if}
+                  <span class="manager-name">{manager.manager_name}</span>
+                </div>
+              </td>
+              <td class="streak-cell winning-streak">{manager.streak_length}W</td>
+              <td class="period-cell">
+                {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each data.regularSeasonWinningStreaks as manager, index}
-              <tr class="stat-row">
-                <td class="rank-cell">{index + 1}</td>
-                <td class="manager-cell">
-                  <div class="manager-info">
-                    {#if manager.manager_logo}
-                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
-                    {/if}
-                    <span class="manager-name">{manager.manager_name}</span>
-                  </div>
-                </td>
-                <td class="stat-cell highlight">{manager.streak_length}W</td>
-                <td class="stat-cell">
-                  {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
 
     <!-- Regular Season Losing Streaks -->
-    <div class="stats-section">
-      <div class="section-header">
-        <h2>Regular Season Losing Streaks</h2>
-        <p>Worst losing streaks during regular season play</p>
-      </div>
-      
-      <div class="table-wrapper">
-        <table class="stats-table">
-          <thead>
+    <div class="stat-card">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">Regular Season Losing Streaks</th></tr>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.regularSeasonLosingStreaks as manager, index}
             <tr>
-              <th class="rank-col">#</th>
-              <th class="manager-col">Manager</th>
-              <th class="stat-col">Streak</th>
-              <th class="stat-col">Season & Period</th>
+              <td>{index + 1}</td>
+              <td class="manager-cell">
+                <div class="manager-info">
+                  {#if manager.manager_logo}
+                    <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                  {/if}
+                  <span class="manager-name">{manager.manager_name}</span>
+                </div>
+              </td>
+              <td class="streak-cell losing-streak">{manager.streak_length}L</td>
+              <td class="period-cell">
+                {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each data.regularSeasonLosingStreaks as manager, index}
-              <tr class="stat-row">
-                <td class="rank-cell">{index + 1}</td>
-                <td class="manager-cell">
-                  <div class="manager-info">
-                    {#if manager.manager_logo}
-                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
-                    {/if}
-                    <span class="manager-name">{manager.manager_name}</span>
-                  </div>
-                </td>
-                <td class="stat-cell highlight losing">{manager.streak_length}L</td>
-                <td class="stat-cell">
-                  {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
 
     <!-- Playoff Winning Streaks -->
-    <div class="stats-section">
-      <div class="section-header">
-        <h2>Playoff Winning Streaks</h2>
-        <p>Best winning streaks during playoff games</p>
-      </div>
-      
-      <div class="table-wrapper">
-        <table class="stats-table">
-          <thead>
+    <div class="stat-card">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">Playoff Winning Streaks</th></tr>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.playoffWinningStreaks as manager, index}
             <tr>
-              <th class="rank-col">#</th>
-              <th class="manager-col">Manager</th>
-              <th class="stat-col">Streak</th>
-              <th class="stat-col">Season & Period</th>
+              <td>{index + 1}</td>
+              <td class="manager-cell">
+                <div class="manager-info">
+                  {#if manager.manager_logo}
+                    <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                  {/if}
+                  <span class="manager-name">{manager.manager_name}</span>
+                </div>
+              </td>
+              <td class="streak-cell winning-streak">{manager.streak_length}W</td>
+              <td class="period-cell">
+                {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each data.playoffWinningStreaks as manager, index}
-              <tr class="stat-row">
-                <td class="rank-cell">{index + 1}</td>
-                <td class="manager-cell">
-                  <div class="manager-info">
-                    {#if manager.manager_logo}
-                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
-                    {/if}
-                    <span class="manager-name">{manager.manager_name}</span>
-                  </div>
-                </td>
-                <td class="stat-cell highlight">{manager.streak_length}W</td>
-                <td class="stat-cell">
-                  {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
 
     <!-- Playoff Losing Streaks -->
-    <div class="stats-section">
-      <div class="section-header">
-        <h2>Playoff Losing Streaks</h2>
-        <p>Worst losing streaks during playoff games</p>
-      </div>
-      
-      <div class="table-wrapper">
-        <table class="stats-table">
-          <thead>
+    <div class="stat-card">
+      <table class="stats-table">
+        <thead>
+          <tr><th class="table-title" colspan="4">Playoff Losing Streaks</th></tr>
+          <tr>
+            <th>#</th>
+            <th>Manager</th>
+            <th>Streak</th>
+            <th>Period</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each data.playoffLosingStreaks as manager, index}
             <tr>
-              <th class="rank-col">#</th>
-              <th class="manager-col">Manager</th>
-              <th class="stat-col">Streak</th>
-              <th class="stat-col">Season & Period</th>
+              <td>{index + 1}</td>
+              <td class="manager-cell">
+                <div class="manager-info">
+                  {#if manager.manager_logo}
+                    <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
+                  {/if}
+                  <span class="manager-name">{manager.manager_name}</span>
+                </div>
+              </td>
+              <td class="streak-cell losing-streak">{manager.streak_length}L</td>
+              <td class="period-cell">
+                {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each data.playoffLosingStreaks as manager, index}
-              <tr class="stat-row">
-                <td class="rank-cell">{index + 1}</td>
-                <td class="manager-cell">
-                  <div class="manager-info">
-                    {#if manager.manager_logo}
-                      <img src={manager.manager_logo} alt={manager.manager_name} class="manager-avatar" />
-                    {/if}
-                    <span class="manager-name">{manager.manager_name}</span>
-                  </div>
-                </td>
-                <td class="stat-cell highlight losing">{manager.streak_length}L</td>
-                <td class="stat-cell">
-                  {formatSeasonPeriod(manager.season_year, manager.start_week, manager.end_week)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+          {:else}
+            <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
+          {/each}
+        </tbody>
+      </table>
     </div>
 
   </div>
 </StatsLayout>
 
 <style>
-  .stats-container {
-    display: flex;
-    flex-direction: column;
-    gap: 2rem;
-    padding: 0.5rem;
-  }
-
-  .stats-section {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow: hidden;
-    width: min(750px, 90vw);
-    margin: 0 auto;
-  }
-
-  .hot-section {
-    border: 2px solid #ff6b35;
-  }
-
-  .cold-section {
-    border: 2px solid #4a90e2;
-  }
-
-  .section-header {
-    background: linear-gradient(135deg, #003366, #004080);
-    color: white;
-    padding: 0.375rem 1.5rem;
-    text-align: center;
-  }
-
-  .hot-header {
-    background: linear-gradient(135deg, #ff6b35, #ff8c42);
-  }
-
-  .cold-header {
-    background: linear-gradient(135deg, #4a90e2, #5da3f5);
-  }
-
-  .section-header h2 {
-    margin: 0 0 0.125rem 0;
-    font-size: 1.1rem;
-    font-weight: 700;
-  }
-
-  .section-header p {
-    margin: 0;
-    font-size: 0.75rem;
-    opacity: 0.9;
-  }
-
-  .table-wrapper {
+  .content-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
     padding: 0;
   }
 
+  .stat-card {
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  
   .stats-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
-    margin: 0;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: white;
   }
-
+  
+  .stats-table th,
+  .stats-table td {
+    border: 1px solid #dee2e6;
+    padding: 0.75rem 0.5rem;
+    color: #212529;
+  }
+  
   .stats-table th {
+    text-align: center;
     background: #f8f9fa;
+    font-weight: 600;
     color: #495057;
-    font-weight: 600;
+    font-size: 0.9rem;
+  }
+  
+  .stats-table td {
     text-align: left;
-    padding: 1rem;
-    border-bottom: 2px solid #dee2e6;
+    background: white;
+    color: #212529;
   }
-
-  .rank-col {
-    width: 60px;
-    text-align: center;
+  
+  .stats-table tbody tr:nth-child(odd) {
+    background: white;
   }
-
-  .manager-col {
-    min-width: 180px;
-  }
-
-  .stat-col {
-    width: 100px;
-    text-align: center;
-  }
-
-  .stat-row {
-    border-bottom: 1px solid #dee2e6;
-    transition: background-color 0.2s ease;
-  }
-
-  .stat-row:hover {
+  
+  .stats-table tbody tr:nth-child(even) {
     background: #f8f9fa;
   }
-
-  .stat-row:nth-child(even) {
-    background: #fafbfc;
+  
+  .stats-table tr:hover {
+    background: #e3f2fd !important;
+  }
+  
+  .table-title {
+    text-align: center !important;
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.75rem;
   }
 
-  .stat-row:nth-child(even):hover {
-    background: #f0f1f2;
+  .hot-title {
+    background: linear-gradient(135deg, #ff6b35, #ff8c42) !important;
   }
 
-  .rank-cell {
-    text-align: center;
-    padding: 1rem;
-    font-weight: 600;
-    color: #6c757d;
+  .cold-title {
+    background: linear-gradient(135deg, #4a90e2, #5da3f5) !important;
   }
-
+  
   .manager-cell {
-    padding: 1rem;
+    padding: 0.5rem !important;
   }
 
   .manager-info {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
   }
 
   .manager-details {
@@ -496,66 +440,69 @@
     flex-direction: column;
     gap: 0.125rem;
   }
-
+  
   .manager-avatar {
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
     object-fit: cover;
     border: 2px solid #e9ecef;
+    flex-shrink: 0;
   }
-
+  
   .manager-name {
     font-weight: 600;
-    color: #495057;
+    color: #212529;
+    font-size: 0.85rem;
   }
 
   .team-name {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #868e96;
     font-style: italic;
   }
 
-  .stat-cell {
-    padding: 1rem;
-    text-align: center;
-    color: #6c757d;
-  }
-
-  .stat-cell.highlight {
+  .streak-cell {
+    text-align: center !important;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1rem;
+    padding: 0.75rem 0.5rem;
   }
 
-  .stat-cell.highlight:not(.losing):not(.hot-stat):not(.cold-stat) {
+  .winning-streak {
     color: #28a745;
     background: linear-gradient(45deg, #d4edda, #e8f5e9);
   }
 
-  .stat-cell.highlight.losing {
+  .losing-streak {
     color: #dc3545;
     background: linear-gradient(45deg, #f8d7da, #ffebee);
   }
 
-  .stat-cell.highlight.hot-stat {
+  .hot-streak {
     color: #ff6b35;
     background: linear-gradient(45deg, #ffe5dc, #fff3e0);
   }
 
-  .stat-cell.highlight.cold-stat {
+  .cold-streak {
     color: #4a90e2;
     background: linear-gradient(45deg, #e3f2fd, #e8f4f8);
   }
 
-  .scope-badge {
-    padding: 0.5rem;
+  .period-cell {
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+
+  .scope-cell {
+    text-align: center !important;
   }
 
   .badge {
     display: inline-block;
-    padding: 0.25rem 0.75rem;
+    padding: 0.25rem 0.5rem;
     border-radius: 12px;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     font-weight: 600;
     text-transform: uppercase;
   }
@@ -569,19 +516,75 @@
     background: #fff3e0;
     color: #f57c00;
   }
+  
+  .text-center {
+    text-align: center;
+  }
+  
+  .text-gray-600 {
+    color: #6c757d;
+  }
 
+  /* Mobile Styles */
   @media (max-width: 768px) {
-    .stats-container {
-      padding: 0;
+    .content-grid {
+      grid-template-columns: 1fr;
       gap: 1rem;
+      margin-bottom: 1rem;
+      padding: 0 0.5rem;
     }
 
-    .section-header {
-      padding: 1rem;
+    .stats-table {
+      font-size: 0.8rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     }
 
-    .section-header h2 {
-      font-size: 1.25rem;
+    .stats-table th,
+    .stats-table td {
+      padding: 0.6rem 0.4rem;
+      line-height: 1.4;
+    }
+
+    .stats-table th {
+      font-size: 0.85rem;
+    }
+
+    .table-title {
+      font-size: 0.95rem;
+      padding: 0.75rem;
+    }
+
+    .manager-avatar {
+      width: 22px;
+      height: 22px;
+    }
+
+    .manager-name {
+      font-size: 0.8rem;
+    }
+
+    .team-name {
+      font-size: 0.65rem;
+    }
+
+    .streak-cell {
+      font-size: 0.9rem;
+    }
+
+    .period-cell {
+      font-size: 0.75rem;
+    }
+
+    .badge {
+      font-size: 0.65rem;
+      padding: 0.2rem 0.4rem;
+    }
+  }
+
+  /* Tablet styles */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .content-grid {
+      gap: 1rem;
     }
 
     .stats-table {
@@ -589,19 +592,46 @@
     }
 
     .stats-table th,
-    .rank-cell,
-    .manager-cell,
-    .stat-cell {
-      padding: 0.75rem 0.5rem;
+    .stats-table td {
+      padding: 0.6rem 0.4rem;
+    }
+  }
+
+  /* Very small mobile screens */
+  @media (max-width: 480px) {
+    .stats-table {
+      font-size: 0.7rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.4rem 0.2rem;
     }
 
     .manager-avatar {
-      width: 28px;
-      height: 28px;
+      width: 18px;
+      height: 18px;
     }
 
-    .manager-info {
-      gap: 0.5rem;
+    .table-title {
+      font-size: 0.85rem;
+      padding: 0.5rem;
+    }
+
+    .manager-name {
+      font-size: 0.75rem;
+    }
+
+    .team-name {
+      font-size: 0.6rem;
+    }
+
+    .streak-cell {
+      font-size: 0.85rem;
+    }
+
+    .period-cell {
+      font-size: 0.7rem;
     }
   }
 </style>
