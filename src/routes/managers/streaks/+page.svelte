@@ -1,6 +1,5 @@
 <script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
-  import StatCard from '$lib/components/StatCard.svelte';
   
   export let data;
 
@@ -9,10 +8,10 @@
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats" },
     { label: "Streaks", href: "/league/streaks", active: true },
-    //{ label: "Potential Points", href: "/league/potential_points" },
+    { label: "Potential Points", href: "/league/potential_points" },
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
-    //{ label: "Trophy Room", href: "/league/trophy_room" },
+    { label: "Trophy Room", href: "/league/trophy_room" },
     { label: "Draft Room", href: "/league/drafts" }
   ];
 
@@ -39,7 +38,7 @@
     
     <!-- Current Hot Streaks -->
     {#if data.currentHotStreaks && data.currentHotStreaks.length > 0}
-      <StatCard size="lg">
+      <div class="stat-card">
         <table class="stats-table">
           <thead>
             <tr><th class="table-title hot-title" colspan="5">🔥 Current Hot Streaks</th></tr>
@@ -81,12 +80,12 @@
             {/each}
           </tbody>
         </table>
-      </StatCard>
+      </div>
     {/if}
 
     <!-- Current Cold Streaks -->
     {#if data.currentColdStreaks && data.currentColdStreaks.length > 0}
-      <StatCard size="lg">
+      <div class="stat-card">
         <table class="stats-table">
           <thead>
             <tr><th class="table-title cold-title" colspan="5">🧊 Current Cold Streaks</th></tr>
@@ -128,11 +127,11 @@
             {/each}
           </tbody>
         </table>
-      </StatCard>
+      </div>
     {/if}
 
     <!-- All Time Winning Streaks -->
-    <StatCard size="lg">
+    <div class="stat-card">
       <table class="stats-table">
         <thead>
           <tr><th class="table-title" colspan="4">All Time Winning Streaks</th></tr>
@@ -165,10 +164,10 @@
           {/each}
         </tbody>
       </table>
-    </StatCard>
+    </div>
 
     <!-- All Time Losing Streaks -->
-    <StatCard size="lg">
+    <div class="stat-card">
       <table class="stats-table">
         <thead>
           <tr><th class="table-title" colspan="4">All Time Losing Streaks</th></tr>
@@ -201,10 +200,10 @@
           {/each}
         </tbody>
       </table>
-    </StatCard>
+    </div>
 
     <!-- Regular Season Winning Streaks -->
-    <StatCard size="lg">
+    <div class="stat-card">
       <table class="stats-table">
         <thead>
           <tr><th class="table-title" colspan="4">Regular Season Winning Streaks</th></tr>
@@ -237,10 +236,10 @@
           {/each}
         </tbody>
       </table>
-    </StatCard>
+    </div>
 
     <!-- Regular Season Losing Streaks -->
-    <StatCard size="lg">
+    <div class="stat-card">
       <table class="stats-table">
         <thead>
           <tr><th class="table-title" colspan="4">Regular Season Losing Streaks</th></tr>
@@ -273,10 +272,10 @@
           {/each}
         </tbody>
       </table>
-    </StatCard>
+    </div>
 
     <!-- Playoff Winning Streaks -->
-    <StatCard size="lg">
+    <div class="stat-card">
       <table class="stats-table">
         <thead>
           <tr><th class="table-title" colspan="4">Playoff Winning Streaks</th></tr>
@@ -309,10 +308,10 @@
           {/each}
         </tbody>
       </table>
-    </StatCard>
+    </div>
 
     <!-- Playoff Losing Streaks -->
-    <StatCard size="lg">
+    <div class="stat-card">
       <table class="stats-table">
         <thead>
           <tr><th class="table-title" colspan="4">Playoff Losing Streaks</th></tr>
@@ -345,7 +344,7 @@
           {/each}
         </tbody>
       </table>
-    </StatCard>
+    </div>
 
   </div>
 </StatsLayout>
@@ -356,6 +355,14 @@
     grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
     margin-bottom: 2rem;
+    padding: 0;
+  }
+
+  .stat-card {
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
   }
   
   .stats-table {
