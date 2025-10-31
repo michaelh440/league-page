@@ -131,8 +131,7 @@
 
 		<!-- Footer Note -->
 		<div class="login-footer">
-			<p class="footer-note">Default credentials: admin / admin123</p>
-			<p class="footer-warning">⚠️ Change the default password after first login</p>
+			
 		</div>
 	</div>
 

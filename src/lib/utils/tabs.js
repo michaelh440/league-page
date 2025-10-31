@@ -111,7 +111,7 @@ export const tabs = [
       { icon: 'bar_chart', label: 'Rosters', dest: '/current_season/rosters' },
       { icon: 'history_edu', label: 'Draft Results', dest: '/current_season/drafts' },
       { icon: 'compare_arrows', label: 'Transactions', dest: '/current_season/transactions' },
-      { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' }
+      //{ icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' }
       //{ icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
       
     ]
