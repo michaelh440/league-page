@@ -1,6 +1,30 @@
 import { error, fail } from '@sveltejs/kit';
-import { parse } from 'csv-parse/sync';
 import { sql } from '$lib/server/db';
+
+// Simple CSV parser function
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  if (lines.length === 0) return [];
+  
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+  const records = [];
+  
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    
+    const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+    const record = {};
+    
+    headers.forEach((header, index) => {
+      record[header] = values[index] || '';
+    });
+    
+    records.push(record);
+  }
+  
+  return records;
+}
 
 export async function load() {
   try {
@@ -48,11 +72,7 @@ export const actions = {
       // Parse CSV
       let records;
       try {
-        records = parse(text, {
-          columns: true,
-          skip_empty_lines: true,
-          trim: true
-        });
+        records = parseCSV(text);
       } catch (parseError) {
         return fail(400, { 
           error: true, 
