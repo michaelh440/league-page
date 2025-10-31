@@ -1,8 +1,6 @@
 import { error, fail } from '@sveltejs/kit';
-import postgres from 'postgres';
 import { parse } from 'csv-parse/sync';
-
-const sql = postgres(process.env.DATABASE_URL);
+import { sql } from '$lib/server/db';
 
 export async function load() {
   try {
@@ -133,7 +131,7 @@ export const actions = {
               dbPlayerId = player[0].player_id;
             }
 
-            // Prepare stat data
+            // Prepare stat data for player_fantasy_stats table
             const statData = {
               season_id: season,
               week: week,
@@ -146,38 +144,18 @@ export const actions = {
               platform: 'yahoo'
             };
 
-            // Add detailed stats if present
-            const detailedStats = {};
-            const statColumns = [
-              'passing_yards', 'passing_touchdowns', 'interceptions',
-              'rushing_attempts', 'rushing_yards', 'rushing_touchdowns',
-              'receptions', 'receiving_yards', 'receiving_touchdowns',
-              'return_touchdowns', 'fumbles_lost', 'two_point_conversions',
-              'fg_0_19', 'fg_20_29', 'fg_30_39', 'fg_40_49', 'fg_50_plus',
-              'pat_made', 'pat_missed'
-            ];
-
-            for (const statCol of statColumns) {
-              if (record[statCol] !== undefined && record[statCol] !== '') {
-                const value = parseFloat(record[statCol]);
-                if (!isNaN(value)) {
-                  detailedStats[statCol] = value;
-                }
-              }
-            }
-
-            if (Object.keys(detailedStats).length > 0) {
-              statData.detailed_stats = detailedStats;
-            }
+            // Note: Your player_fantasy_stats table doesn't have a detailed_stats column
+            // It only tracks total_fantasy_points
+            // If you want detailed stats, you'd need to add columns or a separate table
 
             // Insert or update based on mode
             if (mode === 'insert') {
               // Check if exists
               const existing = await sql`
-                SELECT id FROM player_fantasy_stats
+                SELECT fantasy_stat_id FROM player_fantasy_stats
                 WHERE season_id = ${season}
                 AND week = ${week}
-                AND player_id = ${dbPlayerId}
+                AND yahoo_player_id = ${playerId}
                 AND platform = 'yahoo'
               `;
 
@@ -193,30 +171,30 @@ export const actions = {
               inserted++;
 
             } else if (mode === 'update') {
-              // Upsert
+              // Upsert - conflict on (season_id, week, yahoo_player_id, platform)
               await sql`
                 INSERT INTO player_fantasy_stats ${sql(statData)}
-                ON CONFLICT (season_id, week, player_id, platform)
+                ON CONFLICT (season_id, week, yahoo_player_id, platform)
+                WHERE yahoo_player_id IS NOT NULL
                 DO UPDATE SET
-                  yahoo_player_id = EXCLUDED.yahoo_player_id,
+                  player_id = EXCLUDED.player_id,
                   player_name = EXCLUDED.player_name,
                   position = EXCLUDED.position,
                   nfl_team = EXCLUDED.nfl_team,
                   total_fantasy_points = EXCLUDED.total_fantasy_points,
-                  detailed_stats = EXCLUDED.detailed_stats,
                   updated_at = CURRENT_TIMESTAMP
               `;
               
-              // Count as insert or update (simplified - could check XMAX)
+              // Count as insert or update
               const check = await sql`
                 SELECT created_at, updated_at FROM player_fantasy_stats
                 WHERE season_id = ${season}
                 AND week = ${week}
-                AND player_id = ${dbPlayerId}
+                AND yahoo_player_id = ${playerId}
                 AND platform = 'yahoo'
               `;
               
-              if (check[0].created_at === check[0].updated_at) {
+              if (check[0] && check[0].created_at.getTime() === check[0].updated_at.getTime()) {
                 inserted++;
               } else {
                 updated++;
