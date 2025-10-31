@@ -253,6 +253,13 @@
 			href: '/admin/confirm_yahoo_points_staging',
             icon: '🔧',
 			color: '#6f42c1'
+		},
+		{
+			title: 'Upload Player Roster',
+			description: 'Import roster & stats from CSV',
+			href: '/admin/upload_player_roster',
+			icon: '📤',
+			color: '#17a2b8'  // Teal color
 		}
 	];
 </script>
