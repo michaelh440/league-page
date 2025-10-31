@@ -1,5 +1,5 @@
 import { error, fail } from '@sveltejs/kit';
-import { sql } from '$lib/server/db';
+import { query } from '$lib/db';
 
 // Simple CSV parser function
 function parseCSV(text) {
@@ -29,21 +29,21 @@ function parseCSV(text) {
 export async function load() {
   try {
     // Get summary stats
-    const statsResult = await sql`
+    const result = await query(`
       SELECT 
         COUNT(*) as total_records,
         array_agg(DISTINCT season_id ORDER BY season_id) as seasons,
         MAX(created_at) as last_upload
       FROM player_fantasy_stats
       WHERE platform = 'yahoo'
-    `;
+    `);
 
     return {
       stats: {
-        totalRecords: parseInt(statsResult[0].total_records),
-        seasons: statsResult[0].seasons || [],
-        lastUpload: statsResult[0].last_upload 
-          ? new Date(statsResult[0].last_upload).toLocaleDateString() 
+        totalRecords: parseInt(result.rows[0].total_records),
+        seasons: result.rows[0].seasons || [],
+        lastUpload: result.rows[0].last_upload 
+          ? new Date(result.rows[0].last_upload).toLocaleDateString() 
           : null
       }
     };
@@ -130,25 +130,25 @@ export const actions = {
             }
 
             // Get or create player
-            let player = await sql`
+            const playerResult = await query(`
               SELECT player_id FROM nfl_players 
-              WHERE yahoo_player_id = ${playerId}
+              WHERE yahoo_player_id = $1
               LIMIT 1
-            `;
+            `, [playerId]);
 
             let dbPlayerId;
-            if (player.length === 0) {
+            if (playerResult.rows.length === 0) {
               // Insert new player
-              const newPlayer = await sql`
+              const newPlayerResult = await query(`
                 INSERT INTO nfl_players (
                   yahoo_player_id, player_name, position, is_active
                 )
-                VALUES (${playerId}, ${playerName}, ${position}, true)
+                VALUES ($1, $2, $3, true)
                 RETURNING player_id
-              `;
-              dbPlayerId = newPlayer[0].player_id;
+              `, [playerId, playerName, position]);
+              dbPlayerId = newPlayerResult.rows[0].player_id;
             } else {
-              dbPlayerId = player[0].player_id;
+              dbPlayerId = playerResult.rows[0].player_id;
             }
 
             // Prepare stat data for player_fantasy_stats table
@@ -171,29 +171,40 @@ export const actions = {
             // Insert or update based on mode
             if (mode === 'insert') {
               // Check if exists
-              const existing = await sql`
+              const existingResult = await query(`
                 SELECT fantasy_stat_id FROM player_fantasy_stats
-                WHERE season_id = ${season}
-                AND week = ${week}
-                AND yahoo_player_id = ${playerId}
+                WHERE season_id = $1
+                AND week = $2
+                AND yahoo_player_id = $3
                 AND platform = 'yahoo'
-              `;
+              `, [season, week, playerId]);
 
-              if (existing.length > 0) {
+              if (existingResult.rows.length > 0) {
                 skipped++;
                 continue;
               }
 
               // Insert
-              await sql`
-                INSERT INTO player_fantasy_stats ${sql(statData)}
-              `;
+              await query(`
+                INSERT INTO player_fantasy_stats (
+                  season_id, week, player_id, yahoo_player_id,
+                  player_name, position, nfl_team, total_fantasy_points, platform
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+              `, [
+                season, week, dbPlayerId, playerId,
+                playerName, position, nflTeam, fantasyPoints, 'yahoo'
+              ]);
               inserted++;
 
             } else if (mode === 'update') {
-              // Upsert - conflict on (season_id, week, yahoo_player_id, platform)
-              await sql`
-                INSERT INTO player_fantasy_stats ${sql(statData)}
+              // Upsert - try insert, if conflict then update
+              const upsertResult = await query(`
+                INSERT INTO player_fantasy_stats (
+                  season_id, week, player_id, yahoo_player_id,
+                  player_name, position, nfl_team, total_fantasy_points, platform
+                )
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 ON CONFLICT (season_id, week, yahoo_player_id, platform)
                 WHERE yahoo_player_id IS NOT NULL
                 DO UPDATE SET
@@ -203,18 +214,13 @@ export const actions = {
                   nfl_team = EXCLUDED.nfl_team,
                   total_fantasy_points = EXCLUDED.total_fantasy_points,
                   updated_at = CURRENT_TIMESTAMP
-              `;
+                RETURNING (xmax = 0) AS inserted
+              `, [
+                season, week, dbPlayerId, playerId,
+                playerName, position, nflTeam, fantasyPoints, 'yahoo'
+              ]);
               
-              // Count as insert or update
-              const check = await sql`
-                SELECT created_at, updated_at FROM player_fantasy_stats
-                WHERE season_id = ${season}
-                AND week = ${week}
-                AND yahoo_player_id = ${playerId}
-                AND platform = 'yahoo'
-              `;
-              
-              if (check[0] && check[0].created_at.getTime() === check[0].updated_at.getTime()) {
+              if (upsertResult.rows[0].inserted) {
                 inserted++;
               } else {
                 updated++;
