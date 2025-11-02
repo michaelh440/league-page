@@ -1,533 +1,650 @@
 <script>
-  import StatsLayout from '$lib/components/StatsLayout.svelte';
-  import StatCard from '$lib/components/StatCard.svelte';
-  import { enhance } from '$app/forms';
-
-  export let data;
-  export let form;
-
-  const navItems = [
-    { label: "Confirm Yahoo Points", href: "/admin/confirm_yahoo_points_staging", active: false },
-    { label: "Upload Player Roster", href: "/admin/upload_player_roster", active: true }
-  ];
-
-  let selectedFile = null;
-  let fileInfo = null;
-  let uploadMode = 'insert'; // 'insert' or 'update'
-  let previewData = null;
-  let uploading = false;
-
-  function handleFileSelect(event) {
-    const file = event.target.files[0];
-    if (!file) {
-      selectedFile = null;
-      fileInfo = null;
-      previewData = null;
-      return;
-    }
-
-    if (!file.name.endsWith('.csv')) {
-      alert('Please select a CSV file');
-      event.target.value = '';
-      return;
-    }
-
-    selectedFile = file;
-    fileInfo = {
-      name: file.name,
-      size: (file.size / 1024).toFixed(2) + ' KB',
-      lastModified: new Date(file.lastModified).toLocaleString()
-    };
-
-    // Preview first few rows
-    previewFile(file);
-  }
-
-  function previewFile(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target.result;
-      const lines = text.split('\n').slice(0, 6); // Header + 5 rows
-      const rows = lines.map(line => line.split(','));
-      
-      previewData = {
-        headers: rows[0],
-        rows: rows.slice(1, 6)
-      };
-    };
-    reader.readAsText(file);
-  }
-
-  function clearFile() {
-    selectedFile = null;
-    fileInfo = null;
-    previewData = null;
-    const fileInput = document.getElementById('csvFile');
-    if (fileInput) fileInput.value = '';
-  }
-
-  function handleSubmit() {
-    return async ({ result, update }) => {
-      if (result.type === 'success') {
-        clearFile();
-      }
-      uploading = false;
-      await update();
-    };
-  }
+	import { enhance } from '$app/forms';
+	
+	export let data;
+	export let form;
+	
+	let uploading = false;
+	let selectedFile = null;
+	let previewData = null;
+	
+	function handleFileSelect(event) {
+		const file = event.target.files[0];
+		if (file) {
+			selectedFile = file;
+			previewCSV(file);
+		}
+	}
+	
+	async function previewCSV(file) {
+		const text = await file.text();
+		const lines = text.split('\n').slice(0, 6); // Header + 5 rows
+		const rows = lines.map(line => line.split(',').map(cell => cell.trim().replace(/"/g, '')));
+		previewData = {
+			headers: rows[0],
+			rows: rows.slice(1)
+		};
+	}
+	
+	function formatBytes(bytes) {
+		if (bytes === 0) return '0 Bytes';
+		const k = 1024;
+		const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+	}
 </script>
 
-<StatsLayout title="Upload Player Roster" {navItems}>
-  <div class="content-grid">
-    
-    <!-- Instructions Card -->
-    <StatCard size="full">
-      <div class="instructions">
-        <h3>📤 Upload Player Roster & Stats</h3>
-        <p>Upload CSV files containing player roster and stats data to insert or update records in the database.</p>
-        
-        <div class="format-section">
-          <h4>Required CSV Format:</h4>
-          <div class="format-example">
-            <code>season,week,team_id,team_name,player_id,player_name,position,selected_position,nfl_team,status,fantasy_points,passing_yards,rushing_yards,...</code>
-          </div>
-          
-          <h4>Required Columns (minimum):</h4>
-          <ul>
-            <li><strong>season</strong> - Season year (e.g., 2015, 2023)</li>
-            <li><strong>week</strong> - Week number (1-17)</li>
-            <li><strong>player_id</strong> - Yahoo player ID</li>
-            <li><strong>player_name</strong> - Player's full name</li>
-            <li><strong>position</strong> - Player position (QB, RB, WR, TE, K, DEF)</li>
-            <li><strong>nfl_team</strong> - NFL team abbreviation</li>
-            <li><strong>fantasy_points</strong> - Total fantasy points</li>
-          </ul>
+<div class="container">
+	<div class="header">
+		<h1>📤 Upload Player Stats CSV</h1>
+		<p class="subtitle">Import fantasy stats to staging table for review and processing</p>
+	</div>
 
-          <h4>Optional Stat Columns:</h4>
-          <p>Include any of these for detailed stats: <code>passing_yards</code>, <code>passing_touchdowns</code>, <code>rushing_yards</code>, <code>rushing_touchdowns</code>, <code>receptions</code>, <code>receiving_yards</code>, <code>receiving_touchdowns</code>, etc.</p>
-        </div>
-      </div>
-    </StatCard>
+	{#if form?.success}
+		<div class="alert alert-success">
+			<div class="alert-icon">✅</div>
+			<div class="alert-content">
+				<div class="alert-title">Upload Successful!</div>
+				<div class="alert-message">{form.message}</div>
+				{#if form.stats}
+					<div class="stats-summary">
+						<span class="stat-item">✅ Inserted: <strong>{form.stats.inserted}</strong></span>
+						<span class="stat-item">⏭️ Skipped: <strong>{form.stats.skipped}</strong></span>
+						{#if form.stats.errors && form.stats.errors.length > 0}
+							<span class="stat-item">❌ Errors: <strong>{form.stats.errors.length}</strong></span>
+						{/if}
+					</div>
+					{#if form.stats.summary}
+						<div class="next-steps">
+							<strong>Next Step:</strong> 
+							{#if form.stats.summary.missing_position > 0}
+								Go to <a href="/admin/confirm_yahoo_points_staging">/admin/confirm_yahoo_points_staging</a> to fix {form.stats.summary.missing_position} missing positions
+							{:else}
+								All positions are set! Run the ETL script to migrate to production tables.
+							{/if}
+						</div>
+					{/if}
+				{/if}
+			</div>
+		</div>
+	{/if}
 
-    <!-- Message Display -->
-    {#if form?.success}
-      <StatCard size="full">
-        <div class="message-box success">
-          ✓ {form.message}
-          {#if form.details}
-            <div class="details">
-              <div>Records processed: {form.details.processed}</div>
-              <div>Inserted: {form.details.inserted}</div>
-              <div>Updated: {form.details.updated}</div>
-              <div>Skipped: {form.details.skipped}</div>
-            </div>
-          {/if}
-        </div>
-      </StatCard>
-    {/if}
+	{#if form?.error}
+		<div class="alert alert-error">
+			<div class="alert-icon">❌</div>
+			<div class="alert-content">
+				<div class="alert-title">Upload Failed</div>
+				<div class="alert-message">{form.error}</div>
+			</div>
+		</div>
+	{/if}
 
-    {#if form?.error}
-      <StatCard size="full">
-        <div class="message-box error">
-          ✗ {form.message}
-        </div>
-      </StatCard>
-    {/if}
+	<div class="card">
+		<div class="card-header">
+			<h2>Upload CSV File</h2>
+			<p>Upload your Yahoo fantasy stats CSV file (yahoo_complete_YYYY.csv)</p>
+		</div>
 
-    <!-- Upload Form -->
-    <StatCard size="full">
-      <form method="POST" action="?/uploadCSV" enctype="multipart/form-data" use:enhance={handleSubmit}>
-        <div class="upload-container">
-          
-          <!-- Mode Selection -->
-          <div class="mode-selection">
-            <label>
-              <input type="radio" name="mode" value="insert" bind:group={uploadMode} />
-              <span class="mode-label">
-                <strong>Insert New Records</strong>
-                <small>Add new data, skip if exists</small>
-              </span>
-            </label>
-            
-            <label>
-              <input type="radio" name="mode" value="update" bind:group={uploadMode} />
-              <span class="mode-label">
-                <strong>Update/Upsert</strong>
-                <small>Insert new or update existing records</small>
-              </span>
-            </label>
-          </div>
+		<form 
+			method="POST" 
+			action="?/upload" 
+			enctype="multipart/form-data"
+			use:enhance={() => {
+				uploading = true;
+				return async ({ result, update }) => {
+					uploading = false;
+					await update();
+					if (result.type === 'success') {
+						selectedFile = null;
+						previewData = null;
+						// Reset file input
+						const fileInput = document.getElementById('csvFile');
+						if (fileInput) fileInput.value = '';
+					}
+				};
+			}}
+		>
+			<div class="form-section">
+				<div class="file-upload-area">
+					<input
+						type="file"
+						id="csvFile"
+						name="csvFile"
+						accept=".csv"
+						required
+						on:change={handleFileSelect}
+						disabled={uploading}
+					/>
+					<label for="csvFile" class="file-upload-label">
+						<div class="upload-icon">📁</div>
+						<div class="upload-text">
+							{#if selectedFile}
+								<strong>{selectedFile.name}</strong>
+								<span class="file-size">{formatBytes(selectedFile.size)}</span>
+							{:else}
+								<strong>Choose CSV file</strong>
+								<span>or drag and drop</span>
+							{/if}
+						</div>
+					</label>
+				</div>
 
-          <!-- File Input -->
-          <div class="file-input-section">
-            <label for="csvFile" class="file-label">
-              Select CSV File
-            </label>
-            <input 
-              type="file" 
-              id="csvFile" 
-              name="csvFile" 
-              accept=".csv"
-              on:change={handleFileSelect}
-              required
-            />
-          </div>
+				{#if previewData}
+					<div class="preview-section">
+						<h3>📋 Preview (First 5 Rows)</h3>
+						<div class="table-container">
+							<table class="preview-table">
+								<thead>
+									<tr>
+										{#each previewData.headers as header}
+											<th>{header}</th>
+										{/each}
+									</tr>
+								</thead>
+								<tbody>
+									{#each previewData.rows as row}
+										<tr>
+											{#each row as cell}
+												<td>{cell}</td>
+											{/each}
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				{/if}
 
-          <!-- File Info -->
-          {#if fileInfo}
-            <div class="file-info">
-              <div class="file-details">
-                <strong>{fileInfo.name}</strong>
-                <span>{fileInfo.size}</span>
-                <span>Modified: {fileInfo.lastModified}</span>
-              </div>
-              <button type="button" class="clear-btn" on:click={clearFile}>✕ Clear</button>
-            </div>
-          {/if}
+				<div class="button-group">
+					<button 
+						type="submit" 
+						class="btn btn-primary"
+						disabled={!selectedFile || uploading}
+					>
+						{#if uploading}
+							<span class="spinner"></span>
+							Uploading...
+						{:else}
+							📤 Upload to Staging
+						{/if}
+					</button>
+					
+					{#if selectedFile}
+						<button 
+							type="button" 
+							class="btn btn-secondary"
+							on:click={() => {
+								selectedFile = null;
+								previewData = null;
+								const fileInput = document.getElementById('csvFile');
+								if (fileInput) fileInput.value = '';
+							}}
+							disabled={uploading}
+						>
+							Clear
+						</button>
+					{/if}
+				</div>
+			</div>
+		</form>
+	</div>
 
-          <!-- Preview -->
-          {#if previewData}
-            <div class="preview-section">
-              <h4>Preview (first 5 rows):</h4>
-              <div class="preview-table-wrapper">
-                <table class="preview-table">
-                  <thead>
-                    <tr>
-                      {#each previewData.headers as header}
-                        <th>{header}</th>
-                      {/each}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each previewData.rows as row}
-                      <tr>
-                        {#each row as cell}
-                          <td>{cell}</td>
-                        {/each}
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          {/if}
+	<div class="info-card">
+		<h3>ℹ️ Upload Process</h3>
+		<ol class="process-list">
+			<li>
+				<strong>Upload CSV</strong> - Select your yahoo_complete_YYYY.csv file
+				<div class="sub-text">Data is imported to <code>staging_yahoo_player_stats</code></div>
+			</li>
+			<li>
+				<strong>Fix Positions</strong> - Review and fix any missing positions
+				<div class="sub-text">Navigate to <a href="/admin/confirm_yahoo_points_staging">/admin/confirm_yahoo_points_staging</a></div>
+			</li>
+			<li>
+				<strong>Run ETL</strong> - Execute the ETL script to migrate to production
+				<div class="sub-text">Run <code>etl_configurable_playoff_split.sql</code></div>
+			</li>
+		</ol>
+	</div>
 
-          <!-- Submit Button -->
-          <button 
-            type="submit" 
-            class="upload-btn"
-            disabled={!selectedFile || uploading}
-          >
-            {uploading ? '⏳ Uploading...' : '📤 Upload & Process'}
-          </button>
-        </div>
-      </form>
-    </StatCard>
-
-    <!-- Summary Stats (if available) -->
-    {#if data.stats}
-      <StatCard size="sm">
-        <div class="stat-summary">
-          <div class="stat-label">Total Records</div>
-          <div class="stat-value">{data.stats.totalRecords.toLocaleString()}</div>
-        </div>
-      </StatCard>
-
-      <StatCard size="sm">
-        <div class="stat-summary">
-          <div class="stat-label">Seasons Covered</div>
-          <div class="stat-value">{data.stats.seasons.join(', ')}</div>
-        </div>
-      </StatCard>
-
-      <StatCard size="sm">
-        <div class="stat-summary">
-          <div class="stat-label">Last Upload</div>
-          <div class="stat-value">{data.stats.lastUpload || 'Never'}</div>
-        </div>
-      </StatCard>
-    {/if}
-
-  </div>
-</StatsLayout>
+	<div class="info-card">
+		<h3>📝 Expected CSV Format</h3>
+		<div class="code-block">
+			<code>season,week,team_id,team_name,player_id,player_name,position,selected_position,nfl_team,status,fantasy_points</code>
+		</div>
+		<ul class="format-notes">
+			<li><strong>season</strong> - Season ID (1-9 for 2015-2023)</li>
+			<li><strong>week</strong> - Week number (1-17)</li>
+			<li><strong>player_id</strong> - Yahoo player ID</li>
+			<li><strong>player_name</strong> - Player's name</li>
+			<li><strong>position</strong> - NFL position (QB, RB, WR, TE, K, DEF)</li>
+			<li><strong>fantasy_points</strong> - Points scored that week</li>
+		</ul>
+	</div>
+</div>
 
 <style>
-  .content-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1.5rem;
-    padding: 1.5rem;
-  }
+	.container {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 2rem;
+	}
 
-  .instructions {
-    padding: 1rem;
-  }
+	.header {
+		margin-bottom: 2rem;
+	}
 
-  .instructions h3 {
-    color: #003366;
-    margin-bottom: 1rem;
-  }
+	.header h1 {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
 
-  .instructions p {
-    margin-bottom: 1rem;
-    line-height: 1.6;
-  }
+	.subtitle {
+		color: #718096;
+		font-size: 1rem;
+		margin: 0;
+	}
 
-  .format-section {
-    background: #f8f9fa;
-    padding: 1rem;
-    border-radius: 6px;
-    margin-top: 1rem;
-  }
+	.alert {
+		padding: 1rem 1.5rem;
+		border-radius: 0.5rem;
+		margin-bottom: 1.5rem;
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
+	}
 
-  .format-section h4 {
-    color: #003366;
-    margin-top: 1rem;
-    margin-bottom: 0.5rem;
-  }
+	.alert-success {
+		background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+		border: 1px solid #b1dfbb;
+	}
 
-  .format-section h4:first-child {
-    margin-top: 0;
-  }
+	.alert-error {
+		background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+		border: 1px solid #f1b0b7;
+	}
 
-  .format-example {
-    background: white;
-    padding: 0.75rem;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-    overflow-x: auto;
-    margin-bottom: 1rem;
-  }
+	.alert-icon {
+		font-size: 1.5rem;
+		flex-shrink: 0;
+	}
 
-  .format-example code {
-    font-family: 'Courier New', monospace;
-    font-size: 0.85rem;
-    color: #e83e8c;
-    white-space: nowrap;
-  }
+	.alert-content {
+		flex: 1;
+	}
 
-  .format-section ul {
-    margin-left: 1.5rem;
-    margin-bottom: 1rem;
-  }
+	.alert-title {
+		font-weight: 700;
+		font-size: 1.1rem;
+		margin-bottom: 0.25rem;
+		color: #1a202c;
+	}
 
-  .format-section li {
-    margin-bottom: 0.5rem;
-  }
+	.alert-message {
+		color: #2d3748;
+		margin-bottom: 0.5rem;
+	}
 
-  .upload-container {
-    padding: 1.5rem;
-  }
+	.stats-summary {
+		display: flex;
+		gap: 1.5rem;
+		margin-top: 0.75rem;
+		flex-wrap: wrap;
+	}
 
-  .mode-selection {
-    display: flex;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: #f8f9fa;
-    border-radius: 6px;
-  }
+	.stat-item {
+		font-size: 0.95rem;
+		color: #4a5568;
+	}
 
-  .mode-selection label {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 1rem;
-    background: white;
-    border: 2px solid #dee2e6;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
+	.stat-item strong {
+		color: #1a202c;
+		font-weight: 600;
+	}
 
-  .mode-selection label:hover {
-    border-color: #0066cc;
-  }
+	.next-steps {
+		margin-top: 1rem;
+		padding: 0.75rem;
+		background: rgba(255, 255, 255, 0.7);
+		border-radius: 0.375rem;
+		font-size: 0.95rem;
+	}
 
-  .mode-selection input[type="radio"] {
-    width: 20px;
-    height: 20px;
-  }
+	.next-steps a {
+		color: #3182ce;
+		text-decoration: none;
+		font-weight: 600;
+	}
 
-  .mode-selection input[type="radio"]:checked + .mode-label {
-    color: #0066cc;
-  }
+	.next-steps a:hover {
+		text-decoration: underline;
+	}
 
-  .mode-label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
+	.card {
+		background: white;
+		border-radius: 0.75rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		margin-bottom: 1.5rem;
+		overflow: hidden;
+	}
 
-  .mode-label small {
-    color: #6c757d;
-    font-size: 0.85rem;
-  }
+	.card-header {
+		padding: 1.5rem;
+		border-bottom: 1px solid #e2e8f0;
+	}
 
-  .file-input-section {
-    margin-bottom: 1rem;
-  }
+	.card-header h2 {
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
 
-  .file-label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 0.5rem;
-    color: #003366;
-  }
+	.card-header p {
+		color: #718096;
+		margin: 0;
+		font-size: 0.95rem;
+	}
 
-  input[type="file"] {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px dashed #dee2e6;
-    border-radius: 6px;
-    cursor: pointer;
-  }
+	.form-section {
+		padding: 1.5rem;
+	}
 
-  input[type="file"]:hover {
-    border-color: #0066cc;
-  }
+	.file-upload-area {
+		position: relative;
+		margin-bottom: 1.5rem;
+	}
 
-  .file-info {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem;
-    background: #e7f3ff;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-  }
+	.file-upload-area input[type="file"] {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
+	}
 
-  .file-details {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
+	.file-upload-label {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		padding: 2rem;
+		border: 2px dashed #cbd5e0;
+		border-radius: 0.5rem;
+		background: #f7fafc;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
 
-  .file-details span {
-    font-size: 0.85rem;
-    color: #6c757d;
-  }
+	.file-upload-label:hover {
+		border-color: #3182ce;
+		background: #ebf8ff;
+	}
 
-  .clear-btn {
-    padding: 0.5rem 1rem;
-    background: #dc3545;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 600;
-  }
+	.file-upload-area input[type="file"]:disabled + .file-upload-label {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
 
-  .clear-btn:hover {
-    background: #c82333;
-  }
+	.upload-icon {
+		font-size: 3rem;
+	}
 
-  .preview-section {
-    margin-bottom: 1.5rem;
-  }
+	.upload-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
 
-  .preview-section h4 {
-    margin-bottom: 0.75rem;
-    color: #003366;
-  }
+	.upload-text strong {
+		font-size: 1.1rem;
+		color: #1a202c;
+	}
 
-  .preview-table-wrapper {
-    overflow-x: auto;
-    border: 1px solid #dee2e6;
-    border-radius: 6px;
-  }
+	.upload-text span {
+		font-size: 0.9rem;
+		color: #718096;
+	}
 
-  .preview-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.85rem;
-  }
+	.file-size {
+		font-size: 0.85rem;
+		color: #a0aec0;
+	}
 
-  .preview-table th {
-    background: #003366;
-    color: white;
-    padding: 0.75rem;
-    text-align: left;
-    font-weight: 600;
-    white-space: nowrap;
-  }
+	.preview-section {
+		margin-bottom: 1.5rem;
+	}
 
-  .preview-table td {
-    padding: 0.5rem 0.75rem;
-    border-bottom: 1px solid #dee2e6;
-    white-space: nowrap;
-  }
+	.preview-section h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 1rem 0;
+	}
 
-  .preview-table tbody tr:hover {
-    background: #f8f9fa;
-  }
+	.table-container {
+		overflow-x: auto;
+		border: 1px solid #e2e8f0;
+		border-radius: 0.5rem;
+	}
 
-  .upload-btn {
-    width: 100%;
-    padding: 1rem;
-    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 1.1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s;
-  }
+	.preview-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.85rem;
+	}
 
-  .upload-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-  }
+	.preview-table thead {
+		background: #f7fafc;
+	}
 
-  .upload-btn:disabled {
-    background: #6c757d;
-    cursor: not-allowed;
-  }
+	.preview-table th {
+		padding: 0.75rem;
+		text-align: left;
+		font-weight: 600;
+		color: #2d3748;
+		border-bottom: 2px solid #e2e8f0;
+		white-space: nowrap;
+	}
 
-  .message-box {
-    padding: 1rem;
-    border-radius: 6px;
-    margin-bottom: 1rem;
-  }
+	.preview-table td {
+		padding: 0.75rem;
+		border-bottom: 1px solid #e2e8f0;
+		color: #4a5568;
+	}
 
-  .message-box.success {
-    background: #d4edda;
-    color: #155724;
-    border: 1px solid #c3e6cb;
-  }
+	.preview-table tbody tr:last-child td {
+		border-bottom: none;
+	}
 
-  .message-box.error {
-    background: #f8d7da;
-    color: #721c24;
-    border: 1px solid #f5c6cb;
-  }
+	.preview-table tbody tr:hover {
+		background: #f7fafc;
+	}
 
-  .details {
-    margin-top: 0.75rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid rgba(0,0,0,0.1);
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
-  }
+	.button-group {
+		display: flex;
+		gap: 1rem;
+		justify-content: flex-start;
+	}
 
-  .stat-summary {
-    text-align: center;
-    padding: 1rem;
-  }
+	.btn {
+		padding: 0.75rem 1.5rem;
+		border-radius: 0.5rem;
+		font-weight: 600;
+		font-size: 1rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		border: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
 
-  .stat-label {
-    font-size: 0.85rem;
-    color: #6c757d;
-    margin-bottom: 0.5rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
+	.btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
 
-  .stat-value {
-    font-size: 1.75rem;
-    font-weight: 700;
-    color: #003366;
-  }
+	.btn-primary {
+		background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+		color: white;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: linear-gradient(135deg, #2c5282 0%, #2a4365 100%);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+
+	.btn-secondary {
+		background: #e2e8f0;
+		color: #2d3748;
+	}
+
+	.btn-secondary:hover:not(:disabled) {
+		background: #cbd5e0;
+	}
+
+	.spinner {
+		width: 1rem;
+		height: 1rem;
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		border-top-color: white;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.info-card {
+		background: white;
+		border-radius: 0.75rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.info-card h3 {
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 1rem 0;
+	}
+
+	.process-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		counter-reset: step-counter;
+	}
+
+	.process-list li {
+		counter-increment: step-counter;
+		position: relative;
+		padding-left: 3rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.process-list li:before {
+		content: counter(step-counter);
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 2rem;
+		height: 2rem;
+		background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+		color: white;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 700;
+		font-size: 0.9rem;
+	}
+
+	.process-list li:last-child {
+		margin-bottom: 0;
+	}
+
+	.sub-text {
+		margin-top: 0.5rem;
+		font-size: 0.9rem;
+		color: #718096;
+	}
+
+	.sub-text code, .code-block code {
+		background: #f7fafc;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-family: 'Courier New', monospace;
+		font-size: 0.85rem;
+		color: #2d3748;
+	}
+
+	.code-block {
+		background: #f7fafc;
+		padding: 1rem;
+		border-radius: 0.5rem;
+		margin-bottom: 1rem;
+		overflow-x: auto;
+	}
+
+	.format-notes {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.format-notes li {
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #e2e8f0;
+		font-size: 0.9rem;
+		color: #4a5568;
+	}
+
+	.format-notes li:last-child {
+		border-bottom: none;
+	}
+
+	.format-notes strong {
+		color: #1a202c;
+		font-weight: 600;
+	}
+
+	@media (max-width: 768px) {
+		.container {
+			padding: 1rem;
+		}
+
+		.header h1 {
+			font-size: 1.5rem;
+		}
+
+		.file-upload-label {
+			flex-direction: column;
+			text-align: center;
+		}
+
+		.button-group {
+			flex-direction: column;
+		}
+
+		.btn {
+			width: 100%;
+			justify-content: center;
+		}
+
+		.stats-summary {
+			flex-direction: column;
+			gap: 0.5rem;
+		}
+	}
 </style>
