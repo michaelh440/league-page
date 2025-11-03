@@ -38,6 +38,9 @@ export const actions = {
 				return fail(400, { error: 'No file uploaded' });
 			}
 
+			// Extract season ID from form
+			const seasonId = parseInt(formData.get('seasonId')) || 1;
+			
 			// Extract team mappings from form data
 			const teamMappings = new Map();
 			for (const [key, value] of formData.entries()) {
@@ -51,6 +54,7 @@ export const actions = {
 			}
 
 			console.log('=== CSV UPLOAD TO STAGING ===');
+			console.log('Season ID (from form):', seasonId);
 			console.log('Team mappings:', Object.fromEntries(teamMappings));
 
 			// Read CSV file
@@ -82,19 +86,8 @@ export const actions = {
 			for (const [index, row] of rows.entries()) {
 				try {
 					// Map CSV columns to staging table columns
-					// staging_yahoo_player_stats schema:
-					// - season_id INTEGER (maps from CSV 'season')
-					// - week INTEGER
-					// - player_id INTEGER (Yahoo's player ID)
-					// - name TEXT (player name)
-					// - roster_slot TEXT (selected_position from CSV - BN, W/R/T, QB, etc.)
-					// - nfl_team TEXT
-					// - fantasy_points NUMERIC
-					// - actual_position TEXT (will be filled via admin UI or from CSV if valid)
-					// - position_source TEXT (will be filled via admin UI or set to 'csv_import')
-					// - processed BOOLEAN (false initially)
-					
-					const seasonId = parseInt(row.season);
+					// Note: We use seasonId from the form, not from CSV
+					// CSV might have season=2015, but we map it to season_id=1 (from form)
 					const week = parseInt(row.week);
 					const playerId = parseInt(row.player_id); // Yahoo player ID
 					const playerName = row.player_name || '';

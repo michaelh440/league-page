@@ -177,6 +177,26 @@
 					</label>
 				</div>
 
+				{#if previewData}
+					<!-- Season Configuration -->
+					<div class="config-section">
+						<h3>⚙️ Season Configuration</h3>
+						<div class="config-input">
+							<label for="seasonId">Season ID (for your database):</label>
+							<input
+								type="number"
+								id="seasonId"
+								name="seasonId"
+								placeholder="e.g., 1"
+								min="1"
+								value="1"
+								disabled={uploading}
+							/>
+							<small>Enter the season_id from your PostgreSQL seasons table (e.g., 1 for 2015, 2 for 2016, etc.)</small>
+						</div>
+					</div>
+				{/if}
+
 				{#if uniqueTeams.length > 0}
 					<!-- Team Mapping Section -->
 					<div class="mapping-section">
@@ -485,6 +505,58 @@
 			max-width: 150px;
 		}
 	}
+
+	/* All previous styles remain the same */
+	.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+	
+	.config-section {
+		background: #fff3cd;
+		border: 2px solid #ffc107;
+		border-radius: 0.75rem;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.config-section h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 1rem 0;
+	}
+
+	.config-input {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.config-input label {
+		font-weight: 600;
+		color: #2d3748;
+		font-size: 0.95rem;
+	}
+
+	.config-input input {
+		width: 200px;
+		padding: 0.75rem;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.5rem;
+		font-size: 1rem;
+		transition: all 0.2s;
+	}
+
+	.config-input input:focus {
+		outline: none;
+		border-color: #3182ce;
+		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+	}
+
+	.config-input small {
+		color: #718096;
+		font-size: 0.85rem;
+		line-height: 1.4;
+	}
+
 	.container {
 		max-width: 1200px;
 		margin: 0 auto;
