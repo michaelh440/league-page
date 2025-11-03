@@ -1,5 +1,12 @@
+import { query } from '$lib/db';
 import { fail } from '@sveltejs/kit';
-import db from '$lib/server/db';
+
+/** @type {import('./$types').PageServerLoad} */
+export async function load() {
+	return {
+		uploadMode: 'staging'
+	};
+}
 
 // Simple CSV parser function
 function parseCSV(csvText) {
@@ -24,13 +31,14 @@ function parseCSV(csvText) {
 	return records;
 }
 
+/** @type {import('./$types').Actions} */
 export const actions = {
-	default: async ({ request }) => {
+	upload: async ({ request }) => {
 		console.log('📤 Upload request received');
 		
 		try {
 			const formData = await request.formData();
-			const file = formData.get('file');
+			const file = formData.get('csvFile');
 			const seasonId = parseInt(formData.get('seasonId'));
 
 			console.log('Season ID:', seasonId);
@@ -39,7 +47,7 @@ export const actions = {
 			if (!file || !seasonId) {
 				return fail(400, { 
 					success: false, 
-					message: 'Missing required fields: file or seasonId' 
+					error: 'Missing required fields: file or seasonId' 
 				});
 			}
 
@@ -60,7 +68,7 @@ export const actions = {
 			if (teamMappings.size === 0) {
 				return fail(400, { 
 					success: false, 
-					message: 'No team mappings provided' 
+					error: 'No team mappings provided' 
 				});
 			}
 
@@ -76,7 +84,7 @@ export const actions = {
 			if (records.length === 0) {
 				return fail(400, { 
 					success: false, 
-					message: 'CSV file is empty' 
+					error: 'CSV file is empty' 
 				});
 			}
 
@@ -89,7 +97,7 @@ export const actions = {
 			if (missingColumns.length > 0) {
 				return fail(400, { 
 					success: false, 
-					message: `Missing required columns: ${missingColumns.join(', ')}` 
+					error: `Missing required columns: ${missingColumns.join(', ')}` 
 				});
 			}
 
@@ -136,7 +144,7 @@ export const actions = {
 				}
 
 				// Check if record already exists
-				const existingRecord = await db.query(
+				const existingRecord = await query(
 					`SELECT 1 FROM staging_yahoo_player_stats 
 					 WHERE season_id = $1 AND week = $2 AND player_id = $3 AND team_id = $4
 					 LIMIT 1`,
@@ -150,7 +158,7 @@ export const actions = {
 
 				// Insert into staging table
 				try {
-					await db.query(
+					await query(
 						`INSERT INTO staging_yahoo_player_stats (
 							season_id, week, team_id, player_id, name, 
 							actual_position, roster_slot, nfl_team, fantasy_points, processed
@@ -179,6 +187,16 @@ export const actions = {
 			console.log(`   Skipped: ${skipped}`);
 			console.log(`   Positions needing fixing: ${positionsNeedingFixing}`);
 
+			// Get summary of records needing position fixes
+			const summaryResult = await query(
+				`SELECT 
+					COUNT(*) FILTER (WHERE actual_position IS NULL) as missing_position,
+					COUNT(*) as total
+				FROM staging_yahoo_player_stats 
+				WHERE season_id = $1 AND processed = false`,
+				[seasonId]
+			);
+
 			return {
 				success: true,
 				message: `Successfully uploaded ${inserted} records from ${file.name}`,
@@ -186,7 +204,8 @@ export const actions = {
 					inserted,
 					skipped,
 					total: records.length,
-					positions_needing_fixing: positionsNeedingFixing
+					positions_needing_fixing: positionsNeedingFixing,
+					summary: summaryResult.rows[0]
 				}
 			};
 
@@ -194,7 +213,7 @@ export const actions = {
 			console.error('❌ Upload error:', error);
 			return fail(500, { 
 				success: false, 
-				message: `Error: ${error.message}` 
+				error: `Error: ${error.message}` 
 			});
 		}
 	}
