@@ -133,14 +133,15 @@ export const actions = {
 					await query(
 						`INSERT INTO staging_yahoo_player_stats (
 							season_id, week, player_id, name, 
-							actual_position, roster_slot, nfl_team, fantasy_points, processed
-						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)`,
+							actual_position, position_source, roster_slot, nfl_team, fantasy_points, processed
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
 						[
 							seasonId,
 							week,
 							yahooPlayerId,
 							playerName,
 							actualPosition,
+							actualPosition ? 'csv_import' : null, // Set position_source based on whether we have a position
 							selectedPosition,
 							nflTeam,
 							fantasyPoints
