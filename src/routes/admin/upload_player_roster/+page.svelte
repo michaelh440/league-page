@@ -7,6 +7,14 @@
 	let uploading = false;
 	let selectedFile = null;
 	let previewData = null;
+	let runningETL = false;
+	let etlResult = null;
+	
+	// Playoff configuration - default week 15 for all seasons
+	let playoffConfig = {
+		'1': 15, '2': 15, '3': 15, '4': 15, '5': 15,
+		'6': 15, '7': 15, '8': 15, '9': 15
+	};
 	
 	function handleFileSelect(event) {
 		const file = event.target.files[0];
@@ -32,6 +40,39 @@
 		const sizes = ['Bytes', 'KB', 'MB', 'GB'];
 		const i = Math.floor(Math.log(bytes) / Math.log(k));
 		return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+	}
+	
+	async function runETL() {
+		if (!confirm('Run ETL to migrate staging data to production tables?\n\nThis will:\n- Split data into regular season and playoff tables\n- Mark staging records as processed\n\nContinue?')) {
+			return;
+		}
+		
+		runningETL = true;
+		etlResult = null;
+		
+		try {
+			const response = await fetch('?/runETL', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/x-www-form-urlencoded',
+				},
+				body: new URLSearchParams({
+					playoffConfig: JSON.stringify(playoffConfig)
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (result.type === 'success') {
+				etlResult = result.data;
+			} else {
+				etlResult = { success: false, error: result.data?.error || 'ETL failed' };
+			}
+		} catch (error) {
+			etlResult = { success: false, error: error.message };
+		} finally {
+			runningETL = false;
+		}
 	}
 </script>
 
@@ -209,6 +250,113 @@
 		</form>
 	</div>
 
+	{#if data.hasUnprocessedData}
+		<!-- ETL Section -->
+		<div class="card etl-card">
+			<div class="card-header">
+				<h2>⚙️ Run ETL - Migrate to Production</h2>
+				<p>You have unprocessed staging data ready to migrate</p>
+			</div>
+
+			<div class="form-section">
+				<!-- Staging Summary -->
+				<div class="staging-summary">
+					<h3>📊 Staging Data Summary</h3>
+					<div class="summary-grid">
+						{#each data.stagingSummary as season}
+							<div class="summary-card">
+								<div class="summary-header">Season {season.season_id}</div>
+								<div class="summary-stat">
+									<span class="stat-label">Records:</span>
+									<span class="stat-value">{season.record_count}</span>
+								</div>
+								<div class="summary-stat">
+									<span class="stat-label">Weeks:</span>
+									<span class="stat-value">{season.min_week}-{season.max_week}</span>
+								</div>
+								{#if season.missing_position > 0}
+									<div class="summary-warning">
+										⚠️ {season.missing_position} missing positions
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- Playoff Configuration -->
+				<div class="playoff-config">
+					<h3>🏈 Playoff Configuration</h3>
+					<p class="config-description">
+						Set the week number when playoffs start for each season. 
+						Weeks before this will go to <code>player_fantasy_stats</code>, 
+						weeks at or after will go to <code>playoff_fantasy_stats</code>.
+					</p>
+					
+					<div class="config-grid">
+						{#each Object.keys(playoffConfig) as seasonId}
+							<div class="config-row">
+								<label for="playoff-{seasonId}">Season {seasonId}:</label>
+								<input
+									type="number"
+									id="playoff-{seasonId}"
+									bind:value={playoffConfig[seasonId]}
+									min="1"
+									max="18"
+									class="playoff-week-input"
+									disabled={runningETL}
+								/>
+								<span class="config-hint">Playoffs start week {playoffConfig[seasonId]}</span>
+							</div>
+						{/each}
+					</div>
+				</div>
+
+				<!-- ETL Result -->
+				{#if etlResult}
+					<div class="alert {etlResult.success ? 'alert-success' : 'alert-error'}">
+						<div class="alert-icon">{etlResult.success ? '✅' : '❌'}</div>
+						<div class="alert-content">
+							<div class="alert-title">{etlResult.success ? 'ETL Complete!' : 'ETL Failed'}</div>
+							<div class="alert-message">{etlResult.message || etlResult.error}</div>
+							{#if etlResult.success && etlResult.stats}
+								<div class="stats-summary">
+									<span class="stat-item">📈 Regular Season: <strong>{etlResult.stats.regularInserted}</strong></span>
+									<span class="stat-item">🏆 Playoffs: <strong>{etlResult.stats.playoffInserted}</strong></span>
+									<span class="stat-item">⏭️ Skipped: <strong>{etlResult.stats.skipped}</strong></span>
+									<span class="stat-item">✅ Total: <strong>{etlResult.stats.total}</strong></span>
+								</div>
+							{/if}
+						</div>
+					</div>
+				{/if}
+
+				<!-- Run ETL Button -->
+				<div class="button-group">
+					<button
+						type="button"
+						class="btn btn-primary btn-etl"
+						on:click={runETL}
+						disabled={runningETL}
+					>
+						{#if runningETL}
+							<span class="spinner"></span>
+							Running ETL...
+						{:else}
+							⚡ Run ETL Migration
+						{/if}
+					</button>
+				</div>
+
+				<div class="etl-info">
+					<strong>⚠️ Important:</strong> Make sure all positions are fixed before running ETL. 
+					Records with missing positions will be skipped. 
+					<a href="/admin/confirm_yahoo_points_staging">→ Fix positions</a>
+				</div>
+			</div>
+		</div>
+	{/if}
+
 	<div class="info-card">
 		<h3>ℹ️ Upload Process</h3>
 		<ol class="process-list">
@@ -247,6 +395,178 @@
 <style>
 	/* All previous styles remain the same */
 	.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+	
+	/* ETL Section Styles */
+	.etl-card {
+		border: 2px solid #4299e1;
+		background: linear-gradient(135deg, #ebf8ff 0%, #ffffff 100%);
+	}
+
+	.staging-summary {
+		margin-bottom: 2rem;
+	}
+
+	.staging-summary h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 1rem 0;
+	}
+
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+		gap: 1rem;
+	}
+
+	.summary-card {
+		background: white;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.5rem;
+		padding: 1rem;
+	}
+
+	.summary-header {
+		font-size: 1.1rem;
+		font-weight: 700;
+		color: #2d3748;
+		margin-bottom: 0.75rem;
+		padding-bottom: 0.5rem;
+		border-bottom: 2px solid #e2e8f0;
+	}
+
+	.summary-stat {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.25rem 0;
+		font-size: 0.9rem;
+	}
+
+	.stat-label {
+		color: #718096;
+	}
+
+	.stat-value {
+		font-weight: 600;
+		color: #1a202c;
+	}
+
+	.summary-warning {
+		margin-top: 0.5rem;
+		padding: 0.5rem;
+		background: #fef5e7;
+		border: 1px solid #f39c12;
+		border-radius: 0.25rem;
+		color: #d68910;
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+
+	.playoff-config {
+		background: #f7fafc;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.75rem;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.playoff-config h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.config-description {
+		color: #4a5568;
+		font-size: 0.9rem;
+		margin-bottom: 1.5rem;
+		line-height: 1.6;
+	}
+
+	.config-description code {
+		background: white;
+		padding: 0.2rem 0.4rem;
+		border-radius: 0.25rem;
+		font-size: 0.85rem;
+		color: #d63384;
+		border: 1px solid #e2e8f0;
+	}
+
+	.config-grid {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.config-row {
+		display: grid;
+		grid-template-columns: 120px 100px 1fr;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.75rem;
+		background: white;
+		border-radius: 0.5rem;
+		border: 1px solid #e2e8f0;
+	}
+
+	.config-row label {
+		font-weight: 600;
+		color: #2d3748;
+		font-size: 0.95rem;
+	}
+
+	.playoff-week-input {
+		padding: 0.5rem;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.375rem;
+		font-size: 1rem;
+		font-weight: 600;
+		text-align: center;
+		transition: all 0.2s;
+	}
+
+	.playoff-week-input:focus {
+		outline: none;
+		border-color: #3182ce;
+		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+	}
+
+	.config-hint {
+		font-size: 0.85rem;
+		color: #718096;
+	}
+
+	.btn-etl {
+		font-size: 1.1rem;
+		padding: 1rem 2rem;
+		background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+	}
+
+	.btn-etl:hover:not(:disabled) {
+		background: linear-gradient(135deg, #38a169 0%, #2f855a 100%);
+	}
+
+	.etl-info {
+		margin-top: 1rem;
+		padding: 1rem;
+		background: #fff3cd;
+		border: 1px solid #ffc107;
+		border-radius: 0.5rem;
+		color: #856404;
+		font-size: 0.9rem;
+		line-height: 1.6;
+	}
+
+	.etl-info a {
+		color: #3182ce;
+		text-decoration: none;
+		font-weight: 600;
+	}
+
+	.etl-info a:hover {
+		text-decoration: underline;
+	}
 	
 	.config-section {
 		background: #fff3cd;

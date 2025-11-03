@@ -3,8 +3,24 @@ import { fail } from '@sveltejs/kit';
 
 /** @type {import('./$types').PageServerLoad} */
 export async function load() {
+	// Check for unprocessed staging data
+	const stagingCheck = await query(
+		`SELECT 
+			season_id,
+			COUNT(*) as record_count,
+			COUNT(*) FILTER (WHERE actual_position IS NULL) as missing_position,
+			MIN(week) as min_week,
+			MAX(week) as max_week
+		FROM staging_yahoo_player_stats
+		WHERE processed = false
+		GROUP BY season_id
+		ORDER BY season_id`
+	);
+	
 	return {
-		uploadMode: 'staging'
+		uploadMode: 'staging',
+		hasUnprocessedData: stagingCheck.rows.length > 0,
+		stagingSummary: stagingCheck.rows
 	};
 }
 
@@ -187,6 +203,144 @@ export const actions = {
 				success: false, 
 				error: `Error: ${error.message}` 
 			});
+		}
+	},
+	
+	runETL: async ({ request }) => {
+		try {
+			const formData = await request.formData();
+			const playoffConfigStr = formData.get('playoffConfig');
+			const playoffConfig = JSON.parse(playoffConfigStr);
+			
+			console.log('=== RUNNING ETL ===');
+			console.log('Playoff configuration:', playoffConfig);
+			
+			let regularInserted = 0;
+			let playoffInserted = 0;
+			let skipped = 0;
+			
+			// Get all unprocessed staging records
+			const stagingRecords = await query(
+				`SELECT 
+					staging_id,
+					season_id,
+					week,
+					player_id,
+					name,
+					actual_position,
+					roster_slot,
+					nfl_team,
+					fantasy_points
+				FROM staging_yahoo_player_stats
+				WHERE processed = false
+				ORDER BY season_id, week, player_id`
+			);
+			
+			console.log(`Processing ${stagingRecords.rows.length} staging records...`);
+			
+			for (const rec of stagingRecords.rows) {
+				// Skip if position is missing
+				if (!rec.actual_position) {
+					console.log(`Skipping player_id ${rec.player_id} (week ${rec.week}, season ${rec.season_id}): Missing position`);
+					skipped++;
+					continue;
+				}
+				
+				// Get playoff start week for this season
+				const playoffWeek = playoffConfig[rec.season_id.toString()];
+				
+				if (!playoffWeek) {
+					console.log(`No playoff config for season ${rec.season_id}. Skipping player_id ${rec.player_id}`);
+					skipped++;
+					continue;
+				}
+				
+				// Determine target table based on week
+				if (rec.week < playoffWeek) {
+					// REGULAR SEASON
+					// Check if already exists
+					const existing = await query(
+						`SELECT 1 FROM player_fantasy_stats 
+						WHERE season_id = $1 AND week = $2 AND player_id = $3`,
+						[rec.season_id, rec.week, rec.player_id]
+					);
+					
+					if (existing.rows.length > 0) {
+						skipped++;
+						continue;
+					}
+					
+					// Insert to regular season table
+					await query(
+						`INSERT INTO player_fantasy_stats (
+							season_id, week, player_id, player_name, position,
+							nfl_team, fantasy_points, platform, imported_at
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)`,
+						[rec.season_id, rec.week, rec.player_id, rec.name, rec.actual_position,
+						 rec.nfl_team, rec.fantasy_points, 'yahoo']
+					);
+					
+					regularInserted++;
+				} else {
+					// PLAYOFFS
+					// Check if already exists
+					const existing = await query(
+						`SELECT 1 FROM playoff_fantasy_stats 
+						WHERE season_id = $1 AND week = $2 AND player_id = $3`,
+						[rec.season_id, rec.week, rec.player_id]
+					);
+					
+					if (existing.rows.length > 0) {
+						skipped++;
+						continue;
+					}
+					
+					// Insert to playoff table
+					await query(
+						`INSERT INTO playoff_fantasy_stats (
+							season_id, week, player_id, player_name, position,
+							nfl_team, fantasy_points, platform, imported_at
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)`,
+						[rec.season_id, rec.week, rec.player_id, rec.name, rec.actual_position,
+						 rec.nfl_team, rec.fantasy_points, 'yahoo']
+					);
+					
+					playoffInserted++;
+				}
+				
+				// Mark as processed
+				await query(
+					`UPDATE staging_yahoo_player_stats 
+					SET processed = true 
+					WHERE staging_id = $1`,
+					[rec.staging_id]
+				);
+				
+				// Log progress every 100 records
+				if ((regularInserted + playoffInserted) % 100 === 0) {
+					console.log(`Progress: ${regularInserted} regular, ${playoffInserted} playoff`);
+				}
+			}
+			
+			console.log('=== ETL COMPLETE ===');
+			console.log(`Regular Season: ${regularInserted}`);
+			console.log(`Playoffs: ${playoffInserted}`);
+			console.log(`Skipped: ${skipped}`);
+			
+			return {
+				success: true,
+				message: 'ETL completed successfully!',
+				stats: {
+					regularInserted,
+					playoffInserted,
+					skipped,
+					total: regularInserted + playoffInserted
+				}
+			};
+			
+		} catch (error) {
+			console.error('ETL error:', error);
+			return fail(500, { error: `ETL failed: ${error.message}` });
 		}
 	}
 };
