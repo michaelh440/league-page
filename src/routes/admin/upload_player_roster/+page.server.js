@@ -51,27 +51,6 @@ export const actions = {
 				});
 			}
 
-			// Extract team mappings from form data
-			const teamMappings = new Map();
-			for (const [key, value] of formData.entries()) {
-				if (key.startsWith('team_mapping_')) {
-					const yahooTeamId = key.replace('team_mapping_', '');
-					const dbTeamId = parseInt(value);
-					if (dbTeamId) {
-						teamMappings.set(yahooTeamId, dbTeamId);
-					}
-				}
-			}
-
-			console.log('Team mappings:', Object.fromEntries(teamMappings));
-
-			if (teamMappings.size === 0) {
-				return fail(400, { 
-					success: false, 
-					error: 'No team mappings provided' 
-				});
-			}
-
 			// Read CSV file
 			const csvText = await file.text();
 			console.log('CSV file size:', csvText.length, 'characters');
@@ -118,15 +97,8 @@ export const actions = {
 				}
 
 				// Get mapped team_id
-				const yahooTeamId = row.team_id?.trim();
-				const dbTeamId = teamMappings.get(yahooTeamId);
-
-				if (!dbTeamId) {
-					console.log(`Skipping row ${i + 1}: No team mapping for Yahoo team ${yahooTeamId}`);
-					skipped++;
-					continue;
-				}
-
+				// Note: Staging table doesn't store team_id - that's handled in separate roster tables
+				
 				const week = parseInt(row.week);
 				const yahooPlayerId = row.player_id?.trim();
 				const playerName = row.player_name?.trim();
@@ -146,9 +118,9 @@ export const actions = {
 				// Check if record already exists
 				const existingRecord = await query(
 					`SELECT 1 FROM staging_yahoo_player_stats 
-					 WHERE season_id = $1 AND week = $2 AND player_id = $3 AND team_id = $4
+					 WHERE season_id = $1 AND week = $2 AND player_id = $3
 					 LIMIT 1`,
-					[seasonId, week, yahooPlayerId, dbTeamId]
+					[seasonId, week, yahooPlayerId]
 				);
 
 				if (existingRecord.rows.length > 0) {
@@ -160,13 +132,12 @@ export const actions = {
 				try {
 					await query(
 						`INSERT INTO staging_yahoo_player_stats (
-							season_id, week, team_id, player_id, name, 
+							season_id, week, player_id, name, 
 							actual_position, roster_slot, nfl_team, fantasy_points, processed
-						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)`,
 						[
 							seasonId,
 							week,
-							dbTeamId,
 							yahooPlayerId,
 							playerName,
 							actualPosition,
