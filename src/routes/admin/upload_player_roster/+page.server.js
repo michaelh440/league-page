@@ -261,7 +261,7 @@ export const actions = {
 					// Check if already exists
 					const existing = await query(
 						`SELECT 1 FROM player_fantasy_stats 
-						WHERE season_id = $1 AND week = $2 AND player_id = $3`,
+						WHERE season_id = $1 AND week = $2 AND yahoo_player_id = $3`,
 						[rec.season_id, rec.week, rec.player_id]
 					);
 					
@@ -273,9 +273,9 @@ export const actions = {
 					// Insert to regular season table
 					await query(
 						`INSERT INTO player_fantasy_stats (
-							season_id, week, player_id, player_name, position,
-							nfl_team, fantasy_points, platform, imported_at
-						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)`,
+							season_id, week, yahoo_player_id, player_name, position,
+							nfl_team, total_fantasy_points, platform, created_at, updated_at
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 						[rec.season_id, rec.week, rec.player_id, rec.name, rec.actual_position,
 						 rec.nfl_team, rec.fantasy_points, 'yahoo']
 					);
@@ -286,7 +286,7 @@ export const actions = {
 					// Check if already exists
 					const existing = await query(
 						`SELECT 1 FROM playoff_fantasy_stats 
-						WHERE season_id = $1 AND week = $2 AND player_id = $3`,
+						WHERE season_id = $1 AND week = $2 AND yahoo_player_id = $3`,
 						[rec.season_id, rec.week, rec.player_id]
 					);
 					
@@ -298,9 +298,9 @@ export const actions = {
 					// Insert to playoff table
 					await query(
 						`INSERT INTO playoff_fantasy_stats (
-							season_id, week, player_id, player_name, position,
-							nfl_team, fantasy_points, platform, imported_at
-						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)`,
+							season_id, week, yahoo_player_id, player_name, position,
+							nfl_team, total_fantasy_points, platform, created_at, updated_at
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 						[rec.season_id, rec.week, rec.player_id, rec.name, rec.actual_position,
 						 rec.nfl_team, rec.fantasy_points, 'yahoo']
 					);
