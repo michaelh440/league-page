@@ -680,7 +680,7 @@
         {:else}
             <div class="status-card success-card">
                 <span class="success">✓ {seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem; flex-wrap: wrap;">
                     <button 
                         on:click={loadWeeklyData} 
                         disabled={loading}
@@ -688,6 +688,17 @@
                     >
                         {loading ? 'Loading...' : '🔄 Reload Data'}
                     </button>
+                    
+                    {#if seasonType === 'regular'}
+                        <button 
+                            on:click={importWeek} 
+                            disabled={importing}
+                            class="btn-secondary"
+                            title="Reimport from Sleeper to update scores after stat corrections"
+                        >
+                            {importing ? '⏳ Reimporting...' : '📥 Reimport from Sleeper'}
+                        </button>
+                    {/if}
                     
                     <button 
                         on:click={generateSummary} 
