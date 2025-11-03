@@ -38,11 +38,25 @@ export const actions = {
 				return fail(400, { error: 'No file uploaded' });
 			}
 
+			// Extract team mappings from form data
+			const teamMappings = new Map();
+			for (const [key, value] of formData.entries()) {
+				if (key.startsWith('team_mapping_')) {
+					const yahooTeamId = key.replace('team_mapping_', '');
+					const postgresTeamId = parseInt(value);
+					if (postgresTeamId > 0) {
+						teamMappings.set(yahooTeamId, postgresTeamId);
+					}
+				}
+			}
+
+			console.log('=== CSV UPLOAD TO STAGING ===');
+			console.log('Team mappings:', Object.fromEntries(teamMappings));
+
 			// Read CSV file
 			const text = await file.text();
 			const { headers, rows } = parseCSV(text);
 
-			console.log('=== CSV UPLOAD TO STAGING ===');
 			console.log('Total rows:', rows.length);
 			console.log('CSV headers:', headers);
 			console.log('First row:', rows[0]);
@@ -88,12 +102,21 @@ export const actions = {
 					const rosterSlot = row.selected_position || ''; // Fantasy roster slot (BN, W/R/T, etc.)
 					const nflTeam = row.nfl_team || '';
 					const fantasyPoints = parseFloat(row.fantasy_points) || 0;
+					
+					// Get Yahoo team_id and map to PostgreSQL team_id
+					const yahooTeamId = row.team_id || '';
+					const postgresTeamId = teamMappings.get(yahooTeamId) || null;
 
 					// Validation
 					if (!seasonId || !week || !playerId || !playerName) {
 						console.log(`Row ${index}: Missing required data - season:${seasonId}, week:${week}, playerId:${playerId}, name:${playerName}`);
 						skipped++;
 						continue;
+					}
+					
+					// Warn if team mapping is missing but don't skip
+					if (yahooTeamId && !postgresTeamId) {
+						console.warn(`Row ${index}: Yahoo team ${yahooTeamId} has no mapping to PostgreSQL team_id`);
 					}
 
 					// If position is provided, validate it
@@ -121,10 +144,11 @@ export const actions = {
 					// actual_position: set from CSV 'position' if valid, otherwise NULL (can be fixed in admin UI)
 					// position_source: 'csv_import' if we have position, NULL otherwise
 					// processed: false (will be set to true after ETL migration)
+					// team_id: mapped PostgreSQL team_id (optional, for reference only in stats staging)
 					await query(
 						`INSERT INTO staging_yahoo_player_stats 
-						 (season_id, week, player_id, name, roster_slot, nfl_team, fantasy_points, actual_position, position_source, processed)
-						 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
+						 (season_id, week, player_id, name, roster_slot, nfl_team, fantasy_points, actual_position, position_source, processed, team_id)
+						 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, $10)`,
 						[
 							seasonId, 
 							week, 
@@ -134,7 +158,8 @@ export const actions = {
 							nflTeam, 
 							fantasyPoints,
 							position && ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) ? position : null,
-							position && ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) ? 'csv_import' : null
+							position && ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) ? 'csv_import' : null,
+							postgresTeamId
 						]
 					);
 					inserted++;

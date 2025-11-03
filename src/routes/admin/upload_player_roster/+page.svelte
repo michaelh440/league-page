@@ -7,6 +7,8 @@
 	let uploading = false;
 	let selectedFile = null;
 	let previewData = null;
+	let teamMappings = {};
+	let uniqueTeams = [];
 	
 	function handleFileSelect(event) {
 		const file = event.target.files[0];
@@ -22,8 +24,52 @@
 		const rows = lines.map(line => line.split(',').map(cell => cell.trim().replace(/"/g, '')));
 		previewData = {
 			headers: rows[0],
-			rows: rows.slice(1)
+			rows: rows.slice(1).filter(row => row.length > 1)
 		};
+		
+		// Extract unique teams from full CSV
+		extractUniqueTeams(text);
+	}
+	
+	function extractUniqueTeams(csvText) {
+		const lines = csvText.split('\n');
+		const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+		const teamIdIndex = headers.indexOf('team_id');
+		const teamNameIndex = headers.indexOf('team_name');
+		
+		if (teamIdIndex === -1 || teamNameIndex === -1) {
+			console.warn('team_id or team_name columns not found in CSV');
+			return;
+		}
+		
+		const teamsMap = new Map();
+		for (let i = 1; i < lines.length; i++) {
+			const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+			if (values.length > Math.max(teamIdIndex, teamNameIndex)) {
+				const yahooTeamId = values[teamIdIndex];
+				const teamName = values[teamNameIndex];
+				if (yahooTeamId && teamName) {
+					teamsMap.set(yahooTeamId, teamName);
+				}
+			}
+		}
+		
+		uniqueTeams = Array.from(teamsMap.entries())
+			.map(([id, name]) => ({ yahoo_id: id, name: name, postgres_id: '' }))
+			.sort((a, b) => parseInt(a.yahoo_id) - parseInt(b.yahoo_id));
+		
+		// Initialize team mappings
+		uniqueTeams.forEach(team => {
+			teamMappings[team.yahoo_id] = '';
+		});
+	}
+	
+	function handleTeamMappingInput(yahooId, value) {
+		teamMappings[yahooId] = value;
+	}
+	
+	function allTeamsMapped() {
+		return uniqueTeams.every(team => teamMappings[team.yahoo_id] && teamMappings[team.yahoo_id].trim() !== '');
 	}
 	
 	function formatBytes(bytes) {
@@ -98,7 +144,8 @@
 					if (result.type === 'success') {
 						selectedFile = null;
 						previewData = null;
-						// Reset file input
+						uniqueTeams = [];
+						teamMappings = {};
 						const fileInput = document.getElementById('csvFile');
 						if (fileInput) fileInput.value = '';
 					}
@@ -130,6 +177,55 @@
 					</label>
 				</div>
 
+				{#if uniqueTeams.length > 0}
+					<!-- Team Mapping Section -->
+					<div class="mapping-section">
+						<h3>🔗 Map Yahoo Team IDs to Your Database Team IDs</h3>
+						<p class="mapping-instructions">
+							Enter your PostgreSQL <code>team_id</code> for each Yahoo team below.
+							<br>
+							<span class="help-text">Query to find your team IDs: <code>SELECT team_id, team_name FROM teams WHERE season_id = [season] ORDER BY team_id</code></span>
+						</p>
+						
+						<div class="progress-bar-container">
+							<div class="progress-bar" style="width: {(Object.values(teamMappings).filter(v => v && v.trim() !== '').length / uniqueTeams.length) * 100}%">
+								{Object.values(teamMappings).filter(v => v && v.trim() !== '').length} of {uniqueTeams.length} mapped
+							</div>
+						</div>
+
+						<div class="team-mapping-grid">
+							{#each uniqueTeams as team}
+								<div class="team-mapping-row">
+									<div class="team-info">
+										<span class="yahoo-id">Yahoo ID: <strong>{team.yahoo_id}</strong></span>
+										<span class="team-name">{team.name}</span>
+									</div>
+									<div class="mapping-input">
+										<label for="team-{team.yahoo_id}">Your team_id:</label>
+										<input
+											type="number"
+											id="team-{team.yahoo_id}"
+											name="team_mapping_{team.yahoo_id}"
+											placeholder="Enter team_id"
+											min="1"
+											bind:value={teamMappings[team.yahoo_id]}
+											on:input={(e) => handleTeamMappingInput(team.yahoo_id, e.target.value)}
+											class:filled={teamMappings[team.yahoo_id] && teamMappings[team.yahoo_id].trim() !== ''}
+											disabled={uploading}
+										/>
+									</div>
+								</div>
+							{/each}
+						</div>
+
+						{#if !allTeamsMapped()}
+							<div class="mapping-warning">
+								⚠️ Please map all teams before uploading
+							</div>
+						{/if}
+					</div>
+				{/if}
+
 				{#if previewData}
 					<div class="preview-section">
 						<h3>📋 Preview (First 5 Rows)</h3>
@@ -160,7 +256,7 @@
 					<button 
 						type="submit" 
 						class="btn btn-primary"
-						disabled={!selectedFile || uploading}
+						disabled={!selectedFile || uploading || (uniqueTeams.length > 0 && !allTeamsMapped())}
 					>
 						{#if uploading}
 							<span class="spinner"></span>
@@ -177,6 +273,8 @@
 							on:click={() => {
 								selectedFile = null;
 								previewData = null;
+								uniqueTeams = [];
+								teamMappings = {};
 								const fileInput = document.getElementById('csvFile');
 								if (fileInput) fileInput.value = '';
 							}}
@@ -198,6 +296,10 @@
 				<div class="sub-text">Data is imported to <code>staging_yahoo_player_stats</code></div>
 			</li>
 			<li>
+				<strong>Map Team IDs</strong> - Link Yahoo team IDs to your database team IDs
+				<div class="sub-text">Required for roster data correlation</div>
+			</li>
+			<li>
 				<strong>Fix Positions</strong> - Review and fix any missing positions
 				<div class="sub-text">Navigate to <a href="/admin/confirm_yahoo_points_staging">/admin/confirm_yahoo_points_staging</a></div>
 			</li>
@@ -216,6 +318,7 @@
 		<ul class="format-notes">
 			<li><strong>season</strong> - Season ID (1-9 for 2015-2023)</li>
 			<li><strong>week</strong> - Week number (1-17)</li>
+			<li><strong>team_id</strong> - Yahoo team ID (will be mapped to your database team_id)</li>
 			<li><strong>player_id</strong> - Yahoo player ID</li>
 			<li><strong>player_name</strong> - Player's name</li>
 			<li><strong>position</strong> - NFL position (QB, RB, WR, TE, K, DEF)</li>
@@ -225,6 +328,163 @@
 </div>
 
 <style>
+	/* ... (keeping all previous styles) ... */
+	
+	.mapping-section {
+		background: #f7fafc;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.75rem;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.mapping-section h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 0.75rem 0;
+	}
+
+	.mapping-instructions {
+		font-size: 0.9rem;
+		color: #4a5568;
+		margin-bottom: 1rem;
+		line-height: 1.6;
+	}
+
+	.mapping-instructions code {
+		background: white;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-family: 'Courier New', monospace;
+		font-size: 0.85rem;
+		color: #2d3748;
+		border: 1px solid #e2e8f0;
+	}
+
+	.help-text {
+		display: block;
+		margin-top: 0.5rem;
+		font-size: 0.85rem;
+		color: #718096;
+	}
+
+	.progress-bar-container {
+		background: #e2e8f0;
+		height: 2rem;
+		border-radius: 0.5rem;
+		overflow: hidden;
+		margin-bottom: 1rem;
+	}
+
+	.progress-bar {
+		background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
+		height: 100%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: white;
+		font-weight: 600;
+		font-size: 0.9rem;
+		transition: width 0.3s ease;
+		min-width: 120px;
+	}
+
+	.team-mapping-grid {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.team-mapping-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: 1rem;
+		background: white;
+		padding: 1rem;
+		border-radius: 0.5rem;
+		border: 1px solid #e2e8f0;
+		align-items: center;
+	}
+
+	.team-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.yahoo-id {
+		font-size: 0.85rem;
+		color: #718096;
+	}
+
+	.yahoo-id strong {
+		color: #3182ce;
+		font-weight: 700;
+	}
+
+	.team-name {
+		font-size: 1rem;
+		font-weight: 600;
+		color: #1a202c;
+	}
+
+	.mapping-input {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.mapping-input label {
+		font-size: 0.85rem;
+		color: #4a5568;
+		white-space: nowrap;
+	}
+
+	.mapping-input input {
+		width: 100px;
+		padding: 0.5rem;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.375rem;
+		font-size: 0.95rem;
+		transition: all 0.2s;
+	}
+
+	.mapping-input input:focus {
+		outline: none;
+		border-color: #3182ce;
+		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+	}
+
+	.mapping-input input.filled {
+		border-color: #48bb78;
+		background: #f0fff4;
+	}
+
+	.mapping-warning {
+		margin-top: 1rem;
+		padding: 0.75rem;
+		background: #fef5e7;
+		border: 1px solid #f39c12;
+		border-radius: 0.375rem;
+		color: #d68910;
+		font-weight: 600;
+		text-align: center;
+	}
+
+	@media (max-width: 768px) {
+		.team-mapping-row {
+			grid-template-columns: 1fr;
+		}
+
+		.mapping-input {
+			justify-content: space-between;
+		}
+
+		.mapping-input input {
+			flex: 1;
+			max-width: 150px;
+		}
+	}
 	.container {
 		max-width: 1200px;
 		margin: 0 auto;
