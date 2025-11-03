@@ -327,7 +327,7 @@ export const actions = {
 			console.log(`Playoffs: ${playoffInserted}`);
 			console.log(`Skipped: ${skipped}`);
 			
-			return {
+			const result = {
 				success: true,
 				message: 'ETL completed successfully!',
 				stats: {
@@ -338,8 +338,12 @@ export const actions = {
 				}
 			};
 			
+			console.log('Returning result:', result);
+			return result;
+			
 		} catch (error) {
 			console.error('ETL error:', error);
+			console.error('Error stack:', error.stack);
 			return fail(500, { error: `ETL failed: ${error.message}` });
 		}
 	}

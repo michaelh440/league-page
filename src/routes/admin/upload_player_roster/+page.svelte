@@ -50,28 +50,60 @@
 		runningETL = true;
 		etlResult = null;
 		
+		// Use form submission instead of fetch
+		const form = document.createElement('form');
+		form.method = 'POST';
+		form.action = '?/runETL';
+		
+		const input = document.createElement('input');
+		input.type = 'hidden';
+		input.name = 'playoffConfig';
+		input.value = JSON.stringify(playoffConfig);
+		form.appendChild(input);
+		
+		document.body.appendChild(form);
+		
+		// Submit and handle with enhance
+		const formData = new FormData(form);
+		
 		try {
 			const response = await fetch('?/runETL', {
 				method: 'POST',
-				headers: {
-					'Content-Type': 'application/x-www-form-urlencoded',
-				},
-				body: new URLSearchParams({
-					playoffConfig: JSON.stringify(playoffConfig)
-				})
+				body: formData
 			});
 			
-			const result = await response.json();
+			const contentType = response.headers.get('content-type');
 			
-			if (result.type === 'success') {
-				etlResult = result.data;
+			if (contentType && contentType.includes('application/json')) {
+				const result = await response.json();
+				
+				if (result.type === 'success' || response.ok) {
+					etlResult = result.data || { success: true, message: 'ETL completed successfully!' };
+				} else {
+					etlResult = { success: false, error: result.data?.error || result.error || 'ETL failed' };
+				}
 			} else {
-				etlResult = { success: false, error: result.data?.error || 'ETL failed' };
+				// Not JSON, might be redirect or other response
+				const text = await response.text();
+				console.log('ETL Response:', text);
+				
+				if (response.ok) {
+					etlResult = { success: true, message: 'ETL completed! Refresh the page to see updated data.' };
+					
+					// Refresh page data after 2 seconds
+					setTimeout(() => {
+						window.location.reload();
+					}, 2000);
+				} else {
+					etlResult = { success: false, error: 'ETL failed. Check server logs for details.' };
+				}
 			}
 		} catch (error) {
+			console.error('ETL error:', error);
 			etlResult = { success: false, error: error.message };
 		} finally {
 			runningETL = false;
+			document.body.removeChild(form);
 		}
 	}
 </script>
