@@ -1,6 +1,28 @@
 import { fail } from '@sveltejs/kit';
 import db from '$lib/server/db';
-import { parse } from 'csv-parse/sync';
+
+// Simple CSV parser function
+function parseCSV(csvText) {
+	const lines = csvText.trim().split('\n');
+	if (lines.length === 0) return [];
+	
+	const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+	const records = [];
+	
+	for (let i = 1; i < lines.length; i++) {
+		const line = lines[i].trim();
+		if (!line) continue;
+		
+		const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+		const record = {};
+		headers.forEach((header, index) => {
+			record[header] = values[index] || '';
+		});
+		records.push(record);
+	}
+	
+	return records;
+}
 
 export const actions = {
 	default: async ({ request }) => {
@@ -47,11 +69,7 @@ export const actions = {
 			console.log('CSV file size:', csvText.length, 'characters');
 
 			// Parse CSV
-			const records = parse(csvText, {
-				columns: true,
-				skip_empty_lines: true,
-				trim: true
-			});
+			const records = parseCSV(csvText);
 
 			console.log('Total records in CSV:', records.length);
 
