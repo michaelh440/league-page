@@ -1,566 +1,455 @@
 <script>
 	import { enhance } from '$app/forms';
-
-	let fileInput;
-	let fileName = '';
-	let csvPreview = [];
+	
+	export let data;
+	export let form;
+	
 	let uploading = false;
-	let uploadResult = null;
-	let csvText = '';
-	let uniqueTeams = [];
+	let selectedFile = null;
+	let previewData = null;
 	let teamMappings = {};
-	let seasonId = '1';
-
-	// Reactive variables that update automatically
-	$: mappedCount = Object.values(teamMappings).filter(id => id && id !== '').length;
+	let uniqueTeams = [];
+	
+	// Reactive variables for team mapping
+	$: mappedCount = Object.values(teamMappings).filter(v => v && v.trim() !== '').length;
 	$: totalTeams = uniqueTeams.length;
 	$: allMapped = totalTeams > 0 && mappedCount === totalTeams;
-	$: uploadDisabled = uploading || !fileName || !allMapped || !seasonId;
-
+	
 	function handleFileSelect(event) {
 		const file = event.target.files[0];
 		if (file) {
-			fileName = file.name;
-			uploadResult = null;
-			
-			const reader = new FileReader();
-			reader.onload = (e) => {
-				csvText = e.target.result;
-				parseCSVPreview(csvText);
-				extractUniqueTeams(csvText);
-			};
-			reader.readAsText(file);
+			selectedFile = file;
+			previewCSV(file);
 		}
 	}
-
-	function parseCSVPreview(text) {
-		const lines = text.trim().split('\n');
-		const headers = lines[0].split(',');
+	
+	async function previewCSV(file) {
+		const text = await file.text();
+		const lines = text.split('\n').slice(0, 6); // Header + 5 rows
+		const rows = lines.map(line => line.split(',').map(cell => cell.trim().replace(/"/g, '')));
+		previewData = {
+			headers: rows[0],
+			rows: rows.slice(1).filter(row => row.length > 1)
+		};
 		
-		csvPreview = lines.slice(1, 6).map(line => {
-			const values = line.split(',');
-			const row = {};
-			headers.forEach((header, i) => {
-				row[header.trim()] = values[i]?.trim() || '';
-			});
-			return row;
-		});
+		// Extract unique teams from full CSV
+		extractUniqueTeams(text);
 	}
-
-	function extractUniqueTeams(text) {
-		const lines = text.trim().split('\n');
-		const headers = lines[0].split(',').map(h => h.trim());
-		
+	
+	function extractUniqueTeams(csvText) {
+		const lines = csvText.split('\n');
+		const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
 		const teamIdIndex = headers.indexOf('team_id');
 		const teamNameIndex = headers.indexOf('team_name');
 		
 		if (teamIdIndex === -1 || teamNameIndex === -1) {
-			console.log('Could not find team columns in CSV');
+			console.warn('team_id or team_name columns not found in CSV');
 			return;
 		}
-
-		const teamsMap = new Map();
 		
-		lines.slice(1).forEach(line => {
-			const values = line.split(',');
-			const teamId = values[teamIdIndex]?.trim();
-			const teamName = values[teamNameIndex]?.trim();
-			
-			if (teamId && teamName && !teamsMap.has(teamId)) {
-				teamsMap.set(teamId, teamName);
+		const teamsMap = new Map();
+		for (let i = 1; i < lines.length; i++) {
+			const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+			if (values.length > Math.max(teamIdIndex, teamNameIndex)) {
+				const yahooTeamId = values[teamIdIndex];
+				const teamName = values[teamNameIndex];
+				if (yahooTeamId && teamName) {
+					teamsMap.set(yahooTeamId, teamName);
+				}
 			}
-		});
-
-		uniqueTeams = Array.from(teamsMap.entries()).map(([id, name]) => ({
-			yahooId: id,
-			name: name
-		})).sort((a, b) => parseInt(a.yahooId) - parseInt(b.yahooId));
-
+		}
+		
+		uniqueTeams = Array.from(teamsMap.entries())
+			.map(([id, name]) => ({ yahoo_id: id, name: name, postgres_id: '' }))
+			.sort((a, b) => parseInt(a.yahoo_id) - parseInt(b.yahoo_id));
+		
 		// Initialize team mappings
 		teamMappings = {};
 		uniqueTeams.forEach(team => {
-			teamMappings[team.yahooId] = '';
+			teamMappings[team.yahoo_id] = '';
 		});
-		
-		console.log('Found teams:', uniqueTeams);
 	}
-
-	function handleTeamMappingChange(yahooId, value) {
+	
+	function handleTeamMappingInput(yahooId, value) {
 		teamMappings[yahooId] = value;
-		// Force reactivity by creating new object
+		// Force reactivity by creating new object reference
 		teamMappings = {...teamMappings};
 	}
-
-	function handleSubmit() {
-		uploading = true;
-		uploadResult = null;
-		
-		return async ({ result, update }) => {
-			uploading = false;
-			if (result.type === 'success') {
-				uploadResult = result.data;
-				fileName = '';
-				csvPreview = [];
-				csvText = '';
-				uniqueTeams = [];
-				teamMappings = {};
-				if (fileInput) {
-					fileInput.value = '';
-				}
-			} else if (result.type === 'failure') {
-				uploadResult = { success: false, message: result.data?.message || 'Upload failed' };
-			}
-			await update();
-		};
+	
+	function formatBytes(bytes) {
+		if (bytes === 0) return '0 Bytes';
+		const k = 1024;
+		const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
 	}
 </script>
 
-<div class="upload-container">
-	<h1>Upload Player Fantasy Stats</h1>
-	<p class="subtitle">Upload Yahoo fantasy stats CSV files to staging table</p>
+<div class="container">
+	<div class="header">
+		<h1>📤 Upload Player Stats CSV</h1>
+		<p class="subtitle">Import fantasy stats to staging table for review and processing</p>
+	</div>
 
-	<form method="POST" enctype="multipart/form-data" use:enhance={handleSubmit}>
-		<!-- Season Configuration -->
-		<div class="config-section">
-			<h3>⚙️ Season Configuration</h3>
-			<div class="season-input">
-				<label for="seasonId">
-					Season ID:
-					<span class="help-text">(1 for 2015, 2 for 2016, etc.)</span>
-				</label>
-				<input
-					type="number"
-					id="seasonId"
-					name="seasonId"
-					bind:value={seasonId}
-					min="1"
-					max="20"
-					required
-					class="season-input-field"
-				/>
-			</div>
-		</div>
-
-		<!-- File Upload -->
-		<div class="upload-area">
-			<input
-				type="file"
-				accept=".csv"
-				name="file"
-				bind:this={fileInput}
-				on:change={handleFileSelect}
-				id="file-input"
-				required
-			/>
-			<label for="file-input" class="file-label">
-				<span class="upload-icon">📁</span>
-				<span class="upload-text">
-					{#if fileName}
-						{fileName}
-					{:else}
-						Click to select CSV file or drag and drop
-					{/if}
-				</span>
-			</label>
-		</div>
-
-		{#if csvPreview.length > 0}
-			<!-- CSV Preview -->
-			<div class="preview-section">
-				<h3>📊 CSV Preview (first 5 rows)</h3>
-				<div class="preview-table-container">
-					<table class="preview-table">
-						<thead>
-							<tr>
-								{#each Object.keys(csvPreview[0]) as header}
-									<th>{header}</th>
-								{/each}
-							</tr>
-						</thead>
-						<tbody>
-							{#each csvPreview as row}
-								<tr>
-									{#each Object.values(row) as value}
-										<td>{value}</td>
-									{/each}
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			</div>
-
-			<!-- Team Mapping -->
-			{#if uniqueTeams.length > 0}
-				<div class="team-mapping-section">
-					<h3>🔗 Map Yahoo Team IDs to Your Database Team IDs</h3>
-					<p class="mapping-instructions">
-						Enter your PostgreSQL team_id for each Yahoo team. Check your database:
-						<code>SELECT team_id, team_name FROM teams WHERE season_id = {seasonId} ORDER BY team_id;</code>
-					</p>
-					
-					<div class="progress-bar">
-						<div class="progress-label">
-							Mapping Progress: {mappedCount} of {totalTeams} teams mapped
-						</div>
-						<div class="progress-track">
-							<div class="progress-fill" style="width: {(mappedCount / totalTeams) * 100}%"></div>
-						</div>
+	{#if form?.success}
+		<div class="alert alert-success">
+			<div class="alert-icon">✅</div>
+			<div class="alert-content">
+				<div class="alert-title">Upload Successful!</div>
+				<div class="alert-message">{form.message}</div>
+				{#if form.stats}
+					<div class="stats-summary">
+						<span class="stat-item">✅ Inserted: <strong>{form.stats.inserted}</strong></span>
+						<span class="stat-item">⏭️ Skipped: <strong>{form.stats.skipped}</strong></span>
+						{#if form.stats.errors && form.stats.errors.length > 0}
+							<span class="stat-item">❌ Errors: <strong>{form.stats.errors.length}</strong></span>
+						{/if}
 					</div>
-
-					<div class="team-mapping-grid">
-						{#each uniqueTeams as team}
-							<div class="team-card">
-								<div class="team-info">
-									<div class="yahoo-id">Yahoo ID: {team.yahooId}</div>
-									<div class="team-name">{team.name}</div>
-								</div>
-								<div class="mapping-input">
-									<label for="team_{team.yahooId}">Your team_id:</label>
-									<input
-										type="number"
-										id="team_{team.yahooId}"
-										name="team_mapping_{team.yahooId}"
-										value={teamMappings[team.yahooId]}
-										on:input={(e) => handleTeamMappingChange(team.yahooId, e.target.value)}
-										placeholder="Enter ID"
-										min="1"
-										required
-										class={teamMappings[team.yahooId] ? 'mapped' : ''}
-									/>
-									{#if teamMappings[team.yahooId]}
-										<span class="check-mark">✓</span>
-									{/if}
-								</div>
-								<!-- Hidden input to ensure value is submitted -->
-								<input
-									type="hidden"
-									name="team_mapping_{team.yahooId}"
-									value={teamMappings[team.yahooId]}
-								/>
-							</div>
-						{/each}
-					</div>
-
-					{#if !allMapped}
-						<div class="warning-message">
-							⚠️ Please map all teams before uploading
-						</div>
-					{/if}
-				</div>
-			{/if}
-		{/if}
-
-		<!-- Debug Info -->
-		<div class="debug-info">
-			<strong>Debug:</strong>
-			File: {fileName ? '✓' : '✗'} |
-			Season ID: {seasonId ? '✓' : '✗'} |
-			Teams found: {totalTeams} |
-			Teams mapped: {mappedCount} |
-			All mapped: {allMapped ? '✓' : '✗'} |
-			Button: {uploadDisabled ? 'DISABLED' : 'ENABLED'}
-		</div>
-
-		<!-- Upload Button -->
-		<div class="button-group">
-			<button
-				type="submit"
-				class="upload-button"
-				disabled={uploadDisabled}
-			>
-				{#if uploading}
-					⏳ Uploading...
-				{:else}
-					📤 Upload to Staging Table
-				{/if}
-			</button>
-		</div>
-	</form>
-
-	<!-- Results -->
-	{#if uploadResult}
-		<div class="result {uploadResult.success ? 'success' : 'error'}">
-			<h3>{uploadResult.success ? '✅ Success!' : '❌ Error'}</h3>
-			<p>{uploadResult.message}</p>
-			
-			{#if uploadResult.success && uploadResult.stats}
-				<div class="stats">
-					<p><strong>Records Inserted:</strong> {uploadResult.stats.inserted}</p>
-					<p><strong>Records Skipped:</strong> {uploadResult.stats.skipped}</p>
-					<p><strong>Total Processed:</strong> {uploadResult.stats.total}</p>
-					{#if uploadResult.stats.positions_needing_fixing > 0}
+					{#if form.stats.summary}
 						<div class="next-steps">
-							<p><strong>⚠️ {uploadResult.stats.positions_needing_fixing} records need position fixing</strong></p>
-							<a href="/admin/confirm_yahoo_points_staging" class="next-step-link">
-								→ Go to Position Fixer
-							</a>
+							<strong>Next Step:</strong> 
+							{#if form.stats.summary.missing_position > 0}
+								Go to <a href="/admin/confirm_yahoo_points_staging">/admin/confirm_yahoo_points_staging</a> to fix {form.stats.summary.missing_position} missing positions
+							{:else}
+								All positions are set! Run the ETL script to migrate to production tables.
+							{/if}
 						</div>
 					{/if}
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	{/if}
 
-	<!-- Documentation -->
-	<div class="documentation">
-		<h3>📋 Required CSV Format</h3>
-		<p>Your CSV file must have these columns:</p>
-		<ul>
-			<li><code>season</code> - Year (e.g., 2015) - will be mapped to season_id you specify</li>
-			<li><code>week</code> - Week number (1-17)</li>
-			<li><code>team_id</code> - Yahoo team ID</li>
-			<li><code>team_name</code> - Yahoo team name</li>
-			<li><code>player_id</code> - Yahoo player ID</li>
-			<li><code>player_name</code> - Player name</li>
-			<li><code>position</code> - Actual NFL position (QB, RB, WR, TE, K, DEF)</li>
-			<li><code>selected_position</code> - Fantasy roster slot (QB, RB, WR, TE, K, DEF, W/R/T, BN, etc.)</li>
-			<li><code>nfl_team</code> - NFL team abbreviation</li>
-			<li><code>fantasy_points</code> - Points scored</li>
-		</ul>
+	{#if form?.error}
+		<div class="alert alert-error">
+			<div class="alert-icon">❌</div>
+			<div class="alert-content">
+				<div class="alert-title">Upload Failed</div>
+				<div class="alert-message">{form.error}</div>
+			</div>
+		</div>
+	{/if}
 
-		<h3>📝 Process</h3>
-		<ol>
-			<li>Set the Season ID (1 for 2015, 2 for 2016, etc.)</li>
-			<li>Select your <code>yahoo_complete_YYYY.csv</code> file</li>
-			<li>Review the CSV preview</li>
-			<li>Map Yahoo team IDs to your database team IDs</li>
-			<li>Click "Upload to Staging Table"</li>
-			<li>If positions need fixing, use the Position Fixer tool</li>
-			<li>Run the ETL script to migrate to production tables</li>
+	<div class="card">
+		<div class="card-header">
+			<h2>Upload CSV File</h2>
+			<p>Upload your Yahoo fantasy stats CSV file (yahoo_complete_YYYY.csv)</p>
+		</div>
+
+		<form 
+			method="POST" 
+			action="?/upload" 
+			enctype="multipart/form-data"
+			use:enhance={() => {
+				uploading = true;
+				return async ({ result, update }) => {
+					uploading = false;
+					await update();
+					if (result.type === 'success') {
+						selectedFile = null;
+						previewData = null;
+						uniqueTeams = [];
+						teamMappings = {};
+						const fileInput = document.getElementById('csvFile');
+						if (fileInput) fileInput.value = '';
+					}
+				};
+			}}
+		>
+			<div class="form-section">
+				<div class="file-upload-area">
+					<input
+						type="file"
+						id="csvFile"
+						name="csvFile"
+						accept=".csv"
+						required
+						on:change={handleFileSelect}
+						disabled={uploading}
+					/>
+					<label for="csvFile" class="file-upload-label">
+						<div class="upload-icon">📁</div>
+						<div class="upload-text">
+							{#if selectedFile}
+								<strong>{selectedFile.name}</strong>
+								<span class="file-size">{formatBytes(selectedFile.size)}</span>
+							{:else}
+								<strong>Choose CSV file</strong>
+								<span>or drag and drop</span>
+							{/if}
+						</div>
+					</label>
+				</div>
+
+				{#if previewData}
+					<!-- Season Configuration -->
+					<div class="config-section">
+						<h3>⚙️ Season Configuration</h3>
+						<div class="config-input">
+							<label for="seasonId">Season ID (for your database):</label>
+							<input
+								type="number"
+								id="seasonId"
+								name="seasonId"
+								placeholder="e.g., 1"
+								min="1"
+								value="1"
+								disabled={uploading}
+							/>
+							<small>Enter the season_id from your PostgreSQL seasons table (e.g., 1 for 2015, 2 for 2016, etc.)</small>
+						</div>
+					</div>
+				{/if}
+
+				{#if uniqueTeams.length > 0}
+					<!-- Team Mapping Section -->
+					<div class="mapping-section">
+						<h3>🔗 Map Yahoo Team IDs to Your Database Team IDs</h3>
+						<p class="mapping-instructions">
+							Enter your PostgreSQL <code>team_id</code> for each Yahoo team below.
+							<br>
+							<span class="help-text">Query to find your team IDs: <code>SELECT team_id, team_name FROM teams WHERE season_id = [season] ORDER BY team_id</code></span>
+						</p>
+						
+						<div class="progress-bar-container">
+							<div class="progress-bar" style="width: {(mappedCount / totalTeams) * 100}%">
+								{mappedCount} of {totalTeams} mapped
+							</div>
+						</div>
+
+						<div class="team-mapping-grid">
+							{#each uniqueTeams as team}
+								<div class="team-mapping-row">
+									<div class="team-info">
+										<span class="yahoo-id">Yahoo ID: <strong>{team.yahoo_id}</strong></span>
+										<span class="team-name">{team.name}</span>
+									</div>
+									<div class="mapping-input">
+										<label for="team-{team.yahoo_id}">Your team_id:</label>
+										<input
+											type="number"
+											id="team-{team.yahoo_id}"
+											name="team_mapping_{team.yahoo_id}"
+											placeholder="Enter team_id"
+											min="1"
+											value={teamMappings[team.yahoo_id]}
+											on:input={(e) => handleTeamMappingInput(team.yahoo_id, e.target.value)}
+											class:filled={teamMappings[team.yahoo_id] && teamMappings[team.yahoo_id].trim() !== ''}
+											disabled={uploading}
+										/>
+									</div>
+								</div>
+							{/each}
+						</div>
+
+						{#if !allMapped}
+							<div class="mapping-warning">
+								⚠️ Please map all teams before uploading
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				{#if previewData}
+					<div class="preview-section">
+						<h3>📋 Preview (First 5 Rows)</h3>
+						<div class="table-container">
+							<table class="preview-table">
+								<thead>
+									<tr>
+										{#each previewData.headers as header}
+											<th>{header}</th>
+										{/each}
+									</tr>
+								</thead>
+								<tbody>
+									{#each previewData.rows as row}
+										<tr>
+											{#each row as cell}
+												<td>{cell}</td>
+											{/each}
+										</tr>
+									{/each}
+								</tbody>
+							</table>
+						</div>
+					</div>
+				{/if}
+
+				<div class="button-group">
+					<button 
+						type="submit" 
+						class="btn btn-primary"
+						disabled={!selectedFile || uploading || (uniqueTeams.length > 0 && !allMapped)}
+					>
+						{#if uploading}
+							<span class="spinner"></span>
+							Uploading...
+						{:else}
+							📤 Upload to Staging
+						{/if}
+					</button>
+					
+					{#if selectedFile}
+						<button 
+							type="button" 
+							class="btn btn-secondary"
+							on:click={() => {
+								selectedFile = null;
+								previewData = null;
+								uniqueTeams = [];
+								teamMappings = {};
+								const fileInput = document.getElementById('csvFile');
+								if (fileInput) fileInput.value = '';
+							}}
+							disabled={uploading}
+						>
+							Clear
+						</button>
+					{/if}
+				</div>
+			</div>
+		</form>
+	</div>
+
+	<div class="info-card">
+		<h3>ℹ️ Upload Process</h3>
+		<ol class="process-list">
+			<li>
+				<strong>Upload CSV</strong> - Select your yahoo_complete_YYYY.csv file
+				<div class="sub-text">Data is imported to <code>staging_yahoo_player_stats</code></div>
+			</li>
+			<li>
+				<strong>Map Team IDs</strong> - Link Yahoo team IDs to your database team IDs
+				<div class="sub-text">Required for roster data correlation</div>
+			</li>
+			<li>
+				<strong>Fix Positions</strong> - Review and fix any missing positions
+				<div class="sub-text">Navigate to <a href="/admin/confirm_yahoo_points_staging">/admin/confirm_yahoo_points_staging</a></div>
+			</li>
+			<li>
+				<strong>Run ETL</strong> - Execute the ETL script to migrate to production
+				<div class="sub-text">Run <code>etl_configurable_playoff_split.sql</code></div>
+			</li>
 		</ol>
+	</div>
+
+	<div class="info-card">
+		<h3>📝 Expected CSV Format</h3>
+		<div class="code-block">
+			<code>season,week,team_id,team_name,player_id,player_name,position,selected_position,nfl_team,status,fantasy_points</code>
+		</div>
+		<ul class="format-notes">
+			<li><strong>season</strong> - Season ID (1-9 for 2015-2023)</li>
+			<li><strong>week</strong> - Week number (1-17)</li>
+			<li><strong>team_id</strong> - Yahoo team ID (will be mapped to your database team_id)</li>
+			<li><strong>player_id</strong> - Yahoo player ID</li>
+			<li><strong>player_name</strong> - Player's name</li>
+			<li><strong>position</strong> - NFL position (QB, RB, WR, TE, K, DEF)</li>
+			<li><strong>fantasy_points</strong> - Points scored that week</li>
+		</ul>
 	</div>
 </div>
 
 <style>
-	.upload-container {
-		max-width: 1200px;
-		margin: 2rem auto;
-		padding: 2rem;
-		font-family: system-ui, -apple-system, sans-serif;
-	}
-
-	h1 {
-		color: #1a1a1a;
-		margin-bottom: 0.5rem;
-	}
-
-	.subtitle {
-		color: #666;
-		margin-bottom: 2rem;
-	}
-
-	.config-section {
-		background: #f8f9fa;
-		border: 2px solid #e9ecef;
-		border-radius: 8px;
+	/* ... (keeping all previous styles) ... */
+	
+	.mapping-section {
+		background: #f7fafc;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.75rem;
 		padding: 1.5rem;
-		margin-bottom: 2rem;
+		margin-bottom: 1.5rem;
 	}
 
-	.config-section h3 {
-		margin: 0 0 1rem 0;
-		color: #495057;
+	.mapping-section h3 {
 		font-size: 1.1rem;
-	}
-
-	.season-input {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-	}
-
-	.season-input label {
 		font-weight: 600;
-		color: #495057;
-	}
-
-	.help-text {
-		font-size: 0.875rem;
-		color: #6c757d;
-		font-weight: normal;
-	}
-
-	.season-input-field {
-		width: 80px;
-		padding: 0.5rem;
-		border: 2px solid #dee2e6;
-		border-radius: 4px;
-		font-size: 1rem;
-		font-weight: 600;
-	}
-
-	.season-input-field:focus {
-		outline: none;
-		border-color: #0066cc;
-	}
-
-	.upload-area {
-		border: 2px dashed #ccc;
-		border-radius: 8px;
-		padding: 2rem;
-		text-align: center;
-		margin-bottom: 2rem;
-		background: #fafafa;
-		transition: all 0.3s ease;
-	}
-
-	.upload-area:hover {
-		border-color: #0066cc;
-		background: #f0f7ff;
-	}
-
-	#file-input {
-		display: none;
-	}
-
-	.file-label {
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 1rem;
-	}
-
-	.upload-icon {
-		font-size: 3rem;
-	}
-
-	.upload-text {
-		font-size: 1.1rem;
-		color: #333;
-	}
-
-	.preview-section {
-		margin-bottom: 2rem;
-	}
-
-	.preview-section h3 {
-		margin-bottom: 1rem;
-		color: #333;
-	}
-
-	.preview-table-container {
-		overflow-x: auto;
-		border: 1px solid #ddd;
-		border-radius: 4px;
-	}
-
-	.preview-table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 0.9rem;
-	}
-
-	.preview-table th,
-	.preview-table td {
-		padding: 0.75rem;
-		text-align: left;
-		border-bottom: 1px solid #eee;
-	}
-
-	.preview-table th {
-		background: #f8f9fa;
-		font-weight: 600;
-		color: #495057;
-		white-space: nowrap;
-	}
-
-	.preview-table tbody tr:hover {
-		background: #f8f9fa;
-	}
-
-	.team-mapping-section {
-		background: #fff;
-		border: 2px solid #dee2e6;
-		border-radius: 8px;
-		padding: 2rem;
-		margin-bottom: 2rem;
-	}
-
-	.team-mapping-section h3 {
-		margin: 0 0 0.5rem 0;
-		color: #212529;
+		color: #1a202c;
+		margin: 0 0 0.75rem 0;
 	}
 
 	.mapping-instructions {
-		color: #6c757d;
-		margin-bottom: 1.5rem;
 		font-size: 0.9rem;
+		color: #4a5568;
+		margin-bottom: 1rem;
+		line-height: 1.6;
 	}
 
 	.mapping-instructions code {
-		background: #f8f9fa;
-		padding: 0.2rem 0.4rem;
-		border-radius: 3px;
+		background: white;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-family: 'Courier New', monospace;
 		font-size: 0.85rem;
-		color: #d63384;
+		color: #2d3748;
+		border: 1px solid #e2e8f0;
+	}
+
+	.help-text {
+		display: block;
+		margin-top: 0.5rem;
+		font-size: 0.85rem;
+		color: #718096;
+	}
+
+	.progress-bar-container {
+		background: #e2e8f0;
+		height: 2rem;
+		border-radius: 0.5rem;
+		overflow: hidden;
+		margin-bottom: 1rem;
 	}
 
 	.progress-bar {
-		margin-bottom: 1.5rem;
-	}
-
-	.progress-label {
-		font-weight: 600;
-		margin-bottom: 0.5rem;
-		color: #495057;
-	}
-
-	.progress-track {
-		height: 24px;
-		background: #e9ecef;
-		border-radius: 12px;
-		overflow: hidden;
-	}
-
-	.progress-fill {
+		background: linear-gradient(90deg, #48bb78 0%, #38a169 100%);
 		height: 100%;
-		background: linear-gradient(90deg, #0066cc, #0052a3);
-		transition: width 0.3s ease;
 		display: flex;
 		align-items: center;
-		justify-content: flex-end;
-		padding-right: 0.5rem;
+		justify-content: center;
 		color: white;
-		font-size: 0.85rem;
 		font-weight: 600;
+		font-size: 0.9rem;
+		transition: width 0.3s ease;
+		min-width: 120px;
 	}
 
 	.team-mapping-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+		gap: 0.75rem;
+	}
+
+	.team-mapping-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
 		gap: 1rem;
-		margin-bottom: 1rem;
-	}
-
-	.team-card {
-		background: #f8f9fa;
-		border: 2px solid #dee2e6;
-		border-radius: 6px;
+		background: white;
 		padding: 1rem;
-		transition: all 0.2s ease;
-	}
-
-	.team-card:has(input.mapped) {
-		border-color: #28a745;
-		background: #f0fff4;
+		border-radius: 0.5rem;
+		border: 1px solid #e2e8f0;
+		align-items: center;
 	}
 
 	.team-info {
-		margin-bottom: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
 	}
 
 	.yahoo-id {
 		font-size: 0.85rem;
-		color: #6c757d;
-		font-weight: 600;
+		color: #718096;
+	}
+
+	.yahoo-id strong {
+		color: #3182ce;
+		font-weight: 700;
 	}
 
 	.team-name {
-		font-size: 1.1rem;
+		font-size: 1rem;
 		font-weight: 600;
-		color: #212529;
+		color: #1a202c;
 	}
 
 	.mapping-input {
@@ -570,164 +459,528 @@
 	}
 
 	.mapping-input label {
-		font-size: 0.9rem;
-		color: #495057;
+		font-size: 0.85rem;
+		color: #4a5568;
 		white-space: nowrap;
 	}
 
-	.mapping-input input[type="number"] {
-		flex: 1;
+	.mapping-input input {
+		width: 100px;
 		padding: 0.5rem;
-		border: 2px solid #ced4da;
-		border-radius: 4px;
-		font-size: 1rem;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.375rem;
+		font-size: 0.95rem;
+		transition: all 0.2s;
 	}
 
-	.mapping-input input[type="number"]:focus {
+	.mapping-input input:focus {
 		outline: none;
-		border-color: #0066cc;
+		border-color: #3182ce;
+		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
 	}
 
-	.mapping-input input.mapped {
-		border-color: #28a745;
-		background: white;
+	.mapping-input input.filled {
+		border-color: #48bb78;
+		background: #f0fff4;
 	}
 
-	.check-mark {
-		color: #28a745;
-		font-size: 1.2rem;
-		font-weight: bold;
-	}
-
-	.warning-message {
-		background: #fff3cd;
-		border: 1px solid #ffc107;
-		border-radius: 4px;
-		padding: 1rem;
-		color: #856404;
-		text-align: center;
-		font-weight: 600;
-	}
-
-	.debug-info {
-		background: #f8f9fa;
-		border: 1px solid #dee2e6;
-		border-radius: 4px;
+	.mapping-warning {
+		margin-top: 1rem;
 		padding: 0.75rem;
-		margin-bottom: 1rem;
-		font-family: monospace;
-		font-size: 0.85rem;
-		color: #495057;
+		background: #fef5e7;
+		border: 1px solid #f39c12;
+		border-radius: 0.375rem;
+		color: #d68910;
+		font-weight: 600;
+		text-align: center;
 	}
 
-	.button-group {
-		display: flex;
-		flex-direction: column;
-		gap: 1rem;
-		margin-bottom: 2rem;
+	@media (max-width: 768px) {
+		.team-mapping-row {
+			grid-template-columns: 1fr;
+		}
+
+		.mapping-input {
+			justify-content: space-between;
+		}
+
+		.mapping-input input {
+			flex: 1;
+			max-width: 150px;
+		}
 	}
 
-	.upload-button {
-		padding: 1rem 2rem;
+	/* All previous styles remain the same */
+	.container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+	
+	.config-section {
+		background: #fff3cd;
+		border: 2px solid #ffc107;
+		border-radius: 0.75rem;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.config-section h3 {
 		font-size: 1.1rem;
 		font-weight: 600;
-		background: #0066cc;
-		color: white;
-		border: none;
-		border-radius: 6px;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.upload-button:hover:not(:disabled) {
-		background: #0052a3;
-		transform: translateY(-1px);
-	}
-
-	.upload-button:disabled {
-		background: #ccc;
-		cursor: not-allowed;
-		opacity: 0.6;
-	}
-
-	.result {
-		padding: 1.5rem;
-		border-radius: 6px;
-		margin-bottom: 2rem;
-	}
-
-	.result.success {
-		background: #d4edda;
-		border: 1px solid #c3e6cb;
-		color: #155724;
-	}
-
-	.result.error {
-		background: #f8d7da;
-		border: 1px solid #f5c6cb;
-		color: #721c24;
-	}
-
-	.result h3 {
+		color: #1a202c;
 		margin: 0 0 1rem 0;
 	}
 
-	.stats {
-		margin-top: 1rem;
+	.config-input {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 
-	.stats p {
-		margin: 0.5rem 0;
+	.config-input label {
+		font-weight: 600;
+		color: #2d3748;
+		font-size: 0.95rem;
+	}
+
+	.config-input input {
+		width: 200px;
+		padding: 0.75rem;
+		border: 2px solid #e2e8f0;
+		border-radius: 0.5rem;
+		font-size: 1rem;
+		transition: all 0.2s;
+	}
+
+	.config-input input:focus {
+		outline: none;
+		border-color: #3182ce;
+		box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+	}
+
+	.config-input small {
+		color: #718096;
+		font-size: 0.85rem;
+		line-height: 1.4;
+	}
+
+	.container {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 2rem;
+	}
+
+	.header {
+		margin-bottom: 2rem;
+	}
+
+	.header h1 {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.subtitle {
+		color: #718096;
+		font-size: 1rem;
+		margin: 0;
+	}
+
+	.alert {
+		padding: 1rem 1.5rem;
+		border-radius: 0.5rem;
+		margin-bottom: 1.5rem;
+		display: flex;
+		gap: 1rem;
+		align-items: flex-start;
+	}
+
+	.alert-success {
+		background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+		border: 1px solid #b1dfbb;
+	}
+
+	.alert-error {
+		background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+		border: 1px solid #f1b0b7;
+	}
+
+	.alert-icon {
+		font-size: 1.5rem;
+		flex-shrink: 0;
+	}
+
+	.alert-content {
+		flex: 1;
+	}
+
+	.alert-title {
+		font-weight: 700;
+		font-size: 1.1rem;
+		margin-bottom: 0.25rem;
+		color: #1a202c;
+	}
+
+	.alert-message {
+		color: #2d3748;
+		margin-bottom: 0.5rem;
+	}
+
+	.stats-summary {
+		display: flex;
+		gap: 1.5rem;
+		margin-top: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.stat-item {
+		font-size: 0.95rem;
+		color: #4a5568;
+	}
+
+	.stat-item strong {
+		color: #1a202c;
+		font-weight: 600;
 	}
 
 	.next-steps {
 		margin-top: 1rem;
-		padding-top: 1rem;
-		border-top: 1px solid #c3e6cb;
+		padding: 0.75rem;
+		background: rgba(255, 255, 255, 0.7);
+		border-radius: 0.375rem;
+		font-size: 0.95rem;
 	}
 
-	.next-step-link {
-		display: inline-block;
-		margin-top: 0.5rem;
-		padding: 0.5rem 1rem;
-		background: #28a745;
-		color: white;
+	.next-steps a {
+		color: #3182ce;
 		text-decoration: none;
-		border-radius: 4px;
 		font-weight: 600;
 	}
 
-	.next-step-link:hover {
-		background: #218838;
+	.next-steps a:hover {
+		text-decoration: underline;
 	}
 
-	.documentation {
-		background: #f8f9fa;
-		border: 1px solid #dee2e6;
-		border-radius: 6px;
+	.card {
+		background: white;
+		border-radius: 0.75rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		margin-bottom: 1.5rem;
+		overflow: hidden;
+	}
+
+	.card-header {
+		padding: 1.5rem;
+		border-bottom: 1px solid #e2e8f0;
+	}
+
+	.card-header h2 {
+		font-size: 1.5rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.card-header p {
+		color: #718096;
+		margin: 0;
+		font-size: 0.95rem;
+	}
+
+	.form-section {
 		padding: 1.5rem;
 	}
 
-	.documentation h3 {
-		margin-top: 0;
-		color: #495057;
+	.file-upload-area {
+		position: relative;
+		margin-bottom: 1.5rem;
 	}
 
-	.documentation ul,
-	.documentation ol {
-		margin: 0.5rem 0;
-		padding-left: 1.5rem;
+	.file-upload-area input[type="file"] {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border: 0;
 	}
 
-	.documentation li {
-		margin: 0.5rem 0;
+	.file-upload-label {
+		display: flex;
+		align-items: center;
+		gap: 1.5rem;
+		padding: 2rem;
+		border: 2px dashed #cbd5e0;
+		border-radius: 0.5rem;
+		background: #f7fafc;
+		cursor: pointer;
+		transition: all 0.2s;
 	}
 
-	.documentation code {
-		background: #e9ecef;
-		padding: 0.2rem 0.4rem;
-		border-radius: 3px;
+	.file-upload-label:hover {
+		border-color: #3182ce;
+		background: #ebf8ff;
+	}
+
+	.file-upload-area input[type="file"]:disabled + .file-upload-label {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.upload-icon {
+		font-size: 3rem;
+	}
+
+	.upload-text {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.upload-text strong {
+		font-size: 1.1rem;
+		color: #1a202c;
+	}
+
+	.upload-text span {
 		font-size: 0.9rem;
-		color: #d63384;
+		color: #718096;
+	}
+
+	.file-size {
+		font-size: 0.85rem;
+		color: #a0aec0;
+	}
+
+	.preview-section {
+		margin-bottom: 1.5rem;
+	}
+
+	.preview-section h3 {
+		font-size: 1.1rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 1rem 0;
+	}
+
+	.table-container {
+		overflow-x: auto;
+		border: 1px solid #e2e8f0;
+		border-radius: 0.5rem;
+	}
+
+	.preview-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.85rem;
+	}
+
+	.preview-table thead {
+		background: #f7fafc;
+	}
+
+	.preview-table th {
+		padding: 0.75rem;
+		text-align: left;
+		font-weight: 600;
+		color: #2d3748;
+		border-bottom: 2px solid #e2e8f0;
+		white-space: nowrap;
+	}
+
+	.preview-table td {
+		padding: 0.75rem;
+		border-bottom: 1px solid #e2e8f0;
+		color: #4a5568;
+	}
+
+	.preview-table tbody tr:last-child td {
+		border-bottom: none;
+	}
+
+	.preview-table tbody tr:hover {
+		background: #f7fafc;
+	}
+
+	.button-group {
+		display: flex;
+		gap: 1rem;
+		justify-content: flex-start;
+	}
+
+	.btn {
+		padding: 0.75rem 1.5rem;
+		border-radius: 0.5rem;
+		font-weight: 600;
+		font-size: 1rem;
+		cursor: pointer;
+		transition: all 0.2s;
+		border: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.btn:disabled {
+		opacity: 0.6;
+		cursor: not-allowed;
+	}
+
+	.btn-primary {
+		background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+		color: white;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: linear-gradient(135deg, #2c5282 0%, #2a4365 100%);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+	}
+
+	.btn-secondary {
+		background: #e2e8f0;
+		color: #2d3748;
+	}
+
+	.btn-secondary:hover:not(:disabled) {
+		background: #cbd5e0;
+	}
+
+	.spinner {
+		width: 1rem;
+		height: 1rem;
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		border-top-color: white;
+		border-radius: 50%;
+		animation: spin 0.6s linear infinite;
+	}
+
+	@keyframes spin {
+		to { transform: rotate(360deg); }
+	}
+
+	.info-card {
+		background: white;
+		border-radius: 0.75rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.info-card h3 {
+		font-size: 1.25rem;
+		font-weight: 600;
+		color: #1a202c;
+		margin: 0 0 1rem 0;
+	}
+
+	.process-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		counter-reset: step-counter;
+	}
+
+	.process-list li {
+		counter-increment: step-counter;
+		position: relative;
+		padding-left: 3rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.process-list li:before {
+		content: counter(step-counter);
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 2rem;
+		height: 2rem;
+		background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+		color: white;
+		border-radius: 50%;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 700;
+		font-size: 0.9rem;
+	}
+
+	.process-list li:last-child {
+		margin-bottom: 0;
+	}
+
+	.sub-text {
+		margin-top: 0.5rem;
+		font-size: 0.9rem;
+		color: #718096;
+	}
+
+	.sub-text code, .code-block code {
+		background: #f7fafc;
+		padding: 0.25rem 0.5rem;
+		border-radius: 0.25rem;
+		font-family: 'Courier New', monospace;
+		font-size: 0.85rem;
+		color: #2d3748;
+	}
+
+	.code-block {
+		background: #f7fafc;
+		padding: 1rem;
+		border-radius: 0.5rem;
+		margin-bottom: 1rem;
+		overflow-x: auto;
+	}
+
+	.format-notes {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+	}
+
+	.format-notes li {
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #e2e8f0;
+		font-size: 0.9rem;
+		color: #4a5568;
+	}
+
+	.format-notes li:last-child {
+		border-bottom: none;
+	}
+
+	.format-notes strong {
+		color: #1a202c;
+		font-weight: 600;
+	}
+
+	@media (max-width: 768px) {
+		.container {
+			padding: 1rem;
+		}
+
+		.header h1 {
+			font-size: 1.5rem;
+		}
+
+		.file-upload-label {
+			flex-direction: column;
+			text-align: center;
+		}
+
+		.button-group {
+			flex-direction: column;
+		}
+
+		.btn {
+			width: 100%;
+			justify-content: center;
+		}
+
+		.stats-summary {
+			flex-direction: column;
+			gap: 0.5rem;
+		}
 	}
 </style>

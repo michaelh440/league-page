@@ -1,215 +1,183 @@
-import { query } from '$lib/db';
 import { fail } from '@sveltejs/kit';
+import db from '$lib/server/db';
+import { parse } from 'csv-parse/sync';
 
-/** @type {import('./$types').PageServerLoad} */
-export async function load() {
-	return {
-		uploadMode: 'staging'
-	};
-}
-
-function parseCSV(text) {
-	const lines = text.split('\n').filter(line => line.trim());
-	if (lines.length === 0) return { headers: [], rows: [] };
-	
-	const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
-	const rows = [];
-	
-	for (let i = 1; i < lines.length; i++) {
-		const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
-		const row = {};
-		headers.forEach((header, index) => {
-			row[header] = values[index] || '';
-		});
-		rows.push(row);
-	}
-	
-	return { headers, rows };
-}
-
-/** @type {import('./$types').Actions} */
 export const actions = {
-	upload: async ({ request }) => {
+	default: async ({ request }) => {
+		console.log('📤 Upload request received');
+		
 		try {
 			const formData = await request.formData();
-			const file = formData.get('csvFile');
+			const file = formData.get('file');
+			const seasonId = parseInt(formData.get('seasonId'));
 
-			if (!file || file.size === 0) {
-				return fail(400, { error: 'No file uploaded' });
+			console.log('Season ID:', seasonId);
+			console.log('File:', file?.name);
+
+			if (!file || !seasonId) {
+				return fail(400, { 
+					success: false, 
+					message: 'Missing required fields: file or seasonId' 
+				});
 			}
 
-			// Extract season ID from form
-			const seasonId = parseInt(formData.get('seasonId')) || 1;
-			
 			// Extract team mappings from form data
 			const teamMappings = new Map();
 			for (const [key, value] of formData.entries()) {
 				if (key.startsWith('team_mapping_')) {
 					const yahooTeamId = key.replace('team_mapping_', '');
-					const postgresTeamId = parseInt(value);
-					if (postgresTeamId > 0) {
-						teamMappings.set(yahooTeamId, postgresTeamId);
+					const dbTeamId = parseInt(value);
+					if (dbTeamId) {
+						teamMappings.set(yahooTeamId, dbTeamId);
 					}
 				}
 			}
 
-			console.log('=== CSV UPLOAD TO STAGING ===');
-			console.log('Season ID (from form):', seasonId);
 			console.log('Team mappings:', Object.fromEntries(teamMappings));
 
-			// Read CSV file
-			const text = await file.text();
-			const { headers, rows } = parseCSV(text);
-
-			console.log('Total rows:', rows.length);
-			console.log('CSV headers:', headers);
-			console.log('First row:', rows[0]);
-
-			// Validate required columns
-			// CSV format: season,week,team_id,team_name,player_id,player_name,position,selected_position,nfl_team,status,fantasy_points
-			const requiredColumns = ['season', 'week', 'player_id', 'player_name', 'fantasy_points'];
-			const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-			
-			if (missingColumns.length > 0) {
+			if (teamMappings.size === 0) {
 				return fail(400, { 
-					error: `Missing required columns: ${missingColumns.join(', ')}. Found columns: ${headers.join(', ')}` 
+					success: false, 
+					message: 'No team mappings provided' 
 				});
 			}
 
-			console.log('CSV validation passed. Uploading to staging_yahoo_player_stats...');
+			// Read CSV file
+			const csvText = await file.text();
+			console.log('CSV file size:', csvText.length, 'characters');
 
+			// Parse CSV
+			const records = parse(csvText, {
+				columns: true,
+				skip_empty_lines: true,
+				trim: true
+			});
+
+			console.log('Total records in CSV:', records.length);
+
+			if (records.length === 0) {
+				return fail(400, { 
+					success: false, 
+					message: 'CSV file is empty' 
+				});
+			}
+
+			// Validate required columns
+			const requiredColumns = ['season', 'week', 'team_id', 'team_name', 'player_id', 
+									'player_name', 'position', 'selected_position', 'nfl_team', 'fantasy_points'];
+			const headers = Object.keys(records[0]);
+			const missingColumns = requiredColumns.filter(col => !headers.includes(col));
+
+			if (missingColumns.length > 0) {
+				return fail(400, { 
+					success: false, 
+					message: `Missing required columns: ${missingColumns.join(', ')}` 
+				});
+			}
+
+			console.log('CSV columns validated ✓');
+			console.log('First row:', records[0]);
+
+			// Process records
 			let inserted = 0;
 			let skipped = 0;
-			let errors = [];
+			let positionsNeedingFixing = 0;
 
-			// Process each row - insert into STAGING table
-			for (const [index, row] of rows.entries()) {
+			for (let i = 0; i < records.length; i++) {
+				const row = records[i];
+
+				// Log progress every 100 rows
+				if (i > 0 && i % 100 === 0) {
+					console.log(`Progress: ${i}/${records.length} rows processed...`);
+				}
+
+				// Get mapped team_id
+				const yahooTeamId = row.team_id?.trim();
+				const dbTeamId = teamMappings.get(yahooTeamId);
+
+				if (!dbTeamId) {
+					console.log(`Skipping row ${i + 1}: No team mapping for Yahoo team ${yahooTeamId}`);
+					skipped++;
+					continue;
+				}
+
+				const week = parseInt(row.week);
+				const yahooPlayerId = row.player_id?.trim();
+				const playerName = row.player_name?.trim();
+				const position = row.position?.trim();
+				const selectedPosition = row.selected_position?.trim();
+				const nflTeam = row.nfl_team?.trim();
+				const fantasyPoints = parseFloat(row.fantasy_points) || 0;
+
+				// Validate position (only accept valid NFL positions)
+				const validPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+				const actualPosition = validPositions.includes(position) ? position : null;
+
+				if (!actualPosition) {
+					positionsNeedingFixing++;
+				}
+
+				// Check if record already exists
+				const existingRecord = await db.query(
+					`SELECT 1 FROM staging_yahoo_player_stats 
+					 WHERE season_id = $1 AND week = $2 AND player_id = $3 AND team_id = $4
+					 LIMIT 1`,
+					[seasonId, week, yahooPlayerId, dbTeamId]
+				);
+
+				if (existingRecord.rows.length > 0) {
+					skipped++;
+					continue;
+				}
+
+				// Insert into staging table
 				try {
-					// Map CSV columns to staging table columns
-					// Note: We use seasonId from the form, not from CSV
-					// CSV might have season=2015, but we map it to season_id=1 (from form)
-					const week = parseInt(row.week);
-					const playerId = parseInt(row.player_id); // Yahoo player ID
-					const playerName = row.player_name || '';
-					const position = row.position || null; // Actual NFL position (QB, RB, WR, TE, K, DEF)
-					const rosterSlot = row.selected_position || ''; // Fantasy roster slot (BN, W/R/T, etc.)
-					const nflTeam = row.nfl_team || '';
-					const fantasyPoints = parseFloat(row.fantasy_points) || 0;
-					
-					// Get Yahoo team_id and map to PostgreSQL team_id
-					const yahooTeamId = row.team_id || '';
-					const postgresTeamId = teamMappings.get(yahooTeamId) || null;
-
-					// Validation
-					if (!seasonId || !week || !playerId || !playerName) {
-						console.log(`Row ${index}: Missing required data - season:${seasonId}, week:${week}, playerId:${playerId}, name:${playerName}`);
-						skipped++;
-						continue;
-					}
-					
-					// Warn if team mapping is missing but don't skip
-					if (yahooTeamId && !postgresTeamId) {
-						console.warn(`Row ${index}: Yahoo team ${yahooTeamId} has no mapping to PostgreSQL team_id`);
-					}
-
-					// If position is provided, validate it
-					if (position) {
-						const validPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
-						if (!validPositions.includes(position)) {
-							console.log(`Row ${index}: Invalid position '${position}' for ${playerName}, will set to NULL`);
-							// Don't skip, just set position to null - can be fixed in admin UI
-						}
-					}
-
-					// Check if record already exists in staging
-					const existingResult = await query(
-						`SELECT staging_id FROM staging_yahoo_player_stats 
-						 WHERE season_id = $1 AND week = $2 AND player_id = $3`,
-						[seasonId, week, playerId]
-					);
-
-					if (existingResult.rows.length > 0) {
-						skipped++;
-						continue;
-					}
-
-					// Insert into staging table
-					// actual_position: set from CSV 'position' if valid, otherwise NULL (can be fixed in admin UI)
-					// position_source: 'csv_import' if we have position, NULL otherwise
-					// processed: false (will be set to true after ETL migration)
-					// team_id: mapped PostgreSQL team_id (optional, for reference only in stats staging)
-					await query(
-						`INSERT INTO staging_yahoo_player_stats 
-						 (season_id, week, player_id, name, roster_slot, nfl_team, fantasy_points, actual_position, position_source, processed, team_id)
-						 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false, $10)`,
+					await db.query(
+						`INSERT INTO staging_yahoo_player_stats (
+							season_id, week, team_id, player_id, name, 
+							actual_position, roster_slot, nfl_team, fantasy_points, processed
+						) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, false)`,
 						[
-							seasonId, 
-							week, 
-							playerId, 
-							playerName, 
-							rosterSlot, 
-							nflTeam, 
-							fantasyPoints,
-							position && ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) ? position : null,
-							position && ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'].includes(position) ? 'csv_import' : null,
-							postgresTeamId
+							seasonId,
+							week,
+							dbTeamId,
+							yahooPlayerId,
+							playerName,
+							actualPosition,
+							selectedPosition,
+							nflTeam,
+							fantasyPoints
 						]
 					);
 					inserted++;
-
-					// Log progress every 100 rows
-					if ((index + 1) % 100 === 0) {
-						console.log(`Processed ${index + 1}/${rows.length} rows...`);
-					}
-
-				} catch (error) {
-					console.error(`Error processing row ${index}:`, error);
-					errors.push(`Row ${index + 1}: ${error.message}`);
-					if (errors.length < 5) {
-						console.error('Row data:', row);
-					}
+				} catch (err) {
+					console.error(`Error inserting row ${i + 1}:`, err.message);
+					skipped++;
 				}
 			}
 
-			console.log('=== STAGING UPLOAD COMPLETE ===');
-			console.log(`Inserted: ${inserted}, Skipped: ${skipped}, Errors: ${errors.length}`);
-
-			// Get summary stats
-			const summaryResult = await query(
-				`SELECT 
-					COUNT(*) as total_records,
-					COUNT(actual_position) as with_position,
-					COUNT(*) - COUNT(actual_position) as missing_position,
-					COUNT(DISTINCT season_id) as seasons,
-					MIN(season_id) as min_season,
-					MAX(season_id) as max_season
-				FROM staging_yahoo_player_stats
-				WHERE processed = false`
-			);
-
-			const summary = summaryResult.rows[0];
+			console.log('✅ Upload complete!');
+			console.log(`   Inserted: ${inserted}`);
+			console.log(`   Skipped: ${skipped}`);
+			console.log(`   Positions needing fixing: ${positionsNeedingFixing}`);
 
 			return {
 				success: true,
-				message: `Upload complete! Inserted ${inserted} records, skipped ${skipped} duplicates.`,
-				stats: { 
-					inserted, 
-					skipped, 
-					errors: errors.slice(0, 10),
-					summary: {
-						total_records: parseInt(summary.total_records),
-						with_position: parseInt(summary.with_position),
-						missing_position: parseInt(summary.missing_position),
-						seasons: parseInt(summary.seasons),
-						min_season: parseInt(summary.min_season),
-						max_season: parseInt(summary.max_season)
-					}
+				message: `Successfully uploaded ${inserted} records from ${file.name}`,
+				stats: {
+					inserted,
+					skipped,
+					total: records.length,
+					positions_needing_fixing: positionsNeedingFixing
 				}
 			};
 
 		} catch (error) {
-			console.error('Staging upload error:', error);
-			return fail(500, { error: `Upload failed: ${error.message}` });
+			console.error('❌ Upload error:', error);
+			return fail(500, { 
+				success: false, 
+				message: `Error: ${error.message}` 
+			});
 		}
 	}
 };
