@@ -1,4 +1,3 @@
-
 <script>
 	import LinearProgress from '@smui/linear-progress';
 	import MatchupWeeks from './MatchupWeeks.svelte';
@@ -8,7 +7,7 @@
     import { onMount } from 'svelte';
     import { loadPlayers } from '$lib/utils/helper';
 
-	export let queryWeek, leagueTeamManagersData, matchupsData, bracketsData, playersData;
+	export let queryWeek, leagueTeamManagersData, matchupsData, bracketsData, playersData, weeklySummary = null;
 
     let players, matchupWeeks, year, week, regularSeasonLength, brackets, leagueTeamManagers;
 
@@ -35,10 +34,10 @@
     const changeSelection = (s) => {
         if(s == 'regular') {
             queryWeek = 1;
-            goto(`/matchups?week=1`, {noscroll: true});
+            goto(`/current_season/matchups?week=1`, {noscroll: true});
         } else if(selection == 'regular') {
             queryWeek = 99;
-            goto(`/matchups?week=99`, {noscroll: true});
+            goto(`/current_season/matchups?week=99`, {noscroll: true});
         }
         selection = s;
     }
@@ -61,8 +60,6 @@
         margin: 3em 0;
     }
 </style>
-
-
 
 {#if loading}
     <!-- promise is pending -->
@@ -97,7 +94,17 @@
             {/if}
         </div>
         {#if selection == 'regular'}
-            <MatchupWeeks {players} {queryWeek} {matchupWeeks} {regularSeasonLength} {year} {week} bind:selection={selection} {leagueTeamManagers} />
+            <MatchupWeeks 
+                {players} 
+                {queryWeek} 
+                {matchupWeeks} 
+                {regularSeasonLength} 
+                {year} 
+                {week} 
+                bind:selection={selection} 
+                {leagueTeamManagers}
+                {weeklySummary}
+            />
         {/if}
     {:else}
         <div class="message">

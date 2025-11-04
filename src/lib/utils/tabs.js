@@ -101,7 +101,21 @@ import { leagueID } from '$lib/utils/leagueInfo';
 
 export const tabs = [
   { icon: 'home', label: 'Home', dest: '/', key: 'home' },
-  { icon: 'calendar_month', label: 'Current Season', dest: '/matchups', key: 'current' },
+  { icon: 'calendar_month', 
+    label: 'Current Season', 
+    nest: true, 
+    key: 'current', 
+    children: [
+      { icon: 'article', label: 'Standings', dest: '/current_season/standings' },
+      { icon: 'sports', label: 'Weekly Matchups', dest: '/current_season/matchups' },
+      { icon: 'bar_chart', label: 'Rosters', dest: '/current_season/rosters' },
+      { icon: 'history_edu', label: 'Draft Results', dest: '/current_season/drafts' },
+      { icon: 'compare_arrows', label: 'Transactions', dest: '/current_season/transactions' },
+      //{ icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' }
+      //{ icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
+      
+    ]
+  },
   /*{
     icon: 'storage',
     label: 'League',
