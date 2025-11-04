@@ -19,7 +19,7 @@ export async function load() {
     {
       id: '1',
       title: 'Week 9 Standings - Huge Wins and Losses',
-      url: 'https://youtu.be/SD1YeArVqP8', // ← UPDATE THIS
+      url: 'https://youtu.be/P_v3SXbe6yw', // ← UPDATE THIS
       date: '2025-10-13',
       description: 'Week 9 Standings and Highlights'
     },
