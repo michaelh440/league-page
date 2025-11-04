@@ -18,6 +18,14 @@ export async function load() {
   const videos = [
     {
       id: '1',
+      title: 'Week 9 Standings - Huge Wins and Losses',
+      url: 'https://youtu.be/SD1YeArVqP8', // ← UPDATE THIS
+      date: '2025-10-13',
+      description: 'Week 9 Standings and Highlights'
+    },
+    // Add more videos here as you create them
+    {
+      id: '2',
       title: 'Week 8 Standings - Scary Moves!',
       url: 'https://youtu.be/jeh1rnTPk_k', // ← UPDATE THIS WITH YOUR ACTUAL VIDEO ID
       date: '2025-10-27',
@@ -25,20 +33,13 @@ export async function load() {
       featured: true
     },
     {
-      id: '2',
-      title: 'Week 7 Highlights',
+      id: '3',
+      title: 'Week 7 Standings - Midseason Madness',
       url: 'https://youtu.be/ZzznhH1n_wc', // ← UPDATE THIS
       date: '2025-10-20',
       description: 'The season is halfway over.  Check out the midway point standings update.'
     },
-    /*{
-      id: '3',
-      title: 'Week 6 Recap',
-      url: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID', // ← UPDATE THIS
-      date: '2025-10-13',
-      description: 'Midseason review and power rankings update.'
-    }*/
-    // Add more videos here as you create them
+    
   ];
 
   // Sort videos by date, newest first
