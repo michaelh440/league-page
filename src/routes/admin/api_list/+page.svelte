@@ -261,41 +261,39 @@
 	<!-- Page Header -->
 	<div class="page-header">
 		<h1>API List</h1>
-		<p>Below are the list of the API's that can be used to validate the data returned is correct.</p>
+		<p>Below are the list of the API's that can be used to validate the data returned is correct.</p><br>
 	</div>
 
 
     <div class="dashboard-container">
-		<h2>Current API List</h2>
+		<h1>Current API List</h1>
         <p>
-            <a href="justbeatjose.com/api/test_combined?type=seasons">Get available seasons</a> 
-            <a href="justbeatjose.com/api/test_combined?type=standings&year=2024">Get standings for 2024</a>
-            <a href="justbeatjose.com/api/test_combined?type=draft&year=2024">Get draft for 2024</a>
-            <a href="justbeatjose.com/api/test_combined?type=matchups&year=2024&week=5">Get matchups for week 5 of 2024</a>
-            <a href="justbeatjose.com/api/test_combined?type=playoffs&year=2024"># Get playoffs for 2024</a>
+            <a href="../api/test_combined?type=seasons">Get available seasons</a> <br>
+            <a href="../api/test_combined?type=standings&year=2024">Get standings for 2024</a><br>
+            <a href="../api/test_combined?type=draft&year=2024">Get draft for 2024</a><br>
+            <a href="../api/test_combined?type=matchups&year=2024&week=5">Get matchups for week 5 of 2024</a><br>
+            <a href="../api/test_combined?type=playoffs&year=2024"># Get playoffs for 2024</a><br>
         </p>
     </div>
 
     <div class="dashboard-container">
-		<h2>New Roster API List</h2>
+		<h1>New Roster API List</h1>
         <p>
-            <a href="justbeatjose.com/api/test_combined?type=roster&year=2024&week=5&roster_id=3">Get a specific team's roster for week 5 (use roster_id or manager_id)</a>
-            <a href="justbeatjose.com/api/test_combined?type=all_rosters&year=2024&week=5">Get all teams' rosters for week 5</a>
-            <a href="justbeatjose.com/"></a>
-            <a href="justbeatjose.com/"></a>
+            <a href="justbeatjose.com/api/test_combined?type=roster&year=2024&week=5&roster_id=3">Get a specific team's roster for week 5 (use roster_id or manager_id)</a><br>
+            <a href="justbeatjose.com/api/test_combined?type=all_rosters&year=2024&week=5">Get all teams' rosters for week 5</a><br>
         </p>
     </div>
 
 
     <div class="dashboard-container">
-		<h2>New NFL Player Stats API List</h2>
+		<h1>New NFL Player Stats API List</h1>
         <p>
-            <a href="justbeatjose.com/api/test_combined?type=player_stats&year=2024&week=5">Get all player stats for week 5</a>
-            <a href="justbeatjose.com/api/test_combined?type=player_stats&year=2024&week=5&position=QB">Get QB stats for week 5</a>
-            <a href="justbeatjose.com/api/test_combined?type=top_performers&year=2024&week=5">Get top 10 performers for week 5</a>
-            <a href="justbeatjose.com/api/test_combined?type=top_performers&year=2024&week=5">Get top 20 performers</a>
-            <a href="justbeatjose.com/api/test_combined?type=season_stats&year=2024">Get season-long stats for all players</a>
-            <a href="justbeatjose.com/api/test_combined?type=season_stats&year=2024&position=RB">Get season-long stats for RBs only</a>
+            <a href="justbeatjose.com/api/test_combined?type=player_stats&year=2024&week=5">Get all player stats for week 5</a><br>
+            <a href="justbeatjose.com/api/test_combined?type=player_stats&year=2024&week=5&position=QB">Get QB stats for week 5</a><br>
+            <a href="justbeatjose.com/api/test_combined?type=top_performers&year=2024&week=5">Get top 10 performers for week 5</a><br>
+            <a href="justbeatjose.com/api/test_combined?type=top_performers&year=2024&week=5">Get top 20 performers</a><br>
+            <a href="justbeatjose.com/api/test_combined?type=season_stats&year=2024">Get season-long stats for all players</a><br>
+            <a href="justbeatjose.com/api/test_combined?type=season_stats&year=2024&position=RB">Get season-long stats for RBs only</a><br>
         </p>
     </div>
 </div>
