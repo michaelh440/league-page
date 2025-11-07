@@ -265,7 +265,7 @@
 	</div>
 
 
-    <div class="dashboard-container">
+    <div class="page-header">
 		<h1>Current API List</h1>
         <p>
             <a href="../api/test_combined?type=seasons">Get available seasons</a> <br>
@@ -276,24 +276,24 @@
         </p>
     </div>
 
-    <div class="dashboard-container">
+    <div class="page-header">
 		<h1>New Roster API List</h1>
         <p>
-            <a href="justbeatjose.com/api/test_combined?type=roster&year=2024&week=5&roster_id=3">Get a specific team's roster for week 5 (use roster_id or manager_id)</a><br>
-            <a href="justbeatjose.com/api/test_combined?type=all_rosters&year=2024&week=5">Get all teams' rosters for week 5</a><br>
+            <a href="../api/test_combined?type=roster&year=2024&week=5&roster_id=3">Get a specific team's roster for week 5 (use roster_id or manager_id)</a><br>
+            <a href="../api/test_combined?type=all_rosters&year=2024&week=5">Get all teams' rosters for week 5</a><br>
         </p>
     </div>
 
 
-    <div class="dashboard-container">
+    <div class="page-header">
 		<h1>New NFL Player Stats API List</h1>
         <p>
-            <a href="justbeatjose.com/api/test_combined?type=player_stats&year=2024&week=5">Get all player stats for week 5</a><br>
-            <a href="justbeatjose.com/api/test_combined?type=player_stats&year=2024&week=5&position=QB">Get QB stats for week 5</a><br>
-            <a href="justbeatjose.com/api/test_combined?type=top_performers&year=2024&week=5">Get top 10 performers for week 5</a><br>
-            <a href="justbeatjose.com/api/test_combined?type=top_performers&year=2024&week=5">Get top 20 performers</a><br>
-            <a href="justbeatjose.com/api/test_combined?type=season_stats&year=2024">Get season-long stats for all players</a><br>
-            <a href="justbeatjose.com/api/test_combined?type=season_stats&year=2024&position=RB">Get season-long stats for RBs only</a><br>
+            <a href="../api/test_combined?type=player_stats&year=2024&week=5">Get all player stats for week 5</a><br>
+            <a href="../api/test_combined?type=player_stats&year=2024&week=5&position=QB">Get QB stats for week 5</a><br>
+            <a href="../api/test_combined?type=top_performers&year=2024&week=5">Get top 10 performers for week 5</a><br>
+            <a href="../api/test_combined?type=top_performers&year=2024&week=5">Get top 20 performers</a><br>
+            <a href="../api/test_combined?type=season_stats&year=2024">Get season-long stats for all players</a><br>
+            <a href="../api/test_combined?type=season_stats&year=2024&position=RB">Get season-long stats for RBs only</a><br>
         </p>
     </div>
 </div>
