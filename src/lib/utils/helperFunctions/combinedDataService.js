@@ -106,19 +106,14 @@ export async function getCombinedStandings(year = null) {
  * @returns {Promise<Object|null>}
  */
 export async function getCombinedMatchups(year, week) {
-  console.log('getCombinedMatchups called with:', { year, week });
-  
-  const { useDatabase, currentYear } = await getDataSource(year);
-  console.log('getDataSource result:', { useDatabase, currentYear });
+  const { useDatabase } = await getDataSource(year);
   
   if (!useDatabase) {
-    console.log('Returning null - should use Sleeper API');
-    return null;
+    return null; // Let Sleeper API handle it
   }
   
-  console.log('About to run matchups query...');
-  
   try {
+    // matchups table stores manager_id in team1_id and team2_id columns
     const matchupsQuery = await query(`
       SELECT 
         m.matchup_id,
@@ -141,8 +136,6 @@ export async function getCombinedMatchups(year, week) {
       WHERE s.season_year = $1 AND m.week = $2
       ORDER BY m.matchup_id
     `, [year, week]);
-    
-    console.log('Query returned', matchupsQuery.rows.length, 'rows');
     
     return {
       year: year,
