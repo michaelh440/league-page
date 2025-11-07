@@ -2,13 +2,14 @@
 import { query } from '$lib/db';
 
 /**
- * Archive roster and player stats data for a Sleeper season
+ * Archive roster and player stats data for a Sleeper season (one week at a time)
  * @param {string} leagueID - Sleeper league ID
  * @param {number} season - Season year
+ * @param {number} week - Week number to archive
  * @returns {Promise<Object>}
  */
-export async function archiveRostersAndStats(leagueID, season) {
-  console.log(`Starting roster and stats archive for league ${leagueID}, season ${season}`);
+export async function archiveRostersAndStats(leagueID, season, week) {
+  console.log(`Starting roster and stats archive for league ${leagueID}, season ${season}, week ${week}`);
   
   try {
     // Get season_id from database
@@ -23,81 +24,75 @@ export async function archiveRostersAndStats(leagueID, season) {
       throw new Error('Season not found in database');
     }
     
-    const { season_id, reg_season_length } = seasonResult.rows[0];
-    const totalWeeks = reg_season_length + 3; // Regular season + 3 playoff weeks
+    const { season_id } = seasonResult.rows[0];
     
-    // Step 1: Fetch and stage roster data for all weeks
-    console.log('Fetching rosters from Sleeper...');
+    // Step 1: Fetch and stage roster data for this week
+    console.log(`Fetching rosters for week ${week} from Sleeper...`);
     let rostersStaged = 0;
     
-    for (let week = 1; week <= totalWeeks; week++) {
-      const rostersUrl = `https://api.sleeper.app/v1/league/${leagueID}/rosters`;
-      const rostersRes = await fetch(rostersUrl);
-      const rostersData = await rostersRes.json();
+    const rostersUrl = `https://api.sleeper.app/v1/league/${leagueID}/rosters`;
+    const rostersRes = await fetch(rostersUrl);
+    const rostersData = await rostersRes.json();
+    
+    // Also get matchup data to determine starters/bench for this week
+    const matchupsUrl = `https://api.sleeper.app/v1/league/${leagueID}/matchups/${week}`;
+    const matchupsRes = await fetch(matchupsUrl);
+    const matchupsData = await matchupsRes.json();
+    
+    for (const roster of rostersData) {
+      const matchupData = matchupsData.find(m => m.roster_id === roster.roster_id);
       
-      // Also get matchup data to determine starters/bench for this week
-      const matchupsUrl = `https://api.sleeper.app/v1/league/${leagueID}/matchups/${week}`;
-      const matchupsRes = await fetch(matchupsUrl);
-      const matchupsData = await matchupsRes.json();
+      if (!matchupData) continue; // Skip if no matchup data for this week
       
-      for (const roster of rostersData) {
-        const matchupData = matchupsData.find(m => m.roster_id === roster.roster_id);
-        
-        if (!matchupData) continue; // Skip if no matchup data for this week
-        
-        // Insert into staging table
-        await query(`
-          INSERT INTO staging_sleeper_weekly_rosters (
-            sleeper_league_id,
-            roster_id,
-            season_year,
-            week,
-            starters,
-            players,
-            starters_with_positions,
-            bench_with_positions,
-            raw_data
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-          ON CONFLICT (sleeper_league_id, roster_id, season_year, week) 
-          DO UPDATE SET
-            starters = EXCLUDED.starters,
-            players = EXCLUDED.players,
-            starters_with_positions = EXCLUDED.starters_with_positions,
-            bench_with_positions = EXCLUDED.bench_with_positions,
-            raw_data = EXCLUDED.raw_data,
-            processed = false
-        `, [
-          leagueID,
-          roster.roster_id,
-          season,
+      // Insert into staging table
+      await query(`
+        INSERT INTO staging_sleeper_weekly_rosters (
+          sleeper_league_id,
+          roster_id,
+          season_year,
           week,
-          JSON.stringify(matchupData.starters || []),
-          JSON.stringify(roster.players || []),
-          JSON.stringify(matchupData.starters_points || {}),
-          JSON.stringify({}), // We'll calculate bench separately if needed
-          JSON.stringify({ roster, matchup: matchupData })
-        ]);
-        
-        rostersStaged++;
-      }
+          starters,
+          players,
+          starters_with_positions,
+          bench_with_positions,
+          raw_data
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        ON CONFLICT (sleeper_league_id, roster_id, season_year, week) 
+        DO UPDATE SET
+          starters = EXCLUDED.starters,
+          players = EXCLUDED.players,
+          starters_with_positions = EXCLUDED.starters_with_positions,
+          bench_with_positions = EXCLUDED.bench_with_positions,
+          raw_data = EXCLUDED.raw_data,
+          processed = false
+      `, [
+        leagueID,
+        roster.roster_id,
+        season,
+        week,
+        JSON.stringify(matchupData.starters || []),
+        JSON.stringify(roster.players || []),
+        JSON.stringify(matchupData.starters_points || {}),
+        JSON.stringify({}), // We'll calculate bench separately if needed
+        JSON.stringify({ roster, matchup: matchupData })
+      ]);
+      
+      rostersStaged++;
     }
     
     console.log(`Staged ${rostersStaged} roster records`);
     
-    // Step 2: Fetch player stats from Sleeper
-    console.log('Fetching player stats from Sleeper...');
+    // Step 2: Fetch player stats from Sleeper for this week
+    console.log(`Fetching player stats for week ${week} from Sleeper...`);
     let statsStaged = 0;
     
-    for (let week = 1; week <= totalWeeks; week++) {
-      // Sleeper's stats endpoint
-      const statsUrl = `https://api.sleeper.app/v1/stats/nfl/regular/${season}/${week}`;
-      const statsRes = await fetch(statsUrl);
-      
-      if (!statsRes.ok) {
-        console.log(`No stats available for week ${week}`);
-        continue;
-      }
-      
+    // Sleeper's stats endpoint
+    const statsUrl = `https://api.sleeper.app/v1/stats/nfl/regular/${season}/${week}`;
+    const statsRes = await fetch(statsUrl);
+    
+    if (!statsRes.ok) {
+      console.log(`No stats available for week ${week}`);
+    } else {
       const statsData = await statsRes.json();
       
       // Get player info from Sleeper
@@ -155,15 +150,16 @@ export async function archiveRostersAndStats(leagueID, season) {
     
     // Step 3: Process staged rosters into main tables
     console.log('Processing rosters into main tables...');
-    const rostersProcessed = await processRostersFromStaging(season_id, season);
+    const rostersProcessed = await processRostersFromStaging(season_id, season, week);
     
     // Step 4: Process staged stats into main tables
     console.log('Processing player stats into main tables...');
-    const statsProcessed = await processStatsFromStaging(season_id, season);
+    const statsProcessed = await processStatsFromStaging(season_id, season, week);
     
     return {
       success: true,
       season: season,
+      week: week,
       staged: {
         rosters: rostersStaged,
         stats: statsStaged
@@ -183,15 +179,15 @@ export async function archiveRostersAndStats(leagueID, season) {
 /**
  * Process rosters from staging into weekly_roster table
  */
-async function processRostersFromStaging(season_id, season_year) {
+async function processRostersFromStaging(season_id, season_year, week) {
   let processedCount = 0;
   
-  // Get unprocessed roster records
+  // Get unprocessed roster records for this week
   const stagingRecords = await query(`
     SELECT * FROM staging_sleeper_weekly_rosters
-    WHERE season_year = $1 AND processed = false
-    ORDER BY week, roster_id
-  `, [season_year]);
+    WHERE season_year = $1 AND week = $2 AND processed = false
+    ORDER BY roster_id
+  `, [season_year, week]);
   
   // Get roster to team mapping
   const teamMapping = await query(`
@@ -298,15 +294,15 @@ async function processRostersFromStaging(season_id, season_year) {
 /**
  * Process player stats from staging into player_fantasy_stats table
  */
-async function processStatsFromStaging(season_id, season_year) {
+async function processStatsFromStaging(season_id, season_year, week) {
   let processedCount = 0;
   
-  // Get unprocessed stat records
+  // Get unprocessed stat records for this week
   const stagingRecords = await query(`
     SELECT * FROM staging_sleeper_player_stats
-    WHERE season_year = $1 AND processed = false
-    ORDER BY week, sleeper_player_id
-  `, [season_year]);
+    WHERE season_year = $1 AND week = $2 AND processed = false
+    ORDER BY sleeper_player_id
+  `, [season_year, week]);
   
   for (const record of stagingRecords.rows) {
     await query(`
