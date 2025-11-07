@@ -13,7 +13,7 @@ export async function archiveRostersAndStats(leagueID, season) {
   try {
     // Get season_id from database
     const seasonResult = await query(`
-      SELECT s.season_id, l.reg_season_length, l.playoff_teams
+      SELECT s.season_id, l.reg_season_length
       FROM seasons s
       JOIN leagues l ON s.league_id = l.league_id
       WHERE s.season_year = $1 AND l.platform = 'sleeper'
