@@ -208,8 +208,9 @@ async function processRostersFromStaging(season_id, season_year, week) {
       continue;
     }
     
-    const starters = JSON.parse(record.starters);
-    const allPlayers = JSON.parse(record.players);
+    // Data from database is already parsed (JSONB returns objects, not strings)
+    const starters = Array.isArray(record.starters) ? record.starters : JSON.parse(record.starters);
+    const allPlayers = Array.isArray(record.players) ? record.players : JSON.parse(record.players);
     
     // Insert starters
     for (const playerId of starters) {
