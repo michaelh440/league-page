@@ -404,3 +404,283 @@ export async function getCombinedLeagueInfo(year) {
     return null;
   }
 }
+
+/**
+ * Get team roster for a specific week
+ * @param {number} year - Season year
+ * @param {number} week - Week number
+ * @param {string} rosterIdOrManagerId - Platform roster ID or manager ID
+ * @returns {Promise<Object|null>}
+ */
+export async function getCombinedRoster(year, week, rosterIdOrManagerId) {
+  const { useDatabase } = await getDataSource(year);
+  
+  if (!useDatabase) {
+    return null; // Let Sleeper API handle it
+  }
+  
+  try {
+    // Get roster data - joining through manager since team_id in weekly_roster is actually manager_id
+    const rosterQuery = await query(`
+      SELECT 
+        wr.player_id,
+        wr.sleeper_player_id,
+        wr.player_name,
+        wr.position,
+        wr.lineup_slot,
+        wr.is_starter,
+        pfs.total_fantasy_points as points,
+        pfs.nfl_team,
+        t.team_name,
+        m.username
+      FROM weekly_roster wr
+      LEFT JOIN player_fantasy_stats pfs 
+        ON pfs.sleeper_player_id = wr.sleeper_player_id 
+        AND pfs.season_id = wr.season_id 
+        AND pfs.week = wr.week
+      JOIN managers m ON wr.team_id = m.manager_id
+      JOIN teams t ON t.manager_id = m.manager_id AND t.season_id = wr.season_id
+      JOIN seasons s ON wr.season_id = s.season_id
+      WHERE s.season_year = $1 
+        AND wr.week = $2
+        AND (t.platform_team_id = $3 OR m.manager_id::text = $3)
+      ORDER BY 
+        CASE wr.lineup_slot
+          WHEN 'QB' THEN 1
+          WHEN 'RB' THEN 2
+          WHEN 'WR' THEN 3
+          WHEN 'TE' THEN 4
+          WHEN 'FLEX' THEN 5
+          WHEN 'K' THEN 6
+          WHEN 'DEF' THEN 7
+          WHEN 'BN' THEN 8
+          ELSE 9
+        END,
+        wr.is_starter DESC
+    `, [year, week, rosterIdOrManagerId]);
+    
+    return {
+      year: year,
+      week: week,
+      roster: rosterQuery.rows,
+      source: 'database'
+    };
+  } catch (error) {
+    console.error('Error fetching roster:', error);
+    return null;
+  }
+}
+
+/**
+ * Get all rosters for a specific week
+ * @param {number} year - Season year
+ * @param {number} week - Week number
+ * @returns {Promise<Object|null>}
+ */
+export async function getCombinedAllRosters(year, week) {
+  const { useDatabase } = await getDataSource(year);
+  
+  if (!useDatabase) {
+    return null; // Let Sleeper API handle it
+  }
+  
+  try {
+    const rostersQuery = await query(`
+      SELECT 
+        t.platform_team_id as roster_id,
+        t.team_name,
+        m.username,
+        m.logo_url,
+        json_agg(
+          json_build_object(
+            'player_id', wr.player_id,
+            'sleeper_player_id', wr.sleeper_player_id,
+            'player_name', wr.player_name,
+            'position', wr.position,
+            'lineup_slot', wr.lineup_slot,
+            'is_starter', wr.is_starter,
+            'points', pfs.total_fantasy_points,
+            'nfl_team', pfs.nfl_team
+          ) ORDER BY 
+            CASE wr.lineup_slot
+              WHEN 'QB' THEN 1
+              WHEN 'RB' THEN 2
+              WHEN 'WR' THEN 3
+              WHEN 'TE' THEN 4
+              WHEN 'FLEX' THEN 5
+              WHEN 'K' THEN 6
+              WHEN 'DEF' THEN 7
+              WHEN 'BN' THEN 8
+              ELSE 9
+            END
+        ) as players
+      FROM weekly_roster wr
+      LEFT JOIN player_fantasy_stats pfs 
+        ON pfs.sleeper_player_id = wr.sleeper_player_id 
+        AND pfs.season_id = wr.season_id 
+        AND pfs.week = wr.week
+      JOIN managers m ON wr.team_id = m.manager_id
+      JOIN teams t ON t.manager_id = m.manager_id AND t.season_id = wr.season_id
+      JOIN seasons s ON wr.season_id = s.season_id
+      WHERE s.season_year = $1 AND wr.week = $2
+      GROUP BY t.platform_team_id, t.team_name, m.username, m.logo_url
+      ORDER BY t.team_name
+    `, [year, week]);
+    
+    return {
+      year: year,
+      week: week,
+      rosters: rostersQuery.rows,
+      source: 'database'
+    };
+  } catch (error) {
+    console.error('Error fetching all rosters:', error);
+    return null;
+  }
+}
+
+/**
+ * Get player fantasy stats for a specific week
+ * @param {number} year - Season year
+ * @param {number} week - Week number
+ * @param {string} position - Optional position filter (QB, RB, WR, TE, K, DEF)
+ * @returns {Promise<Object|null>}
+ */
+export async function getCombinedPlayerStats(year, week, position = null) {
+  const { useDatabase } = await getDataSource(year);
+  
+  if (!useDatabase) {
+    return null; // Let Sleeper API handle it
+  }
+  
+  try {
+    const whereClause = position 
+      ? `s.season_year = $1 AND pfs.week = $2 AND pfs.position = $3`
+      : `s.season_year = $1 AND pfs.week = $2`;
+    
+    const params = position ? [year, week, position] : [year, week];
+    
+    const statsQuery = await query(`
+      SELECT 
+        pfs.player_id,
+        pfs.sleeper_player_id,
+        pfs.player_name,
+        pfs.position,
+        pfs.nfl_team,
+        pfs.total_fantasy_points,
+        pfs.platform
+      FROM player_fantasy_stats pfs
+      JOIN seasons s ON pfs.season_id = s.season_id
+      WHERE ${whereClause}
+      ORDER BY pfs.total_fantasy_points DESC
+    `, params);
+    
+    return {
+      year: year,
+      week: week,
+      position: position,
+      stats: statsQuery.rows,
+      source: 'database'
+    };
+  } catch (error) {
+    console.error('Error fetching player stats:', error);
+    return null;
+  }
+}
+
+/**
+ * Get top performers for a specific week
+ * @param {number} year - Season year
+ * @param {number} week - Week number
+ * @param {number} limit - Number of players to return (default 10)
+ * @returns {Promise<Object|null>}
+ */
+export async function getCombinedTopPerformers(year, week, limit = 10) {
+  const { useDatabase } = await getDataSource(year);
+  
+  if (!useDatabase) {
+    return null; // Let Sleeper API handle it
+  }
+  
+  try {
+    const performersQuery = await query(`
+      SELECT 
+        pfs.player_name,
+        pfs.position,
+        pfs.nfl_team,
+        pfs.total_fantasy_points,
+        t.team_name,
+        m.username as owner
+      FROM player_fantasy_stats pfs
+      JOIN seasons s ON pfs.season_id = s.season_id
+      LEFT JOIN weekly_roster wr 
+        ON wr.sleeper_player_id = pfs.sleeper_player_id 
+        AND wr.season_id = pfs.season_id 
+        AND wr.week = pfs.week
+      LEFT JOIN managers m ON wr.team_id = m.manager_id
+      LEFT JOIN teams t ON t.manager_id = m.manager_id AND t.season_id = pfs.season_id
+      WHERE s.season_year = $1 AND pfs.week = $2
+      ORDER BY pfs.total_fantasy_points DESC
+      LIMIT $3
+    `, [year, week, limit]);
+    
+    return {
+      year: year,
+      week: week,
+      topPerformers: performersQuery.rows,
+      source: 'database'
+    };
+  } catch (error) {
+    console.error('Error fetching top performers:', error);
+    return null;
+  }
+}
+
+/**
+ * Get season-long player stats
+ * @param {number} year - Season year
+ * @param {string} position - Optional position filter
+ * @returns {Promise<Object|null>}
+ */
+export async function getCombinedSeasonStats(year, position = null) {
+  const { useDatabase } = await getDataSource(year);
+  
+  if (!useDatabase) {
+    return null; // Let Sleeper API handle it
+  }
+  
+  try {
+    const whereClause = position 
+      ? `s.season_year = $1 AND pfs.position = $2`
+      : `s.season_year = $1`;
+    
+    const params = position ? [year, position] : [year];
+    
+    const statsQuery = await query(`
+      SELECT 
+        pfs.player_name,
+        pfs.position,
+        pfs.nfl_team,
+        COUNT(pfs.week) as games_played,
+        SUM(pfs.total_fantasy_points) as total_points,
+        AVG(pfs.total_fantasy_points) as avg_points,
+        MAX(pfs.total_fantasy_points) as best_week,
+        MIN(pfs.total_fantasy_points) as worst_week
+      FROM player_fantasy_stats pfs
+      JOIN seasons s ON pfs.season_id = s.season_id
+      WHERE ${whereClause}
+      GROUP BY pfs.player_name, pfs.position, pfs.nfl_team
+      ORDER BY total_points DESC
+    `, params);
+    
+    return {
+      year: year,
+      position: position,
+      seasonStats: statsQuery.rows,
+      source: 'database'
+    };
+  } catch (error) {
+    console.error('Error fetching season stats:', error);
+    return null;
+  }
+}
