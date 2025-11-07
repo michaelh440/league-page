@@ -31,12 +31,11 @@ export async function getDataSource(requestedYear = null) {
     return { useDatabase: false, currentYear };
   }
   
-  // For historical years, check if we have it in database
+  // For historical years, check if we have it in database (ANY platform)
   const dbCheck = await query(`
     SELECT COUNT(*) as count
     FROM seasons s
-    JOIN leagues l ON s.league_id = l.league_id
-    WHERE s.season_year = $1 AND l.platform = 'sleeper'
+    WHERE s.season_year = $1
   `, [requestedYear]);
   
   const hasData = parseInt(dbCheck.rows[0].count) > 0;
@@ -338,13 +337,12 @@ export async function getAvailableSeasons() {
     const currentLeagueData = await getLeagueDataDirect(leagueID);
     const currentYear = parseInt(currentLeagueData.season);
     
-    // Get archived seasons from database
+    // Get all archived seasons from database (all platforms)
     const archivedQuery = await query(`
-      SELECT DISTINCT season_year
+      SELECT DISTINCT s.season_year, l.platform
       FROM seasons s
       JOIN leagues l ON s.league_id = l.league_id
-      WHERE l.platform = 'sleeper'
-      ORDER BY season_year DESC
+      ORDER BY s.season_year DESC
     `);
     
     const archivedYears = archivedQuery.rows.map(r => r.season_year);
@@ -355,7 +353,8 @@ export async function getAvailableSeasons() {
     return allYears.map(year => ({
       year: year,
       isCurrent: year === currentYear,
-      isArchived: archivedYears.includes(year)
+      isArchived: archivedYears.includes(year),
+      platform: archivedQuery.rows.find(r => r.season_year === year)?.platform || 'sleeper'
     }));
   } catch (error) {
     console.error('Error fetching available seasons:', error);
@@ -386,7 +385,7 @@ export async function getCombinedLeagueInfo(year) {
         l.playoff_teams
       FROM seasons s
       JOIN leagues l ON s.league_id = l.league_id
-      WHERE s.season_year = $1 AND l.platform = 'sleeper'
+      WHERE s.season_year = $1
       LIMIT 1
     `, [year]);
     
