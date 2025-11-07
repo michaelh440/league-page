@@ -113,21 +113,26 @@ export async function getCombinedMatchups(year, week) {
   }
   
   try {
+    // matchups table stores manager_id in team1_id and team2_id columns
     const matchupsQuery = await query(`
       SELECT 
         m.matchup_id,
         m.week,
         t1.platform_team_id as team1_roster_id,
         t1.team_name as team1_name,
+        m1.username as team1_username,
         m.team1_score,
         t2.platform_team_id as team2_roster_id,
         t2.team_name as team2_name,
+        m2.username as team2_username,
         m.team2_score,
         s.season_year
       FROM matchups m
       JOIN seasons s ON m.season_id = s.season_id
-      JOIN teams t1 ON m.team1_id = t1.manager_id AND t1.season_id = m.season_id
-      JOIN teams t2 ON m.team2_id = t2.manager_id AND t2.season_id = m.season_id
+      JOIN managers m1 ON m.team1_id = m1.manager_id
+      JOIN teams t1 ON t1.manager_id = m1.manager_id AND t1.season_id = m.season_id
+      JOIN managers m2 ON m.team2_id = m2.manager_id
+      JOIN teams t2 ON t2.manager_id = m2.manager_id AND t2.season_id = m.season_id
       WHERE s.season_year = $1 AND m.week = $2
       ORDER BY m.matchup_id
     `, [year, week]);
@@ -171,7 +176,7 @@ export async function getCombinedDraft(year) {
       JOIN drafts d ON dp.draft_id = d.draft_id
       JOIN managers m ON dp.manager_id = m.manager_id
       JOIN teams t ON t.manager_id = m.manager_id AND t.season_id = d.season_id
-      WHERE d.season_year = $1 AND d.platform = 'sleeper'
+      WHERE d.season_year = $1
       ORDER BY dp.pick_number
     `, [year]);
     
@@ -293,6 +298,7 @@ export async function getCombinedPlayoffs(year) {
   }
   
   try {
+    // playoffs table stores manager_id in team1_id and team2_id columns
     const playoffsQuery = await query(`
       SELECT 
         p.week,
@@ -419,11 +425,12 @@ export async function getCombinedRoster(year, week, rosterIdOrManagerId) {
   }
   
   try {
-    // Get roster data - joining through manager since team_id in weekly_roster is actually manager_id
+    // weekly_roster.team_id stores manager_id, not team_id from teams table
     const rosterQuery = await query(`
       SELECT 
         wr.player_id,
         wr.sleeper_player_id,
+        wr.yahoo_player_id,
         wr.player_name,
         wr.position,
         wr.lineup_slot,
@@ -434,7 +441,7 @@ export async function getCombinedRoster(year, week, rosterIdOrManagerId) {
         m.username
       FROM weekly_roster wr
       LEFT JOIN player_fantasy_stats pfs 
-        ON pfs.sleeper_player_id = wr.sleeper_player_id 
+        ON (pfs.sleeper_player_id = wr.sleeper_player_id OR pfs.yahoo_player_id = wr.yahoo_player_id)
         AND pfs.season_id = wr.season_id 
         AND pfs.week = wr.week
       JOIN managers m ON wr.team_id = m.manager_id
@@ -484,6 +491,7 @@ export async function getCombinedAllRosters(year, week) {
   }
   
   try {
+    // weekly_roster.team_id stores manager_id, not team_id from teams table
     const rostersQuery = await query(`
       SELECT 
         t.platform_team_id as roster_id,
@@ -494,6 +502,7 @@ export async function getCombinedAllRosters(year, week) {
           json_build_object(
             'player_id', wr.player_id,
             'sleeper_player_id', wr.sleeper_player_id,
+            'yahoo_player_id', wr.yahoo_player_id,
             'player_name', wr.player_name,
             'position', wr.position,
             'lineup_slot', wr.lineup_slot,
@@ -515,7 +524,7 @@ export async function getCombinedAllRosters(year, week) {
         ) as players
       FROM weekly_roster wr
       LEFT JOIN player_fantasy_stats pfs 
-        ON pfs.sleeper_player_id = wr.sleeper_player_id 
+        ON (pfs.sleeper_player_id = wr.sleeper_player_id OR pfs.yahoo_player_id = wr.yahoo_player_id)
         AND pfs.season_id = wr.season_id 
         AND pfs.week = wr.week
       JOIN managers m ON wr.team_id = m.manager_id
@@ -563,6 +572,7 @@ export async function getCombinedPlayerStats(year, week, position = null) {
       SELECT 
         pfs.player_id,
         pfs.sleeper_player_id,
+        pfs.yahoo_player_id,
         pfs.player_name,
         pfs.position,
         pfs.nfl_team,
@@ -613,7 +623,7 @@ export async function getCombinedTopPerformers(year, week, limit = 10) {
       FROM player_fantasy_stats pfs
       JOIN seasons s ON pfs.season_id = s.season_id
       LEFT JOIN weekly_roster wr 
-        ON wr.sleeper_player_id = pfs.sleeper_player_id 
+        ON (wr.sleeper_player_id = pfs.sleeper_player_id OR wr.yahoo_player_id = pfs.yahoo_player_id)
         AND wr.season_id = pfs.season_id 
         AND wr.week = pfs.week
       LEFT JOIN managers m ON wr.team_id = m.manager_id
