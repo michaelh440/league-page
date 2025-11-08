@@ -214,70 +214,94 @@ async function processRostersFromStaging(season_id, season_year, week) {
     
     // Insert starters
     for (const playerId of starters) {
-      await query(`
-        INSERT INTO weekly_roster (
+      // Check if already exists
+      const existing = await query(`
+        SELECT 1 FROM weekly_roster
+        WHERE season_id = $1 AND week = $2 AND team_id = $3 AND sleeper_player_id = $4
+      `, [season_id, record.week, teamInfo.manager_id, playerId]);
+      
+      if (existing.rows.length > 0) {
+        // Update existing
+        await query(`
+          UPDATE weekly_roster
+          SET is_starter = $1, lineup_slot = $2
+          WHERE season_id = $3 AND week = $4 AND team_id = $5 AND sleeper_player_id = $6
+        `, [true, 'FLEX', season_id, record.week, teamInfo.manager_id, playerId]);
+      } else {
+        // Insert new
+        await query(`
+          INSERT INTO weekly_roster (
+            season_id,
+            week,
+            team_id,
+            player_id,
+            sleeper_player_id,
+            player_name,
+            position,
+            lineup_slot,
+            is_starter,
+            platform
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, [
           season_id,
-          week,
-          team_id,
-          player_id,
-          sleeper_player_id,
-          player_name,
-          position,
-          lineup_slot,
-          is_starter,
-          platform
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (season_id, week, team_id, sleeper_player_id)
-        DO UPDATE SET
-          is_starter = EXCLUDED.is_starter,
-          lineup_slot = EXCLUDED.lineup_slot
-      `, [
-        season_id,
-        record.week,
-        teamInfo.manager_id, // weekly_roster.team_id stores manager_id
-        null, // player_id (we'll populate this later if needed)
-        playerId,
-        'Unknown', // We'll update with actual name from stats
-        'FLEX', // Position placeholder
-        'FLEX',
-        true,
-        'sleeper'
-      ]);
+          record.week,
+          teamInfo.manager_id,
+          null,
+          playerId,
+          'Unknown',
+          'FLEX',
+          'FLEX',
+          true,
+          'sleeper'
+        ]);
+      }
       processedCount++;
     }
     
     // Insert bench players
     const benchPlayers = allPlayers.filter(p => !starters.includes(p));
     for (const playerId of benchPlayers) {
-      await query(`
-        INSERT INTO weekly_roster (
+      // Check if already exists
+      const existing = await query(`
+        SELECT 1 FROM weekly_roster
+        WHERE season_id = $1 AND week = $2 AND team_id = $3 AND sleeper_player_id = $4
+      `, [season_id, record.week, teamInfo.manager_id, playerId]);
+      
+      if (existing.rows.length > 0) {
+        // Update existing
+        await query(`
+          UPDATE weekly_roster
+          SET is_starter = $1, lineup_slot = $2
+          WHERE season_id = $3 AND week = $4 AND team_id = $5 AND sleeper_player_id = $6
+        `, [false, 'BN', season_id, record.week, teamInfo.manager_id, playerId]);
+      } else {
+        // Insert new
+        await query(`
+          INSERT INTO weekly_roster (
+            season_id,
+            week,
+            team_id,
+            player_id,
+            sleeper_player_id,
+            player_name,
+            position,
+            lineup_slot,
+            is_starter,
+            platform
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `, [
           season_id,
-          week,
-          team_id,
-          player_id,
-          sleeper_player_id,
-          player_name,
-          position,
-          lineup_slot,
-          is_starter,
-          platform
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (season_id, week, team_id, sleeper_player_id)
-        DO UPDATE SET
-          is_starter = EXCLUDED.is_starter,
-          lineup_slot = EXCLUDED.lineup_slot
-      `, [
-        season_id,
-        record.week,
-        teamInfo.manager_id,
-        null,
-        playerId,
-        'Unknown',
-        'BN',
-        'BN',
-        false,
-        'sleeper'
-      ]);
+          record.week,
+          teamInfo.manager_id,
+          null,
+          playerId,
+          'Unknown',
+          'BN',
+          'BN',
+          false,
+          'sleeper'
+        ]);
+      }
       processedCount++;
     }
     
@@ -306,33 +330,55 @@ async function processStatsFromStaging(season_id, season_year, week) {
   `, [season_year, week]);
   
   for (const record of stagingRecords.rows) {
-    await query(`
-      INSERT INTO player_fantasy_stats (
+    // Check if already exists
+    const existing = await query(`
+      SELECT 1 FROM player_fantasy_stats
+      WHERE season_id = $1 AND week = $2 AND sleeper_player_id = $3
+    `, [season_id, record.week, record.sleeper_player_id]);
+    
+    if (existing.rows.length > 0) {
+      // Update existing
+      await query(`
+        UPDATE player_fantasy_stats
+        SET 
+          player_name = $1,
+          position = $2,
+          nfl_team = $3,
+          total_fantasy_points = $4
+        WHERE season_id = $5 AND week = $6 AND sleeper_player_id = $7
+      `, [
+        record.player_name,
+        record.position,
+        record.team,
+        record.fantasy_points_half_ppr,
         season_id,
-        week,
-        sleeper_player_id,
-        player_name,
-        position,
-        nfl_team,
-        total_fantasy_points,
-        platform
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      ON CONFLICT (season_id, week, sleeper_player_id)
-      DO UPDATE SET
-        player_name = EXCLUDED.player_name,
-        position = EXCLUDED.position,
-        nfl_team = EXCLUDED.nfl_team,
-        total_fantasy_points = EXCLUDED.total_fantasy_points
-    `, [
-      season_id,
-      record.week,
-      record.sleeper_player_id,
-      record.player_name,
-      record.position,
-      record.team,
-      record.fantasy_points_half_ppr,
-      'sleeper'
-    ]);
+        record.week,
+        record.sleeper_player_id
+      ]);
+    } else {
+      // Insert new
+      await query(`
+        INSERT INTO player_fantasy_stats (
+          season_id,
+          week,
+          sleeper_player_id,
+          player_name,
+          position,
+          nfl_team,
+          total_fantasy_points,
+          platform
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      `, [
+        season_id,
+        record.week,
+        record.sleeper_player_id,
+        record.player_name,
+        record.position,
+        record.team,
+        record.fantasy_points_half_ppr,
+        'sleeper'
+      ]);
+    }
     
     processedCount++;
     
