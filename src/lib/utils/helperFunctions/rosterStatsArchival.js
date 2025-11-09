@@ -63,10 +63,22 @@ export async function archiveRostersAndStats(leagueID, season, week) {
       const playerNames = {};
       if (roster.players) {
         roster.players.forEach(playerId => {
-          if (playersData[playerId]) {
-            playerPositions[playerId] = playersData[playerId].position;
-            playerNames[playerId] = playersData[playerId].full_name || 
-                                    `${playersData[playerId].first_name} ${playersData[playerId].last_name}`;
+          const playerInfo = playersData[playerId];
+          
+          if (playerInfo) {
+            // Regular player
+            playerPositions[playerId] = playerInfo.position;
+            playerNames[playerId] = playerInfo.full_name || 
+                                    `${playerInfo.first_name} ${playerInfo.last_name}`;
+          } else if (playerId.length <= 3 && playerId === playerId.toUpperCase()) {
+            // This looks like a defense team abbreviation (MIA, PIT, etc.)
+            playerPositions[playerId] = 'DEF';
+            playerNames[playerId] = playerId; // Use team abbreviation as name for now
+          } else {
+            // Unknown player - log warning but continue
+            console.warn(`Player ${playerId} not found in Sleeper player data`);
+            playerPositions[playerId] = null;
+            playerNames[playerId] = `Unknown (${playerId})`;
           }
         });
       }
@@ -289,6 +301,12 @@ async function processRostersFromStaging(season_id, season_year, week) {
       const playerName = playerNames[playerId] || 'Unknown Player'; // Actual player name
       const lineupSlot = slotAssignments[playerId] || playerPosition || 'FLEX'; // Use assigned slot or fallback
       
+      // Skip if position is null (player not found)
+      if (!playerPosition) {
+        console.warn(`Skipping starter ${playerId} - no position found`);
+        continue;
+      }
+      
       // Check if already exists
       const existing = await query(`
         SELECT 1 FROM weekly_roster
@@ -338,6 +356,12 @@ async function processRostersFromStaging(season_id, season_year, week) {
     for (const playerId of benchPlayers) {
       const playerPosition = playerPositions[playerId]; // Actual NFL position
       const playerName = playerNames[playerId] || 'Unknown Player'; // Actual player name
+      
+      // Skip if position is null (player not found)
+      if (!playerPosition) {
+        console.warn(`Skipping bench player ${playerId} - no position found`);
+        continue;
+      }
       
       // Check if already exists
       const existing = await query(`
