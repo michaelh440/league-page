@@ -26,6 +26,14 @@ export async function archiveRostersAndStats(leagueID, season, week) {
     
     const { season_id } = seasonResult.rows[0];
     
+    // Get league roster positions to know the lineup structure
+    const leagueUrl = `https://api.sleeper.app/v1/league/${leagueID}`;
+    const leagueRes = await fetch(leagueUrl);
+    const leagueData = await leagueRes.json();
+    const rosterPositions = leagueData.roster_positions; // Array like ['QB', 'RB', 'RB', 'WR', 'WR', 'TE', 'FLEX', 'K', 'DEF']
+    
+    console.log('League roster positions:', rosterPositions);
+    
     // Step 1: Fetch and stage roster data for this week
     console.log(`Fetching rosters for week ${week} from Sleeper...`);
     let rostersStaged = 0;
@@ -44,7 +52,22 @@ export async function archiveRostersAndStats(leagueID, season, week) {
       
       if (!matchupData) continue; // Skip if no matchup data for this week
       
-      // Insert into staging table
+      // Get player info for position mapping
+      const playersUrl = 'https://api.sleeper.app/v1/players/nfl';
+      const playersRes = await fetch(playersUrl);
+      const playersData = await playersRes.json();
+      
+      // Create position map from player IDs
+      const playerPositions = {};
+      if (roster.players) {
+        roster.players.forEach(playerId => {
+          if (playersData[playerId]) {
+            playerPositions[playerId] = playersData[playerId].position;
+          }
+        });
+      }
+      
+      // Insert into staging table with roster positions
       await query(`
         INSERT INTO staging_sleeper_weekly_rosters (
           sleeper_league_id,
@@ -72,8 +95,8 @@ export async function archiveRostersAndStats(leagueID, season, week) {
         week,
         JSON.stringify(matchupData.starters || []),
         JSON.stringify(roster.players || []),
-        JSON.stringify(matchupData.starters_points || {}),
-        JSON.stringify({}), // We'll calculate bench separately if needed
+        JSON.stringify(playerPositions), // Player actual positions
+        JSON.stringify(rosterPositions), // League's lineup slot structure
         JSON.stringify({ roster, matchup: matchupData })
       ]);
       
@@ -235,11 +258,30 @@ async function processRostersFromStaging(season_id, season_year, week) {
     // Data from database is already parsed (JSONB returns objects, not strings)
     const starters = Array.isArray(record.starters) ? record.starters : JSON.parse(record.starters);
     const allPlayers = Array.isArray(record.players) ? record.players : JSON.parse(record.players);
+    const playerPositions = record.starters_with_positions || {}; // Player actual positions (QB, RB, etc)
+    const leagueSlots = record.bench_with_positions || []; // League lineup structure from roster_positions
     
     console.log(`  Starters: ${starters.length}, All players: ${allPlayers.length}`);
+    console.log(`  League slots:`, leagueSlots);
+    
+    // Map each starter to its lineup slot based on order
+    const slotAssignments = {};
+    starters.forEach((playerId, index) => {
+      const lineupSlot = leagueSlots[index];
+      // Handle special Sleeper slot names
+      let normalizedSlot = lineupSlot;
+      if (lineupSlot === 'WRRB_FLEX') normalizedSlot = 'FLEX';
+      if (lineupSlot === 'REC_FLEX') normalizedSlot = 'FLEX';
+      if (lineupSlot === 'SUPER_FLEX') normalizedSlot = 'FLEX';
+      
+      slotAssignments[playerId] = normalizedSlot || 'FLEX';
+    });
     
     // Insert starters
     for (const playerId of starters) {
+      const playerPosition = playerPositions[playerId]; // Actual NFL position (QB, RB, WR, etc.)
+      const lineupSlot = slotAssignments[playerId] || playerPosition || 'FLEX'; // Use assigned slot or fallback
+      
       // Check if already exists
       const existing = await query(`
         SELECT 1 FROM weekly_roster
@@ -250,9 +292,9 @@ async function processRostersFromStaging(season_id, season_year, week) {
         // Update existing
         await query(`
           UPDATE weekly_roster
-          SET is_starter = $1, lineup_slot = $2
-          WHERE season_id = $3 AND week = $4 AND team_id = $5 AND sleeper_player_id = $6
-        `, [true, 'FLEX', season_id, record.week, teamInfo.manager_id, playerId]);
+          SET is_starter = $1, lineup_slot = $2, position = $3
+          WHERE season_id = $4 AND week = $5 AND team_id = $6 AND sleeper_player_id = $7
+        `, [true, lineupSlot, playerPosition, season_id, record.week, teamInfo.manager_id, playerId]);
       } else {
         // Insert new
         await query(`
@@ -275,8 +317,8 @@ async function processRostersFromStaging(season_id, season_year, week) {
           null,
           playerId,
           'Unknown',
-          'FLEX',
-          'FLEX',
+          playerPosition, // Actual NFL position
+          lineupSlot, // Fantasy lineup slot (QB, RB, WR, TE, FLEX, K, DEF)
           true,
           'sleeper'
         ]);
@@ -287,6 +329,8 @@ async function processRostersFromStaging(season_id, season_year, week) {
     // Insert bench players
     const benchPlayers = allPlayers.filter(p => !starters.includes(p));
     for (const playerId of benchPlayers) {
+      const playerPosition = playerPositions[playerId]; // Actual NFL position
+      
       // Check if already exists
       const existing = await query(`
         SELECT 1 FROM weekly_roster
@@ -297,9 +341,9 @@ async function processRostersFromStaging(season_id, season_year, week) {
         // Update existing
         await query(`
           UPDATE weekly_roster
-          SET is_starter = $1, lineup_slot = $2
-          WHERE season_id = $3 AND week = $4 AND team_id = $5 AND sleeper_player_id = $6
-        `, [false, 'BN', season_id, record.week, teamInfo.manager_id, playerId]);
+          SET is_starter = $1, lineup_slot = $2, position = $3
+          WHERE season_id = $4 AND week = $5 AND team_id = $6 AND sleeper_player_id = $7
+        `, [false, 'BN', playerPosition, season_id, record.week, teamInfo.manager_id, playerId]);
       } else {
         // Insert new
         await query(`
@@ -322,8 +366,8 @@ async function processRostersFromStaging(season_id, season_year, week) {
           null,
           playerId,
           'Unknown',
-          'BN',
-          'BN',
+          playerPosition, // Actual NFL position
+          'BN', // Fantasy lineup slot - on bench
           false,
           'sleeper'
         ]);
