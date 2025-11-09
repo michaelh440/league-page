@@ -148,6 +148,9 @@ export async function archiveRostersAndStats(leagueID, season, week) {
         // Calculate fantasy points (half PPR)
         const fantasyPoints = calculateFantasyPoints(stats, 'half_ppr');
         
+        // Handle team - Sleeper uses null for free agents
+        const playerTeam = playerInfo.team || 'FA'; // Use 'FA' for free agents instead of null
+        
         await query(`
           INSERT INTO staging_sleeper_player_stats (
             sleeper_player_id,
@@ -175,7 +178,7 @@ export async function archiveRostersAndStats(leagueID, season, week) {
           week,
           playerInfo.full_name || playerInfo.first_name + ' ' + playerInfo.last_name,
           playerInfo.position,
-          playerInfo.team,
+          playerTeam, // Use 'FA' instead of null
           JSON.stringify(stats),
           fantasyPoints,
           JSON.stringify({ playerInfo, stats })
@@ -274,9 +277,22 @@ async function processRostersFromStaging(season_id, season_year, week) {
     // Data from database is already parsed (JSONB returns objects, not strings)
     const starters = Array.isArray(record.starters) ? record.starters : JSON.parse(record.starters);
     const allPlayers = Array.isArray(record.players) ? record.players : JSON.parse(record.players);
-    const playerData = record.starters_with_positions || {}; // Contains positions and names
-    const playerPositions = playerData.positions || {};
-    const playerNames = playerData.names || {};
+    
+    // Handle both old and new staging data formats
+    const playerData = record.starters_with_positions || {};
+    let playerPositions = {};
+    let playerNames = {};
+    
+    if (playerData.positions && playerData.names) {
+      // New format: {positions: {...}, names: {...}}
+      playerPositions = playerData.positions;
+      playerNames = playerData.names;
+    } else {
+      // Old format: just the positions object directly
+      playerPositions = playerData;
+      playerNames = {}; // Will be filled from player stats later
+    }
+    
     const leagueSlots = record.bench_with_positions || []; // League lineup structure from roster_positions
     
     console.log(`  Starters: ${starters.length}, All players: ${allPlayers.length}`);
@@ -432,6 +448,13 @@ async function processStatsFromStaging(season_id, season_year, week) {
   `, [season_year, week]);
   
   for (const record of stagingRecords.rows) {
+    // Skip if missing required data - but only position is truly required
+    // Team can be 'FA' for free agents
+    if (!record.position) {
+      console.error(`ERROR: Player ${record.sleeper_player_id} (${record.player_name}) missing position`);
+      continue;
+    }
+    
     // Check if already exists
     const existing = await query(`
       SELECT 1 FROM player_fantasy_stats
