@@ -182,12 +182,16 @@ export async function archiveRostersAndStats(leagueID, season, week) {
 async function processRostersFromStaging(season_id, season_year, week) {
   let processedCount = 0;
   
+  console.log(`Processing rosters for season_id=${season_id}, year=${season_year}, week=${week}`);
+  
   // Get unprocessed roster records for this week
   const stagingRecords = await query(`
     SELECT * FROM staging_sleeper_weekly_rosters
     WHERE season_year = $1 AND week = $2 AND processed = false
     ORDER BY roster_id
   `, [season_year, week]);
+  
+  console.log(`Found ${stagingRecords.rows.length} unprocessed roster records`);
   
   // Get roster to team mapping
   const teamMapping = await query(`
@@ -196,10 +200,14 @@ async function processRostersFromStaging(season_id, season_year, week) {
     WHERE t.season_id = $1
   `, [season_id]);
   
+  console.log(`Found ${teamMapping.rows.length} teams for mapping`);
+  
   const rosterMap = {};
   for (const team of teamMapping.rows) {
     rosterMap[team.platform_team_id] = { team_id: team.team_id, manager_id: team.manager_id };
   }
+  
+  console.log('Roster map:', rosterMap);
   
   for (const record of stagingRecords.rows) {
     const teamInfo = rosterMap[record.roster_id];
@@ -208,9 +216,13 @@ async function processRostersFromStaging(season_id, season_year, week) {
       continue;
     }
     
+    console.log(`Processing roster_id ${record.roster_id} for team ${teamInfo.manager_id}`);
+    
     // Data from database is already parsed (JSONB returns objects, not strings)
     const starters = Array.isArray(record.starters) ? record.starters : JSON.parse(record.starters);
     const allPlayers = Array.isArray(record.players) ? record.players : JSON.parse(record.players);
+    
+    console.log(`  Starters: ${starters.length}, All players: ${allPlayers.length}`);
     
     // Insert starters
     for (const playerId of starters) {
