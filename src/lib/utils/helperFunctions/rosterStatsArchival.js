@@ -150,11 +150,25 @@ export async function archiveRostersAndStats(leagueID, season, week) {
     
     // Step 3: Process staged rosters into main tables
     console.log('Processing rosters into main tables...');
-    const rostersProcessed = await processRostersFromStaging(season_id, season, week);
+    let rostersProcessed = 0;
+    try {
+      rostersProcessed = await processRostersFromStaging(season_id, season, week);
+      console.log(`Successfully processed ${rostersProcessed} rosters`);
+    } catch (error) {
+      console.error('Error processing rosters:', error);
+      throw error;
+    }
     
     // Step 4: Process staged stats into main tables
     console.log('Processing player stats into main tables...');
-    const statsProcessed = await processStatsFromStaging(season_id, season, week);
+    let statsProcessed = 0;
+    try {
+      statsProcessed = await processStatsFromStaging(season_id, season, week);
+      console.log(`Successfully processed ${statsProcessed} stats`);
+    } catch (error) {
+      console.error('Error processing stats:', error);
+      throw error;
+    }
     
     return {
       success: true,
