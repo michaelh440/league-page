@@ -134,11 +134,6 @@ export async function archiveRostersAndStats(leagueID, season, week) {
     } else {
       const statsData = await statsRes.json();
       
-      // Get player info from Sleeper
-      const playersUrl = 'https://api.sleeper.app/v1/players/nfl';
-      const playersRes = await fetch(playersUrl);
-      const playersData = await playersRes.json();
-      
       // Process each player's stats
       for (const [playerId, stats] of Object.entries(statsData)) {
         const playerInfo = playersData[playerId];
@@ -148,8 +143,8 @@ export async function archiveRostersAndStats(leagueID, season, week) {
         // Calculate fantasy points (half PPR)
         const fantasyPoints = calculateFantasyPoints(stats, 'half_ppr');
         
-        // Handle team - Sleeper uses null for free agents
-        const playerTeam = playerInfo.team || 'FA'; // Use 'FA' for free agents instead of null
+        // Handle team - use 'FA' for free agents instead of null
+        const playerTeam = playerInfo.team || 'FA';
         
         await query(`
           INSERT INTO staging_sleeper_player_stats (
@@ -238,6 +233,9 @@ export async function archiveRostersAndStats(leagueID, season, week) {
 async function processRostersFromStaging(season_id, season_year, week) {
   let processedCount = 0;
   
+  // Valid positions for the CHECK constraint
+  const validPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+  
   console.log(`Processing rosters for season_id=${season_id}, year=${season_year}, week=${week}`);
   
   // Get unprocessed roster records for this week
@@ -323,6 +321,13 @@ async function processRostersFromStaging(season_id, season_year, week) {
         continue;
       }
       
+      // Skip if position is not valid (IDP positions like DB, LB, DL)
+      if (!validPositions.includes(playerPosition)) {
+        console.warn(`Skipping starter ${playerId} (${playerName}) - invalid position: ${playerPosition} (likely IDP)`);
+        // Don't mark as processed - leave for manual review
+        continue;
+      }
+      
       // Check if already exists
       const existing = await query(`
         SELECT 1 FROM weekly_roster
@@ -333,9 +338,9 @@ async function processRostersFromStaging(season_id, season_year, week) {
         // Update existing
         await query(`
           UPDATE weekly_roster
-          SET is_starter = $1, lineup_slot = $2, position = $3
-          WHERE season_id = $4 AND week = $5 AND team_id = $6 AND sleeper_player_id = $7
-        `, [true, lineupSlot, playerPosition, season_id, record.week, teamInfo.manager_id, playerId]);
+          SET is_starter = $1, lineup_slot = $2, position = $3, player_name = $4
+          WHERE season_id = $5 AND week = $6 AND team_id = $7 AND sleeper_player_id = $8
+        `, [true, lineupSlot, playerPosition, playerName, season_id, record.week, teamInfo.manager_id, playerId]);
       } else {
         // Insert new
         await query(`
@@ -379,6 +384,13 @@ async function processRostersFromStaging(season_id, season_year, week) {
         continue;
       }
       
+      // Skip if position is not valid (IDP positions)
+      if (!validPositions.includes(playerPosition)) {
+        console.warn(`Skipping bench player ${playerId} (${playerName}) - invalid position: ${playerPosition} (likely IDP)`);
+        // Don't mark as processed - leave for manual review
+        continue;
+      }
+      
       // Check if already exists
       const existing = await query(`
         SELECT 1 FROM weekly_roster
@@ -389,9 +401,9 @@ async function processRostersFromStaging(season_id, season_year, week) {
         // Update existing
         await query(`
           UPDATE weekly_roster
-          SET is_starter = $1, lineup_slot = $2, position = $3
-          WHERE season_id = $4 AND week = $5 AND team_id = $6 AND sleeper_player_id = $7
-        `, [false, 'BN', playerPosition, season_id, record.week, teamInfo.manager_id, playerId]);
+          SET is_starter = $1, lineup_slot = $2, position = $3, player_name = $4
+          WHERE season_id = $5 AND week = $6 AND team_id = $7 AND sleeper_player_id = $8
+        `, [false, 'BN', playerPosition, playerName, season_id, record.week, teamInfo.manager_id, playerId]);
       } else {
         // Insert new
         await query(`
@@ -439,6 +451,12 @@ async function processRostersFromStaging(season_id, season_year, week) {
  */
 async function processStatsFromStaging(season_id, season_year, week) {
   let processedCount = 0;
+  let skippedCount = 0;
+  
+  // Valid positions for the CHECK constraint
+  const validPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
+  
+  console.log(`Processing player stats for season_id=${season_id}, year=${season_year}, week=${week}`);
   
   // Get unprocessed stat records for this week
   const stagingRecords = await query(`
@@ -447,11 +465,22 @@ async function processStatsFromStaging(season_id, season_year, week) {
     ORDER BY sleeper_player_id
   `, [season_year, week]);
   
+  console.log(`Found ${stagingRecords.rows.length} unprocessed player stat records`);
+  
   for (const record of stagingRecords.rows) {
-    // Skip if missing required data - but only position is truly required
-    // Team can be 'FA' for free agents
+    // Skip if missing position
     if (!record.position) {
-      console.error(`ERROR: Player ${record.sleeper_player_id} (${record.player_name}) missing position`);
+      console.warn(`Skipping player ${record.sleeper_player_id} (${record.player_name}) - no position found`);
+      skippedCount++;
+      // Don't mark as processed - leave for manual review
+      continue;
+    }
+    
+    // Skip if position is not valid (IDP positions like DB, LB, DL)
+    if (!validPositions.includes(record.position)) {
+      console.warn(`Skipping player ${record.sleeper_player_id} (${record.player_name}) - invalid position: ${record.position} (likely IDP)`);
+      skippedCount++;
+      // Don't mark as processed - leave for manual review
       continue;
     }
     
@@ -514,6 +543,8 @@ async function processStatsFromStaging(season_id, season_year, week) {
       WHERE id = $1
     `, [record.id]);
   }
+  
+  console.log(`Processed ${processedCount} player stats, skipped ${skippedCount} invalid positions`);
   
   // Update weekly_roster with player names and positions from stats
   await query(`
