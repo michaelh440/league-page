@@ -11,13 +11,6 @@
     totalProcessed: { rosters: 0, stats: 0 }
   };
 
-  // Update starting week based on archive type
-  $: if (archiveType === 'playoff' && startingWeek < 15) {
-    startingWeek = 15;
-  } else if (archiveType === 'regular' && startingWeek > 14) {
-    startingWeek = 1;
-  }
-
   async function startArchive() {
     if (isArchiving) return;
     
@@ -78,11 +71,6 @@
     
     isArchiving = false;
   }
-
-  // Helper to get week range constraints based on archive type
-  $: weekConstraints = archiveType === 'regular' 
-    ? { min: 1, max: 14 } 
-    : { min: 15, max: 18 };
 </script>
 
 <div class="container">
@@ -122,9 +110,9 @@
       </select>
       <div class="help-text">
         {#if archiveType === 'regular'}
-          Regular season data goes to <code>weekly_roster</code> and <code>player_fantasy_stats</code>
+          Data goes to: <code>weekly_roster</code> and <code>player_fantasy_stats</code>
         {:else}
-          Playoff data goes to <code>playoff_roster</code> and <code>playoff_fantasy_stats</code>
+          Data goes to: <code>playoff_roster</code> and <code>playoff_fantasy_stats</code>
         {/if}
       </div>
     </div>
@@ -135,16 +123,12 @@
         id="startingWeek"
         type="number" 
         bind:value={startingWeek} 
-        min={weekConstraints.min}
-        max={weekConstraints.max}
+        min="1"
+        max="18"
         disabled={isArchiving}
       />
       <div class="help-text">
-        {#if archiveType === 'regular'}
-          Regular season weeks: 1-14
-        {:else}
-          Playoff weeks: 15-18
-        {/if}
+        Week number to start archiving (1-18)
       </div>
     </div>
     
@@ -158,14 +142,39 @@
         max="18"
         disabled={isArchiving}
       />
+      <div class="help-text">
+        Number of consecutive weeks to archive
+      </div>
     </div>
     
-    <div class="preview-box">
-      <strong>Preview:</strong> Will archive 
-      <span class="highlight">{archiveType === 'regular' ? 'Regular Season' : 'Playoff'}</span> 
-      weeks <span class="highlight">{startingWeek}</span> through 
-      <span class="highlight">{startingWeek + totalWeeks - 1}</span>
-      for season <span class="highlight">{season}</span>
+    <div class="preview-box" class:regular={archiveType === 'regular'} class:playoff={archiveType === 'playoff'}>
+      <div class="preview-header">
+        <strong>📋 Archive Preview</strong>
+      </div>
+      <div class="preview-content">
+        <div class="preview-row">
+          <span class="preview-label">Type:</span>
+          <span class="preview-value">{archiveType === 'regular' ? 'Regular Season' : 'Playoff'}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Weeks:</span>
+          <span class="preview-value">{startingWeek} through {startingWeek + totalWeeks - 1}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Season:</span>
+          <span class="preview-value">{season}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-label">Target Tables:</span>
+          <span class="preview-value">
+            {#if archiveType === 'regular'}
+              <code>weekly_roster</code>, <code>player_fantasy_stats</code>
+            {:else}
+              <code>playoff_roster</code>, <code>playoff_fantasy_stats</code>
+            {/if}
+          </span>
+        </div>
+      </div>
     </div>
     
     <button 
@@ -281,18 +290,26 @@
   .input-group label {
     display: block;
     margin-bottom: 0.5rem;
-    font-weight: 500;
-    color: #555;
+    font-weight: 600;
+    color: #333;
+    font-size: 0.95rem;
   }
   
   .input-group input,
   .select-input {
     width: 100%;
     padding: 0.75rem;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    border: 2px solid #ddd;
+    border-radius: 6px;
     font-size: 1rem;
     background: white;
+    transition: border-color 0.2s;
+  }
+  
+  .input-group input:focus,
+  .select-input:focus {
+    outline: none;
+    border-color: #007bff;
   }
   
   .select-input {
@@ -303,7 +320,6 @@
     margin-top: 0.5rem;
     font-size: 0.875rem;
     color: #666;
-    font-style: italic;
   }
   
   .help-text code {
@@ -316,16 +332,68 @@
   
   .preview-box {
     background: white;
-    padding: 1rem;
-    border-radius: 4px;
-    border: 2px solid #007bff;
+    padding: 0;
+    border-radius: 6px;
     margin: 1.5rem 0;
-    font-size: 1rem;
+    overflow: hidden;
+    border: 2px solid #ddd;
   }
   
-  .preview-box .highlight {
-    font-weight: 700;
-    color: #007bff;
+  .preview-box.regular {
+    border-color: #2196f3;
+  }
+  
+  .preview-box.playoff {
+    border-color: #9c27b0;
+  }
+  
+  .preview-header {
+    padding: 0.75rem 1rem;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+  
+  .preview-box.regular .preview-header {
+    background: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  .preview-box.playoff .preview-header {
+    background: #f3e5f5;
+    color: #7b1fa2;
+  }
+  
+  .preview-content {
+    padding: 1rem;
+  }
+  
+  .preview-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  
+  .preview-row:last-child {
+    border-bottom: none;
+  }
+  
+  .preview-label {
+    font-weight: 500;
+    color: #666;
+  }
+  
+  .preview-value {
+    font-weight: 600;
+    color: #333;
+  }
+  
+  .preview-value code {
+    background: #f0f0f0;
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
   }
   
   .start-button {
@@ -333,19 +401,21 @@
     padding: 1rem;
     color: white;
     border: none;
-    border-radius: 4px;
-    font-size: 1rem;
+    border-radius: 6px;
+    font-size: 1.05rem;
     font-weight: 600;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: all 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   }
   
   .start-button.regular {
-    background: #007bff;
+    background: #2196f3;
   }
   
   .start-button.regular:hover:not(:disabled) {
-    background: #0056b3;
+    background: #1976d2;
+    box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
   }
   
   .start-button.playoff {
@@ -354,11 +424,13 @@
   
   .start-button.playoff:hover:not(:disabled) {
     background: #7b1fa2;
+    box-shadow: 0 4px 8px rgba(156, 39, 176, 0.3);
   }
   
   .start-button:disabled {
     background: #ccc;
     cursor: not-allowed;
+    box-shadow: none;
   }
   
   .summary {
@@ -395,9 +467,9 @@
   .stat {
     display: flex;
     justify-content: space-between;
-    padding: 0.5rem;
+    padding: 0.75rem;
     background: white;
-    border-radius: 4px;
+    border-radius: 6px;
   }
   
   .stat .label {
@@ -421,6 +493,11 @@
     margin-top: 2rem;
   }
   
+  .results h2 {
+    color: #333;
+    margin-bottom: 1rem;
+  }
+  
   .result-item {
     background: white;
     border: 2px solid #ddd;
@@ -439,7 +516,7 @@
   }
   
   .result-item h3 {
-    margin: 0 0 0.5rem 0;
+    margin: 0 0 0.75rem 0;
     color: #333;
     display: flex;
     align-items: center;
@@ -448,7 +525,7 @@
   
   .badge {
     font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
+    padding: 0.25rem 0.625rem;
     border-radius: 12px;
     font-weight: 600;
   }
@@ -471,10 +548,14 @@
   .detail {
     display: flex;
     justify-content: space-between;
+    padding: 0.5rem;
+    background: #f9f9f9;
+    border-radius: 4px;
   }
   
   .detail .label {
     color: #666;
+    font-weight: 500;
   }
   
   .detail .value {
@@ -485,6 +566,9 @@
   .error-message {
     color: #d32f2f;
     font-weight: 500;
+    padding: 0.5rem;
+    background: white;
+    border-radius: 4px;
   }
   
   .progress {
