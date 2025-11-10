@@ -1,14 +1,22 @@
 <script>
   let leagueId = '1045478045957693440';
   let season = 2024;
+  let archiveType = 'regular'; // 'regular' or 'playoff'
   let startingWeek = 1;
-  let totalWeeks = 16;
+  let totalWeeks = 14;
   let isArchiving = false;
   let results = [];
   let summary = {
     totalStaged: { rosters: 0, stats: 0 },
     totalProcessed: { rosters: 0, stats: 0 }
   };
+
+  // Update starting week based on archive type
+  $: if (archiveType === 'playoff' && startingWeek < 15) {
+    startingWeek = 15;
+  } else if (archiveType === 'regular' && startingWeek > 14) {
+    startingWeek = 1;
+  }
 
   async function startArchive() {
     if (isArchiving) return;
@@ -21,11 +29,12 @@
     };
 
     const endWeek = startingWeek + totalWeeks - 1;
+    const endpoint = archiveType === 'regular' ? '/api/archive_rosters_stats' : '/api/archive_playoff';
 
     for (let week = startingWeek; week <= endWeek; week++) {
       try {
         const response = await fetch(
-          `/api/archive_rosters_stats?league_id=${leagueId}&season=${season}&week=${week}`
+          `${endpoint}?league_id=${leagueId}&season=${season}&week=${week}`
         );
         const data = await response.json();
         
@@ -69,10 +78,15 @@
     
     isArchiving = false;
   }
+
+  // Helper to get week range constraints based on archive type
+  $: weekConstraints = archiveType === 'regular' 
+    ? { min: 1, max: 14 } 
+    : { min: 15, max: 18 };
 </script>
 
 <div class="container">
-  <h1>Archive Rosters and Stats</h1>
+  <h1>Archive Fantasy Football Data</h1>
   
   <div class="config">
     <div class="input-group">
@@ -96,19 +110,46 @@
     </div>
     
     <div class="input-group">
+      <label for="archiveType">Archive Type:</label>
+      <select 
+        id="archiveType"
+        bind:value={archiveType} 
+        disabled={isArchiving}
+        class="select-input"
+      >
+        <option value="regular">Regular Season</option>
+        <option value="playoff">Playoffs</option>
+      </select>
+      <div class="help-text">
+        {#if archiveType === 'regular'}
+          Regular season data goes to <code>weekly_roster</code> and <code>player_fantasy_stats</code>
+        {:else}
+          Playoff data goes to <code>playoff_roster</code> and <code>playoff_fantasy_stats</code>
+        {/if}
+      </div>
+    </div>
+    
+    <div class="input-group">
       <label for="startingWeek">Starting Week:</label>
       <input 
         id="startingWeek"
         type="number" 
         bind:value={startingWeek} 
-        min="1"
-        max="18"
+        min={weekConstraints.min}
+        max={weekConstraints.max}
         disabled={isArchiving}
       />
+      <div class="help-text">
+        {#if archiveType === 'regular'}
+          Regular season weeks: 1-14
+        {:else}
+          Playoff weeks: 15-18
+        {/if}
+      </div>
     </div>
     
     <div class="input-group">
-      <label for="totalWeeks">Total Weeks:</label>
+      <label for="totalWeeks">Total Weeks to Archive:</label>
       <input 
         id="totalWeeks"
         type="number" 
@@ -119,21 +160,27 @@
       />
     </div>
     
+    <div class="preview-box">
+      <strong>Preview:</strong> Will archive 
+      <span class="highlight">{archiveType === 'regular' ? 'Regular Season' : 'Playoff'}</span> 
+      weeks <span class="highlight">{startingWeek}</span> through 
+      <span class="highlight">{startingWeek + totalWeeks - 1}</span>
+      for season <span class="highlight">{season}</span>
+    </div>
+    
     <button 
       on:click={startArchive} 
       disabled={isArchiving}
       class="start-button"
+      class:regular={archiveType === 'regular'}
+      class:playoff={archiveType === 'playoff'}
     >
-      {isArchiving ? 'Archiving...' : 'Start Archive'}
+      {isArchiving ? 'Archiving...' : `Start ${archiveType === 'regular' ? 'Regular Season' : 'Playoff'} Archive`}
     </button>
-    
-    <p class="info">
-      Will archive weeks {startingWeek} through {startingWeek + totalWeeks - 1}
-    </p>
   </div>
   
   {#if results.length > 0}
-    <div class="summary">
+    <div class="summary" class:regular={archiveType === 'regular'} class:playoff={archiveType === 'playoff'}>
       <h2>Summary</h2>
       <div class="summary-stats">
         <div class="stat">
@@ -163,7 +210,14 @@
       <h2>Results by Week</h2>
       {#each results as result}
         <div class="result-item" class:success={result.success} class:error={!result.success}>
-          <h3>Week {result.week}</h3>
+          <h3>
+            Week {result.week}
+            {#if archiveType === 'playoff'}
+              <span class="badge playoff-badge">Playoff</span>
+            {:else}
+              <span class="badge regular-badge">Regular</span>
+            {/if}
+          </h3>
           {#if result.success}
             <div class="result-details">
               <div class="detail">
@@ -191,14 +245,19 @@
   
   {#if isArchiving}
     <div class="progress">
-      <div class="progress-bar" style="width: {(results.length / totalWeeks) * 100}%"></div>
+      <div 
+        class="progress-bar" 
+        class:regular={archiveType === 'regular'}
+        class:playoff={archiveType === 'playoff'}
+        style="width: {(results.length / totalWeeks) * 100}%"
+      ></div>
     </div>
   {/if}
 </div>
 
 <style>
   .container {
-    max-width: 800px;
+    max-width: 900px;
     margin: 0 auto;
     padding: 2rem;
   }
@@ -216,7 +275,7 @@
   }
   
   .input-group {
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
   }
   
   .input-group label {
@@ -226,29 +285,75 @@
     color: #555;
   }
   
-  .input-group input {
+  .input-group input,
+  .select-input {
     width: 100%;
-    padding: 0.5rem;
+    padding: 0.75rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
+    background: white;
+  }
+  
+  .select-input {
+    cursor: pointer;
+  }
+  
+  .help-text {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: #666;
+    font-style: italic;
+  }
+  
+  .help-text code {
+    background: #e0e0e0;
+    padding: 0.125rem 0.375rem;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+  }
+  
+  .preview-box {
+    background: white;
+    padding: 1rem;
+    border-radius: 4px;
+    border: 2px solid #007bff;
+    margin: 1.5rem 0;
+    font-size: 1rem;
+  }
+  
+  .preview-box .highlight {
+    font-weight: 700;
+    color: #007bff;
   }
   
   .start-button {
     width: 100%;
     padding: 1rem;
-    background: #007bff;
     color: white;
     border: none;
     border-radius: 4px;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    margin-top: 1rem;
+    transition: background 0.3s;
   }
   
-  .start-button:hover:not(:disabled) {
+  .start-button.regular {
+    background: #007bff;
+  }
+  
+  .start-button.regular:hover:not(:disabled) {
     background: #0056b3;
+  }
+  
+  .start-button.playoff {
+    background: #9c27b0;
+  }
+  
+  .start-button.playoff:hover:not(:disabled) {
+    background: #7b1fa2;
   }
   
   .start-button:disabled {
@@ -256,23 +361,30 @@
     cursor: not-allowed;
   }
   
-  .info {
-    margin-top: 1rem;
-    color: #666;
-    font-style: italic;
-    text-align: center;
-  }
-  
   .summary {
-    background: #e8f5e9;
     padding: 1.5rem;
     border-radius: 8px;
     margin-bottom: 2rem;
   }
   
+  .summary.regular {
+    background: #e3f2fd;
+  }
+  
+  .summary.playoff {
+    background: #f3e5f5;
+  }
+  
   .summary h2 {
     margin-top: 0;
-    color: #2e7d32;
+  }
+  
+  .summary.regular h2 {
+    color: #1976d2;
+  }
+  
+  .summary.playoff h2 {
+    color: #7b1fa2;
   }
   
   .summary-stats {
@@ -295,7 +407,14 @@
   
   .stat .value {
     font-weight: 700;
-    color: #2e7d32;
+  }
+  
+  .summary.regular .stat .value {
+    color: #1976d2;
+  }
+  
+  .summary.playoff .stat .value {
+    color: #7b1fa2;
   }
   
   .results {
@@ -322,6 +441,26 @@
   .result-item h3 {
     margin: 0 0 0.5rem 0;
     color: #333;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  
+  .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  
+  .regular-badge {
+    background: #2196f3;
+    color: white;
+  }
+  
+  .playoff-badge {
+    background: #9c27b0;
+    color: white;
   }
   
   .result-details {
@@ -359,7 +498,14 @@
   
   .progress-bar {
     height: 100%;
-    background: linear-gradient(90deg, #4caf50, #81c784);
     transition: width 0.3s ease;
+  }
+  
+  .progress-bar.regular {
+    background: linear-gradient(90deg, #2196f3, #64b5f6);
+  }
+  
+  .progress-bar.playoff {
+    background: linear-gradient(90deg, #9c27b0, #ce93d8);
   }
 </style>
