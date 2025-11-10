@@ -7,8 +7,8 @@
   let isArchiving = false;
   let results = [];
   let summary = {
-    totalStaged: { rosters: 0, stats: 0 },
-    totalProcessed: { rosters: 0, stats: 0 }
+    totalStaged: { teamsOrRosters: 0, stats: 0 },
+    totalProcessed: { playerRecords: 0, stats: 0 }
   };
 
   async function startArchive() {
@@ -17,8 +17,8 @@
     isArchiving = true;
     results = [];
     summary = {
-      totalStaged: { rosters: 0, stats: 0 },
-      totalProcessed: { rosters: 0, stats: 0 }
+      totalStaged: { teamsOrRosters: 0, stats: 0 },
+      totalProcessed: { playerRecords: 0, stats: 0 }
     };
 
     const endWeek = startingWeek + totalWeeks - 1;
@@ -32,18 +32,28 @@
         const data = await response.json();
         
         if (data.success) {
+          // Handle different response formats
+          const staged = {
+            teamsOrRosters: data.staged.rosters || data.staged.teams || 0,
+            stats: data.staged.stats || 0
+          };
+          const processed = {
+            playerRecords: data.processed.rosters || data.processed.playerRecords || 0,
+            stats: data.processed.stats || 0
+          };
+          
           results.push({
             week,
             success: true,
-            staged: data.staged,
-            processed: data.processed
+            staged,
+            processed
           });
           
           // Update summary
-          summary.totalStaged.rosters += data.staged.rosters;
-          summary.totalStaged.stats += data.staged.stats;
-          summary.totalProcessed.rosters += data.processed.rosters;
-          summary.totalProcessed.stats += data.processed.stats;
+          summary.totalStaged.teamsOrRosters += staged.teamsOrRosters;
+          summary.totalStaged.stats += staged.stats;
+          summary.totalProcessed.playerRecords += processed.playerRecords;
+          summary.totalProcessed.stats += processed.stats;
         } else {
           results.push({
             week,
@@ -63,7 +73,7 @@
       results = results;
       summary = summary;
       
-      // Wait 1 second between requests to avoid overwhelming the server
+      // Wait 1 second between requests
       if (week < endWeek) {
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -168,7 +178,7 @@
           <span class="preview-label">Target Tables:</span>
           <span class="preview-value">
             {#if archiveType === 'regular'}
-              <code>playoff_roster</code>, <code>playoff_fantasy_stats</code>
+              <code>weekly_roster</code>, <code>player_fantasy_stats</code>
             {:else}
               <code>playoff_roster</code>, <code>playoff_fantasy_stats</code>
             {/if}
@@ -197,19 +207,19 @@
           <span class="value">{results.filter(r => r.success).length} / {results.length}</span>
         </div>
         <div class="stat">
-          <span class="label">Total Rosters Staged:</span>
-          <span class="value">{summary.totalStaged.rosters}</span>
+          <span class="label">Team Rosters Staged:</span>
+          <span class="value">{summary.totalStaged.teamsOrRosters}</span>
         </div>
         <div class="stat">
-          <span class="label">Total Rosters Processed:</span>
-          <span class="value">{summary.totalProcessed.rosters}</span>
+          <span class="label">Player Records Processed:</span>
+          <span class="value">{summary.totalProcessed.playerRecords}</span>
         </div>
         <div class="stat">
-          <span class="label">Total Stats Staged:</span>
+          <span class="label">Player Stats Staged:</span>
           <span class="value">{summary.totalStaged.stats}</span>
         </div>
         <div class="stat">
-          <span class="label">Total Stats Processed:</span>
+          <span class="label">Player Stats Processed:</span>
           <span class="value">{summary.totalProcessed.stats}</span>
         </div>
       </div>
@@ -230,16 +240,20 @@
           {#if result.success}
             <div class="result-details">
               <div class="detail">
-                <span class="label">Staged:</span>
-                <span class="value">
-                  {result.staged.rosters} rosters, {result.staged.stats} stats
-                </span>
+                <span class="label">Teams Staged:</span>
+                <span class="value">{result.staged.teamsOrRosters}</span>
               </div>
               <div class="detail">
-                <span class="label">Processed:</span>
-                <span class="value">
-                  {result.processed.rosters} rosters, {result.processed.stats} stats
-                </span>
+                <span class="label">Player Records:</span>
+                <span class="value">{result.processed.playerRecords}</span>
+              </div>
+              <div class="detail">
+                <span class="label">Stats Staged:</span>
+                <span class="value">{result.staged.stats}</span>
+              </div>
+              <div class="detail">
+                <span class="label">Stats Processed:</span>
+                <span class="value">{result.processed.stats}</span>
               </div>
             </div>
           {:else}
