@@ -128,7 +128,7 @@ export async function load() {
   try {
     console.log('Attempting to load championship data...');
     
-    champions = (await query(`
+    /*champions = (await query(`
       SELECT 
         hr.season_year,
         hr.manager_id,
@@ -141,11 +141,51 @@ export async function load() {
       JOIN public.managers m ON hr.manager_id = m.manager_id
       WHERE hr.final_rank = 1
       ORDER BY hr.season_year DESC
+    `)).rows;*/
+
+    champions = (await query(`
+    -- Historical champions (pre-2024)
+        SELECT 
+          hr.season_year,
+          hr.manager_id,
+          hr.final_rank,
+          hr.regular_season_rank,
+          m.username,
+          m.real_name,
+          m.logo_url
+        FROM public.historical_rankings hr
+        JOIN public.managers m ON hr.manager_id = m.manager_id
+        WHERE hr.final_rank = 1
+      
+      UNION ALL
+      
+      -- New champions from team_rankings (2024+)
+        SELECT 
+          s.season_year,
+          m.manager_id,
+          tr.final_rank,
+          tr.reg_season_rank as regular_season_rank,
+          m.username,
+          m.real_name,
+          m.logo_url
+        FROM public.team_rankings tr
+        JOIN public.teams t ON tr.team_id = t.team_id
+        JOIN public.seasons s ON tr.season_id = s.season_id
+        JOIN public.managers m ON t.manager_id = m.manager_id
+        WHERE tr.final_rank = 1
+          AND tr.week = (
+              SELECT MAX(tr2.week) 
+              FROM public.team_rankings tr2 
+              WHERE tr2.season_id = tr.season_id 
+              AND tr2.final_rank IS NOT NULL
+          )
+        
+        ORDER BY season_year DESC
     `)).rows;
     
     console.log('Champions loaded successfully:', champions.length, 'records');
 
-    managersByCountRaw = (await query(`
+    /*managersByCountRaw = (await query(`
       SELECT 
         hr.manager_id,
         m.username,
@@ -158,7 +198,47 @@ export async function load() {
       WHERE hr.final_rank = 1
       GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url
       ORDER BY championship_count DESC, MIN(hr.season_year) ASC
-    `)).rows;
+    `)).rows;*/
+
+    managersByCountRaw = (await query(`
+      WITH all_champions AS (
+        -- Historical champions
+        SELECT 
+          hr.manager_id,
+          hr.season_year
+        FROM public.historical_rankings hr
+        WHERE hr.final_rank = 1
+        
+        UNION ALL
+        
+        -- New champions from team_rankings
+        SELECT 
+          m.manager_id,
+          s.season_year
+        FROM public.team_rankings tr
+        JOIN public.teams t ON tr.team_id = t.team_id
+        JOIN public.seasons s ON tr.season_id = s.season_id
+        JOIN public.managers m ON t.manager_id = m.manager_id
+        WHERE tr.final_rank = 1
+          AND tr.week = (
+              SELECT MAX(tr2.week) 
+              FROM public.team_rankings tr2 
+              WHERE tr2.season_id = tr.season_id 
+              AND tr2.final_rank IS NOT NULL
+          )
+      )
+      SELECT 
+        ac.manager_id,
+        m.username,
+        m.real_name,
+        m.logo_url,
+        COUNT(ac.season_year) as championship_count,
+        ARRAY_AGG(ac.season_year ORDER BY ac.season_year DESC) as championship_years
+      FROM all_champions ac
+      JOIN public.managers m ON ac.manager_id = m.manager_id
+      GROUP BY ac.manager_id, m.username, m.real_name, m.logo_url
+      ORDER BY championship_count DESC, MIN(ac.season_year) ASC
+`)).rows;
     
     console.log('Managers by count loaded successfully:', managersByCountRaw.length, 'records');
     
