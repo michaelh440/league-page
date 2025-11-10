@@ -380,8 +380,8 @@
             {#each managersByCount as manager}
               <div 
                 class="champion-card"
-                on:click={() => window.location.href = `/manager/${manager.manager_id}`}
-                on:keypress={(e) => e.key === 'Enter' && (window.location.href = `/manager/${manager.manager_id}`)}
+                on:click={() => window.location.href = `/managers/bio?manager_id=${manager.manager_id}`}
+                on:keypress={(e) => e.key === 'Enter' && (window.location.href = `/managers/bio?manager_id=${manager.manager_id}`)}
                 role="button"
                 tabindex="0"
               >
