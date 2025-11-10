@@ -543,5 +543,5 @@ function calculateFantasyPoints(stats, scoringType = 'half_ppr') {
   
   points += (stats.fum_lost || 0) * -2;
   
-  return Math.round(points * 100) * 100;
+  return Math.round(points * 100) / 100;
 }
