@@ -168,7 +168,7 @@
           <span class="preview-label">Target Tables:</span>
           <span class="preview-value">
             {#if archiveType === 'regular'}
-              <code>weekly_roster</code>, <code>player_fantasy_stats</code>
+              <code>playoff_roster</code>, <code>playoff_fantasy_stats</code>
             {:else}
               <code>playoff_roster</code>, <code>playoff_fantasy_stats</code>
             {/if}
@@ -507,7 +507,7 @@
   }
   
   .result-item.success {
-    border-color: #4caf50;
+    border-color: #ddd;
   }
   
   .result-item.error {

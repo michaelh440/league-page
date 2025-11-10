@@ -26,10 +26,8 @@ export async function archivePlayoffData(leagueID, season, week) {
     
     const { season_id, reg_season_length } = seasonResult.rows[0];
     
-    // Verify this is a playoff week
-    if (week <= reg_season_length) {
-      throw new Error(`Week ${week} is not a playoff week. Regular season length is ${reg_season_length}.`);
-    }
+    // Note: Not validating playoff week anymore since user controls this
+    console.log(`Archiving week ${week} as playoff data (reg_season_length: ${reg_season_length})`);
     
     // Get league roster positions to know the lineup structure
     const leagueUrl = `https://api.sleeper.app/v1/league/${leagueID}`;
@@ -183,7 +181,7 @@ export async function archivePlayoffData(leagueID, season, week) {
     
     console.log(`Staged ${statsStaged} player stat records for playoffs`);
     
-    // Step 3: Process staged rosters into playoff_roster table
+    // Step 3: Process staged rosters into playoff_roster table (ONLY for this specific week)
     console.log('Processing rosters into playoff_roster table...');
     let rostersProcessed = 0;
     try {
@@ -194,7 +192,7 @@ export async function archivePlayoffData(leagueID, season, week) {
       throw error;
     }
     
-    // Step 4: Process staged stats into playoff_fantasy_stats table
+    // Step 4: Process staged stats into playoff_fantasy_stats table (ONLY for this specific week)
     console.log('Processing player stats into playoff_fantasy_stats table...');
     let statsProcessed = 0;
     try {
@@ -226,7 +224,7 @@ export async function archivePlayoffData(leagueID, season, week) {
 }
 
 /**
- * Process rosters from staging into playoff_roster table
+ * Process rosters from staging into playoff_roster table (ONLY for the specified week)
  */
 async function processPlayoffRostersFromStaging(season_id, season_year, week) {
   let processedCount = 0;
@@ -235,13 +233,14 @@ async function processPlayoffRostersFromStaging(season_id, season_year, week) {
   
   console.log(`Processing playoff rosters for season_id=${season_id}, year=${season_year}, week=${week}`);
   
+  // CRITICAL FIX: Only get records for THIS SPECIFIC WEEK
   const stagingRecords = await query(`
     SELECT * FROM staging_sleeper_weekly_rosters
     WHERE season_year = $1 AND week = $2 AND processed = false
     ORDER BY roster_id
   `, [season_year, week]);
   
-  console.log(`Found ${stagingRecords.rows.length} unprocessed playoff roster records`);
+  console.log(`Found ${stagingRecords.rows.length} unprocessed playoff roster records for week ${week}`);
   
   const teamMapping = await query(`
     SELECT t.team_id, t.platform_team_id, t.manager_id
@@ -261,7 +260,7 @@ async function processPlayoffRostersFromStaging(season_id, season_year, week) {
       continue;
     }
     
-    console.log(`Processing playoff roster_id ${record.roster_id} for team ${teamInfo.manager_id}`);
+    console.log(`Processing playoff roster_id ${record.roster_id} for team ${teamInfo.manager_id}, week ${record.week}`);
     
     const starters = Array.isArray(record.starters) ? record.starters : JSON.parse(record.starters);
     const allPlayers = Array.isArray(record.players) ? record.players : JSON.parse(record.players);
@@ -418,7 +417,7 @@ async function processPlayoffRostersFromStaging(season_id, season_year, week) {
 }
 
 /**
- * Process player stats from staging into playoff_fantasy_stats table
+ * Process player stats from staging into playoff_fantasy_stats table (ONLY for the specified week)
  */
 async function processPlayoffStatsFromStaging(season_id, season_year, week) {
   let processedCount = 0;
@@ -428,13 +427,14 @@ async function processPlayoffStatsFromStaging(season_id, season_year, week) {
   
   console.log(`Processing playoff stats for season_id=${season_id}, year=${season_year}, week=${week}`);
   
+  // CRITICAL FIX: Only get records for THIS SPECIFIC WEEK
   const stagingRecords = await query(`
     SELECT * FROM staging_sleeper_player_stats
     WHERE season_year = $1 AND week = $2 AND processed = false
     ORDER BY sleeper_player_id
   `, [season_year, week]);
   
-  console.log(`Found ${stagingRecords.rows.length} unprocessed playoff stat records`);
+  console.log(`Found ${stagingRecords.rows.length} unprocessed playoff stat records for week ${week}`);
   
   for (const record of stagingRecords.rows) {
     if (!record.position) {
@@ -515,10 +515,10 @@ async function processPlayoffStatsFromStaging(season_id, season_year, week) {
       position = pfs.position
     FROM playoff_fantasy_stats pfs
     WHERE pr.season_id = $1
+      AND pr.week = $2
       AND pr.sleeper_player_id = pfs.sleeper_player_id
-      AND pr.week = pfs.week
       AND pr.season_id = pfs.season_id
-  `, [season_id]);
+  `, [season_id, week]);
   
   return processedCount;
 }
