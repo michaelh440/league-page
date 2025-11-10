@@ -1,349 +1,365 @@
 <script>
-  let leagueID = '1045478045957693440';
+  let leagueId = '1045478045957693440';
   let season = 2024;
+  let startingWeek = 1;
   let totalWeeks = 16;
-  let currentWeek = 0;
-  let isRunning = false;
+  let isArchiving = false;
   let results = [];
-  let errors = [];
+  let summary = {
+    totalStaged: { rosters: 0, stats: 0 },
+    totalProcessed: { rosters: 0, stats: 0 }
+  };
 
-  async function archiveWeek(week) {
-    const url = `/api/archive_rosters_stats?league_id=${leagueID}&season=${season}&week=${week}`;
+  async function startArchive() {
+    if (isArchiving) return;
     
-    try {
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (data.success) {
+    isArchiving = true;
+    results = [];
+    summary = {
+      totalStaged: { rosters: 0, stats: 0 },
+      totalProcessed: { rosters: 0, stats: 0 }
+    };
+
+    const endWeek = startingWeek + totalWeeks - 1;
+
+    for (let week = startingWeek; week <= endWeek; week++) {
+      try {
+        const response = await fetch(
+          `/api/archive_rosters_stats?league_id=${leagueId}&season=${season}&week=${week}`
+        );
+        const data = await response.json();
+        
+        if (data.success) {
+          results.push({
+            week,
+            success: true,
+            staged: data.staged,
+            processed: data.processed
+          });
+          
+          // Update summary
+          summary.totalStaged.rosters += data.staged.rosters;
+          summary.totalStaged.stats += data.staged.stats;
+          summary.totalProcessed.rosters += data.processed.rosters;
+          summary.totalProcessed.stats += data.processed.stats;
+        } else {
+          results.push({
+            week,
+            success: false,
+            error: data.error
+          });
+        }
+      } catch (error) {
         results.push({
           week,
-          staged: data.staged,
-          processed: data.processed
-        });
-      } else {
-        errors.push({
-          week,
-          error: data.error
+          success: false,
+          error: error.message
         });
       }
       
-      return data;
-    } catch (error) {
-      errors.push({
-        week,
-        error: error.message
-      });
-      throw error;
-    }
-  }
-
-  async function archiveAllWeeks() {
-    isRunning = true;
-    results = [];
-    errors = [];
-    currentWeek = 0;
-
-    for (let week = 1; week <= totalWeeks; week++) {
-      currentWeek = week;
-      console.log(`Archiving week ${week}...`);
+      // Trigger reactivity
+      results = results;
+      summary = summary;
       
-      try {
-        await archiveWeek(week);
-        // Small delay between requests to avoid overwhelming the API
+      // Wait 1 second between requests to avoid overwhelming the server
+      if (week < endWeek) {
         await new Promise(resolve => setTimeout(resolve, 1000));
-      } catch (error) {
-        console.error(`Error archiving week ${week}:`, error);
-        // Continue with next week even if one fails
       }
     }
-
-    isRunning = false;
-    currentWeek = 0;
-  }
-
-  function getTotalStaged() {
-    return {
-      rosters: results.reduce((sum, r) => sum + (r.staged?.rosters || 0), 0),
-      stats: results.reduce((sum, r) => sum + (r.staged?.stats || 0), 0)
-    };
-  }
-
-  function getTotalProcessed() {
-    return {
-      rosters: results.reduce((sum, r) => sum + (r.processed?.rosters || 0), 0),
-      stats: results.reduce((sum, r) => sum + (r.processed?.stats || 0), 0)
-    };
+    
+    isArchiving = false;
   }
 </script>
 
 <div class="container">
-  <h1>Archive Rosters & Player Stats</h1>
+  <h1>Archive Rosters and Stats</h1>
   
   <div class="config">
-    <div class="field">
-      <label for="leagueID">League ID:</label>
-      <input id="leagueID" type="text" bind:value={leagueID} disabled={isRunning} />
+    <div class="input-group">
+      <label for="leagueId">League ID:</label>
+      <input 
+        id="leagueId"
+        type="text" 
+        bind:value={leagueId} 
+        disabled={isArchiving}
+      />
     </div>
     
-    <div class="field">
+    <div class="input-group">
       <label for="season">Season:</label>
-      <input id="season" type="number" bind:value={season} disabled={isRunning} />
+      <input 
+        id="season"
+        type="number" 
+        bind:value={season} 
+        disabled={isArchiving}
+      />
     </div>
     
-    <div class="field">
-      <label for="weeks">Total Weeks:</label>
-      <input id="weeks" type="number" bind:value={totalWeeks} disabled={isRunning} />
+    <div class="input-group">
+      <label for="startingWeek">Starting Week:</label>
+      <input 
+        id="startingWeek"
+        type="number" 
+        bind:value={startingWeek} 
+        min="1"
+        max="18"
+        disabled={isArchiving}
+      />
     </div>
-  </div>
-
-  <div class="actions">
-    <button on:click={archiveAllWeeks} disabled={isRunning}>
-      {#if isRunning}
-        Archiving Week {currentWeek} of {totalWeeks}...
-      {:else}
-        Start Archive
-      {/if}
+    
+    <div class="input-group">
+      <label for="totalWeeks">Total Weeks:</label>
+      <input 
+        id="totalWeeks"
+        type="number" 
+        bind:value={totalWeeks} 
+        min="1"
+        max="18"
+        disabled={isArchiving}
+      />
+    </div>
+    
+    <button 
+      on:click={startArchive} 
+      disabled={isArchiving}
+      class="start-button"
+    >
+      {isArchiving ? 'Archiving...' : 'Start Archive'}
     </button>
+    
+    <p class="info">
+      Will archive weeks {startingWeek} through {startingWeek + totalWeeks - 1}
+    </p>
   </div>
-
-  {#if isRunning}
-    <div class="progress">
-      <div class="progress-bar" style="width: {(currentWeek / totalWeeks) * 100}%"></div>
-      <span class="progress-text">{currentWeek} / {totalWeeks} weeks</span>
-    </div>
-  {/if}
-
+  
   {#if results.length > 0}
     <div class="summary">
       <h2>Summary</h2>
-      <div class="stats">
-        <div class="stat-box">
-          <h3>Staged</h3>
-          <p>Rosters: {getTotalStaged().rosters}</p>
-          <p>Stats: {getTotalStaged().stats}</p>
+      <div class="summary-stats">
+        <div class="stat">
+          <span class="label">Weeks Processed:</span>
+          <span class="value">{results.filter(r => r.success).length} / {results.length}</span>
         </div>
-        <div class="stat-box">
-          <h3>Processed</h3>
-          <p>Rosters: {getTotalProcessed().rosters}</p>
-          <p>Stats: {getTotalProcessed().stats}</p>
+        <div class="stat">
+          <span class="label">Total Rosters Staged:</span>
+          <span class="value">{summary.totalStaged.rosters}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Total Rosters Processed:</span>
+          <span class="value">{summary.totalProcessed.rosters}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Total Stats Staged:</span>
+          <span class="value">{summary.totalStaged.stats}</span>
+        </div>
+        <div class="stat">
+          <span class="label">Total Stats Processed:</span>
+          <span class="value">{summary.totalProcessed.stats}</span>
         </div>
       </div>
     </div>
-
+    
     <div class="results">
-      <h2>Week Results</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Week</th>
-            <th>Rosters Staged</th>
-            <th>Stats Staged</th>
-            <th>Rosters Processed</th>
-            <th>Stats Processed</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each results as result}
-            <tr>
-              <td>{result.week}</td>
-              <td>{result.staged?.rosters || 0}</td>
-              <td>{result.staged?.stats || 0}</td>
-              <td>{result.processed?.rosters || 0}</td>
-              <td>{result.processed?.stats || 0}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+      <h2>Results by Week</h2>
+      {#each results as result}
+        <div class="result-item" class:success={result.success} class:error={!result.success}>
+          <h3>Week {result.week}</h3>
+          {#if result.success}
+            <div class="result-details">
+              <div class="detail">
+                <span class="label">Staged:</span>
+                <span class="value">
+                  {result.staged.rosters} rosters, {result.staged.stats} stats
+                </span>
+              </div>
+              <div class="detail">
+                <span class="label">Processed:</span>
+                <span class="value">
+                  {result.processed.rosters} rosters, {result.processed.stats} stats
+                </span>
+              </div>
+            </div>
+          {:else}
+            <div class="error-message">
+              Error: {result.error}
+            </div>
+          {/if}
+        </div>
+      {/each}
     </div>
   {/if}
-
-  {#if errors.length > 0}
-    <div class="errors">
-      <h2>Errors</h2>
-      <ul>
-        {#each errors as error}
-          <li>
-            <strong>Week {error.week}:</strong> {error.error}
-          </li>
-        {/each}
-      </ul>
+  
+  {#if isArchiving}
+    <div class="progress">
+      <div class="progress-bar" style="width: {(results.length / totalWeeks) * 100}%"></div>
     </div>
   {/if}
 </div>
 
 <style>
   .container {
-    max-width: 1200px;
+    max-width: 800px;
     margin: 0 auto;
     padding: 2rem;
-    font-family: system-ui, -apple-system, sans-serif;
   }
-
+  
   h1 {
-    font-size: 2rem;
-    margin-bottom: 2rem;
     color: #333;
-  }
-
-  h2 {
-    font-size: 1.5rem;
-    margin: 2rem 0 1rem;
-    color: #444;
-  }
-
-  .config {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 1rem;
     margin-bottom: 2rem;
   }
-
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+  
+  .config {
+    background: #f5f5f5;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
   }
-
-  label {
-    font-weight: 600;
+  
+  .input-group {
+    margin-bottom: 1rem;
+  }
+  
+  .input-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
     color: #555;
   }
-
-  input {
+  
+  .input-group input {
+    width: 100%;
     padding: 0.5rem;
     border: 1px solid #ddd;
     border-radius: 4px;
     font-size: 1rem;
   }
-
-  input:disabled {
-    background: #f5f5f5;
-    cursor: not-allowed;
-  }
-
-  .actions {
-    margin-bottom: 2rem;
-  }
-
-  button {
-    padding: 0.75rem 2rem;
-    font-size: 1rem;
-    font-weight: 600;
+  
+  .start-button {
+    width: 100%;
+    padding: 1rem;
+    background: #007bff;
     color: white;
-    background: #0066cc;
     border: none;
     border-radius: 4px;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
-    transition: background 0.2s;
+    margin-top: 1rem;
   }
-
-  button:hover:not(:disabled) {
-    background: #0052a3;
+  
+  .start-button:hover:not(:disabled) {
+    background: #0056b3;
   }
-
-  button:disabled {
-    background: #999;
+  
+  .start-button:disabled {
+    background: #ccc;
     cursor: not-allowed;
   }
-
-  .progress {
-    position: relative;
-    width: 100%;
-    height: 40px;
-    background: #f0f0f0;
-    border-radius: 4px;
-    overflow: hidden;
-    margin-bottom: 2rem;
+  
+  .info {
+    margin-top: 1rem;
+    color: #666;
+    font-style: italic;
+    text-align: center;
   }
-
-  .progress-bar {
-    height: 100%;
-    background: #0066cc;
-    transition: width 0.3s;
-  }
-
-  .progress-text {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    font-weight: 600;
-    color: #333;
-  }
-
+  
   .summary {
+    background: #e8f5e9;
+    padding: 1.5rem;
+    border-radius: 8px;
     margin-bottom: 2rem;
   }
-
-  .stats {
+  
+  .summary h2 {
+    margin-top: 0;
+    color: #2e7d32;
+  }
+  
+  .summary-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
   }
-
-  .stat-box {
-    padding: 1rem;
-    background: #f8f9fa;
+  
+  .stat {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem;
+    background: white;
     border-radius: 4px;
-    border: 1px solid #e0e0e0;
   }
-
-  .stat-box h3 {
-    margin: 0 0 0.5rem;
-    font-size: 1rem;
+  
+  .stat .label {
+    font-weight: 500;
+    color: #555;
+  }
+  
+  .stat .value {
+    font-weight: 700;
+    color: #2e7d32;
+  }
+  
+  .results {
+    margin-top: 2rem;
+  }
+  
+  .result-item {
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .result-item.success {
+    border-color: #4caf50;
+  }
+  
+  .result-item.error {
+    border-color: #f44336;
+    background: #ffebee;
+  }
+  
+  .result-item h3 {
+    margin: 0 0 0.5rem 0;
+    color: #333;
+  }
+  
+  .result-details {
+    display: grid;
+    gap: 0.5rem;
+  }
+  
+  .detail {
+    display: flex;
+    justify-content: space-between;
+  }
+  
+  .detail .label {
     color: #666;
   }
-
-  .stat-box p {
-    margin: 0.25rem 0;
-    font-size: 1.25rem;
+  
+  .detail .value {
     font-weight: 600;
     color: #333;
   }
-
-  table {
+  
+  .error-message {
+    color: #d32f2f;
+    font-weight: 500;
+  }
+  
+  .progress {
     width: 100%;
-    border-collapse: collapse;
-    background: white;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    height: 30px;
+    background: #e0e0e0;
+    border-radius: 15px;
+    overflow: hidden;
+    margin-top: 1rem;
   }
-
-  th, td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid #e0e0e0;
-  }
-
-  th {
-    background: #f8f9fa;
-    font-weight: 600;
-    color: #555;
-  }
-
-  tbody tr:hover {
-    background: #f8f9fa;
-  }
-
-  .errors {
-    margin-top: 2rem;
-    padding: 1rem;
-    background: #fff3cd;
-    border: 1px solid #ffc107;
-    border-radius: 4px;
-  }
-
-  .errors h2 {
-    margin-top: 0;
-    color: #856404;
-  }
-
-  .errors ul {
-    margin: 0;
-    padding-left: 1.5rem;
-  }
-
-  .errors li {
-    margin: 0.5rem 0;
-    color: #856404;
+  
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #81c784);
+    transition: width 0.3s ease;
   }
 </style>
