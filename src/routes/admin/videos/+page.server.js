@@ -1,11 +1,5 @@
-import pkg from 'pg';
-const { Pool } = pkg;
-import { POSTGRES_URL } from '$env/static/private';
-
-const pool = new Pool({
-	connectionString: POSTGRES_URL,
-	ssl: { rejectUnauthorized: false }
-});
+// src/routes/admin/videos/+page.server.js
+import { query } from '$lib/db';
 
 export const load = async () => {
 	try {
@@ -26,7 +20,7 @@ export const load = async () => {
 			ORDER BY s.season_year DESC, wsv.week DESC
 		`;
 		
-		const videosResult = await pool.query(videosQuery);
+		const videosResult = await query(videosQuery);
 		
 		// Get all seasons for the dropdown
 		const seasonsQuery = `
@@ -35,7 +29,7 @@ export const load = async () => {
 			ORDER BY season_year DESC
 		`;
 		
-		const seasonsResult = await pool.query(seasonsQuery);
+		const seasonsResult = await query(seasonsQuery);
 		
 		return {
 			videos: videosResult.rows,
@@ -63,7 +57,7 @@ export const actions = {
 			
 			// If this video is featured, unfeatured all others
 			if (isFeatured) {
-				await pool.query(`
+				await query(`
 					UPDATE weekly_summary_videos 
 					SET is_featured = false
 				`);
@@ -77,7 +71,7 @@ export const actions = {
 				RETURNING video_id
 			`;
 			
-			const result = await pool.query(insertQuery, [videoUrl, seasonId, week, isFeatured]);
+			const result = await query(insertQuery, [videoUrl, seasonId, week, isFeatured]);
 			
 			return {
 				success: true,
@@ -105,7 +99,7 @@ export const actions = {
 			
 			// If this video is featured, unfeatured all others
 			if (isFeatured) {
-				await pool.query(`
+				await query(`
 					UPDATE weekly_summary_videos 
 					SET is_featured = false
 					WHERE video_id != $1
@@ -119,7 +113,7 @@ export const actions = {
 				WHERE video_id = $5
 			`;
 			
-			await pool.query(updateQuery, [videoUrl, seasonId, week, isFeatured, videoId]);
+			await query(updateQuery, [videoUrl, seasonId, week, isFeatured, videoId]);
 			
 			return {
 				success: true,
@@ -140,7 +134,7 @@ export const actions = {
 			const data = await request.formData();
 			const videoId = data.get('video_id');
 			
-			await pool.query('DELETE FROM weekly_summary_videos WHERE video_id = $1', [videoId]);
+			await query('DELETE FROM weekly_summary_videos WHERE video_id = $1', [videoId]);
 			
 			return {
 				success: true,
@@ -162,10 +156,10 @@ export const actions = {
 			const videoId = data.get('video_id');
 			
 			// Unfeatured all videos
-			await pool.query('UPDATE weekly_summary_videos SET is_featured = false');
+			await query('UPDATE weekly_summary_videos SET is_featured = false');
 			
 			// Feature the selected video
-			await pool.query(
+			await query(
 				'UPDATE weekly_summary_videos SET is_featured = true WHERE video_id = $1',
 				[videoId]
 			);
