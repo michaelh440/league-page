@@ -94,6 +94,7 @@
     border-radius: 12px;
     overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 2px solid #00316b;
   }
 
   .video-header {
@@ -319,11 +320,18 @@
     .bottom-row {
       flex-direction: column;
     }
+    .video-header {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .video-content {
+      padding: 1rem;
+    }
   }
 </style>
 
 <div class="page-container">
-  <!-- League Description -->
+  <!-- League Description (Optional - uncomment if you want it) -->
   <!--
   <div class="card league-description">
     <h2>{leagueName}</h2>
@@ -368,7 +376,7 @@
     </div>
   {/if}
 
-  <!-- Wall of Champions (replaces both champion sections) -->
+  <!-- Wall of Champions -->
   <div class="champions-row">
     {#if champions && managersByCount}
       <div class="wall-of-champions-container">
@@ -380,8 +388,8 @@
             {#each managersByCount as manager}
               <div 
                 class="champion-card"
-                on:click={() => window.location.href = `/manager/${manager.manager_id}`}
-                on:keypress={(e) => e.key === 'Enter' && (window.location.href = `/manager/${manager.manager_id}`)}
+                on:click={() => window.location.href = `/managers/bio?manager_id=${manager.manager_id}`}
+                on:keypress={(e) => e.key === 'Enter' && (window.location.href = `/managers/bio?manager_id=${manager.manager_id}`)}
                 role="button"
                 tabindex="0"
               >
@@ -424,10 +432,6 @@
     {:else}
       <div class="card">
         <p style="text-align: center;">Loading champions...</p>
-        <p style="text-align: center; font-size: 0.8rem;">
-          Champions: {champions ? 'exists' : 'missing'}, 
-          ManagersByCount: {managersByCount ? 'exists' : 'missing'}
-        </p>
         <LinearProgress indeterminate />
       </div>
     {/if}

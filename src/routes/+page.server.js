@@ -194,10 +194,10 @@ export async function load() {
   // For now, here's sample data structure - UPDATE WITH YOUR ACTUAL VIDEO
   const featuredVideo = {
     id: '1',
-    title: 'Week 8 Recap - Thriller Finishes!',
-    url: 'https://youtu.be/jeh1rnTPk_k', // ← UPDATE THIS
-    date: '2025-10-27',
-    description: 'An incredible week of fantasy football!',
+    title: 'Week 10 Recap - Former #1 Back on Top!',
+    url: 'https://youtu.be/ZC9C6Jv1Q9M', // ← UPDATE THIS
+    date: '2025-11-11',
+    description: 'Week 10 Standings and Highlights',
     featured: true
   };
 
