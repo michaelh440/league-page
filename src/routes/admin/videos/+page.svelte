@@ -4,7 +4,7 @@
 	export let data;
 	export let form;
 	
-	let { videos, seasons } = data;
+	let { videos, seasons, featuredVideoId } = data;
 	
 	// Form state
 	let showAddForm = false;
@@ -15,7 +15,6 @@
 	let formVideoUrl = '';
 	let formSeasonId = '';
 	let formWeek = '';
-	let formIsFeatured = false;
 	
 	// Extract YouTube video ID from various URL formats
 	function getYoutubeId(url) {
@@ -38,26 +37,35 @@
 		formVideoUrl = '';
 		formSeasonId = '';
 		formWeek = '';
-		formIsFeatured = false;
 	}
 	
 	// Start editing
 	function startEdit(video) {
 		editingVideo = video.video_id;
 		showAddForm = true;
-		formVideoUrl = video.video_url;
+		formVideoUrl = video.video_url || '';
 		formSeasonId = video.season_id.toString();
 		formWeek = video.week.toString();
-		formIsFeatured = video.is_featured;
 	}
 	
 	// Format date
 	function formatDate(dateString) {
+		if (!dateString) return 'N/A';
 		return new Date(dateString).toLocaleDateString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric'
 		});
+	}
+	
+	// Get status badge color
+	function getStatusColor(status) {
+		switch(status) {
+			case 'completed': return '#4caf50';
+			case 'failed': return '#f44336';
+			case 'processing': return '#ff9800';
+			default: return '#999';
+		}
 	}
 </script>
 
@@ -110,7 +118,7 @@
 						id="video_url"
 						name="video_url" 
 						bind:value={formVideoUrl}
-						placeholder="https://www.youtube.com/watch?v=..."
+						placeholder="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
 						required
 					/>
 					<small>Paste full YouTube URL or video ID</small>
@@ -128,7 +136,7 @@
 							<option value="">Select Season</option>
 							{#each seasons as season}
 								<option value={season.season_id}>
-									{season.season_year} - {season.season_name}
+									{season.season_year} Season ({season.platform})
 								</option>
 							{/each}
 						</select>
@@ -142,23 +150,11 @@
 							name="week" 
 							bind:value={formWeek}
 							min="1"
-							max="17"
-							placeholder="1-17"
+							max="18"
+							placeholder="1-18"
 							required
 						/>
 					</div>
-				</div>
-				
-				<div class="form-group checkbox-group">
-					<label>
-						<input 
-							type="checkbox" 
-							name="is_featured"
-							value="true"
-							bind:checked={formIsFeatured}
-						/>
-						<span>⭐ Set as Featured Video (shows on home page)</span>
-					</label>
 				</div>
 				
 				<div class="form-actions">
@@ -178,16 +174,28 @@
 		{#each videos as video}
 			<div class="video-card" class:featured={video.is_featured}>
 				{#if video.is_featured}
-					<div class="featured-badge">⭐ Featured</div>
+					<div class="featured-badge">⭐ Featured (Most Recent)</div>
 				{/if}
 				
-				<div class="video-thumbnail">
-					<img 
-						src={getYoutubeThumbnail(video.video_url)} 
-						alt={video.title}
-					/>
-					<div class="play-overlay">▶</div>
-				</div>
+				{#if video.video_url}
+					<div class="video-thumbnail">
+						<img 
+							src={getYoutubeThumbnail(video.video_url)} 
+							alt={video.title}
+						/>
+						<div class="play-overlay">▶</div>
+					</div>
+				{:else}
+					<div class="video-thumbnail no-video">
+						<div class="no-video-message">
+							{#if video.generation_status === 'failed'}
+								❌ Failed
+							{:else}
+								⏳ No Video
+							{/if}
+						</div>
+					</div>
+				{/if}
 				
 				<div class="video-info">
 					<h3>{video.title}</h3>
@@ -197,23 +205,26 @@
 						<span>📺 {video.season_year}</span>
 					</div>
 					
-					<div class="video-url">
-						<a href={video.video_url} target="_blank" rel="noopener noreferrer">
-							{video.video_url.substring(0, 50)}...
-						</a>
+					<div class="status-badge" style="background: {getStatusColor(video.generation_status)}">
+						{video.generation_status || 'unknown'}
 					</div>
+					
+					{#if video.video_url}
+						<div class="video-url">
+							<a href={video.video_url} target="_blank" rel="noopener noreferrer">
+								{video.video_url.substring(0, 50)}...
+							</a>
+						</div>
+					{/if}
+					
+					{#if video.video_provider}
+						<div class="provider-info">
+							Provider: {video.video_provider}
+						</div>
+					{/if}
 				</div>
 				
 				<div class="video-actions">
-					{#if !video.is_featured}
-						<form method="POST" action="?/setFeatured" use:enhance>
-							<input type="hidden" name="video_id" value={video.video_id} />
-							<button type="submit" class="btn-icon" title="Set as Featured">
-								⭐
-							</button>
-						</form>
-					{/if}
-					
 					<button 
 						class="btn-icon" 
 						title="Edit"
@@ -428,18 +439,6 @@
 		margin-top: 0.25rem;
 	}
 	
-	.checkbox-group label {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
-	}
-	
-	.checkbox-group input[type="checkbox"] {
-		width: auto;
-		margin: 0;
-	}
-	
 	.form-actions {
 		display: flex;
 		gap: 1rem;
@@ -492,6 +491,22 @@
 		overflow: hidden;
 	}
 	
+	.video-thumbnail.no-video {
+		background: #f5f5f5;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	
+	.no-video-message {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		font-size: 2rem;
+		color: #999;
+	}
+	
 	.video-thumbnail img {
 		position: absolute;
 		top: 0;
@@ -537,6 +552,17 @@
 		flex-wrap: wrap;
 	}
 	
+	.status-badge {
+		display: inline-block;
+		padding: 0.25rem 0.75rem;
+		border-radius: 20px;
+		color: white;
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-transform: uppercase;
+		margin: 0.5rem 0;
+	}
+	
 	.video-url {
 		font-size: 0.75rem;
 		color: #999;
@@ -550,6 +576,12 @@
 	
 	.video-url a:hover {
 		text-decoration: underline;
+	}
+	
+	.provider-info {
+		font-size: 0.75rem;
+		color: #999;
+		margin-top: 0.25rem;
 	}
 	
 	.video-actions {
