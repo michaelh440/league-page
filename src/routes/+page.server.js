@@ -192,14 +192,26 @@ export async function load() {
 
   // TODO: Replace this with actual video data from your database or API
   // For now, here's sample data structure - UPDATE WITH YOUR ACTUAL VIDEO
+  
+  
   const featuredVideo = {
+    id: '1',
+    title: 'Week 10 Recap - Former #1 On Top Again!',
+    url: 'https://youtu.be/ZC9C6Jv1Q9M', // ← UPDATE THIS
+    date: '2025-11-11',
+    description: 'Week 10 Standings and Highlights',
+    featured: true
+  };
+
+  
+  /*const featuredVideo = {
     id: '1',
     title: 'Week 9 Recap - Huge Wims and Losses!',
     url: 'https://youtu.be/P_v3SXbe6yw', // ← UPDATE THIS
     date: '2025-11-04',
     description: 'Week 9 Standings and Highlights',
     featured: true
-  };
+  };*/
 
 
   return {
