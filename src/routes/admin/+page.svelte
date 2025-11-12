@@ -109,8 +109,8 @@
 				<span class="card-number accent">{stats.seasons.active}</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/seasons">Manage Seasons</a>
-				<a href="/admin/seasons/new">Create New Season</a>
+				<a href="/admin/seasons" class="disabled">Manage Seasons</a>
+				<a href="/admin/seasons/new" class="disabled">Create New Season</a>
 			</div>
 		</div>
 
@@ -179,8 +179,8 @@
 				<span class="card-number accent">1</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/leagues">Manage Leagues</a>
-				<a href="/admin/leagues/new">Add New League</a>
+				<a href="/admin/leagues" class="disabled">Manage Leagues</a>
+				<a href="/admin/leagues/new" class="disabled">Add New League</a>
 			</div>
 		</div>
 
@@ -193,7 +193,7 @@
 				<span class="card-number">0</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/summaries">Generate Weekly Summary</a>
+				<a href="/admin/weekly_summary">Generate Weekly Summary</a>
 			</div>
 		</div>
 		
@@ -225,8 +225,8 @@
 				<span class="card-number">{stats.managers.total}</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/managers">View Managers</a>
-				<a href="/admin/managers/new">Add New Managers</a>
+				<a href="/admin/managers" class="disabled">View Managers</a>
+				<a href="/admin/managers/new" class="disabled">Add New Managers</a>
 			</div>
 		</div>
 
@@ -265,8 +265,8 @@
 				<span class="card-number">{stats.teams.total}</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/teams">View Teams</a>
-				<a href="/admin/teams/new">Add New Teams</a>
+				<a href="/admin/teams" class="disabled">View Teams</a>
+				<a href="/admin/teams/new" class="disabled">Add New Teams</a>
 			</div>
 		</div>
 	</div>
@@ -334,7 +334,7 @@
 
 	.card-placeholder {
 		background: transparent;
-		border: 2px dashed #e5e7eb;
+		border: none;
 		box-shadow: none;
 		min-height: 200px;
 		border-left: none;
