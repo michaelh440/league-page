@@ -1,10 +1,11 @@
 <script>
 	import { enhance } from '$app/forms';
+	import { invalidateAll } from '$app/navigation';
 	
 	export let data;
 	export let form;
 	
-	let { videos, seasons, featuredVideoId } = data;
+	let { videos, seasons } = data;
 	
 	// Form state
 	let showAddForm = false;
@@ -15,6 +16,15 @@
 	let formVideoUrl = '';
 	let formSeasonId = '';
 	let formWeek = '';
+	let formTitle = '';
+	let formDescription = '';
+	let formPublishDate = '';
+	let formPlaylist = '';
+	let formIsFeatured = false;
+	
+	// Reactive statement to update videos when data changes
+	$: videos = data.videos;
+	$: seasons = data.seasons;
 	
 	// Extract YouTube video ID from various URL formats
 	function getYoutubeId(url) {
@@ -37,6 +47,11 @@
 		formVideoUrl = '';
 		formSeasonId = '';
 		formWeek = '';
+		formTitle = '';
+		formDescription = '';
+		formPublishDate = '';
+		formPlaylist = '';
+		formIsFeatured = false;
 	}
 	
 	// Start editing
@@ -46,6 +61,11 @@
 		formVideoUrl = video.video_url || '';
 		formSeasonId = video.season_id.toString();
 		formWeek = video.week.toString();
+		formTitle = video.title || '';
+		formDescription = video.description || '';
+		formPublishDate = video.publish_date || '';
+		formPlaylist = video.playlist || '';
+		formIsFeatured = video.is_featured || false;
 	}
 	
 	// Format date
@@ -101,9 +121,12 @@
 				method="POST" 
 				action="?/{editingVideo ? 'update' : 'add'}"
 				use:enhance={() => {
-					return async ({ update }) => {
+					return async ({ result, update }) => {
 						await update();
-						resetForm();
+						if (result.type === 'success') {
+							resetForm();
+							await invalidateAll(); // This forces a refresh of the data
+						}
 					};
 				}}
 			>
@@ -122,6 +145,29 @@
 						required
 					/>
 					<small>Paste full YouTube URL or video ID</small>
+				</div>
+				
+				<div class="form-group">
+					<label for="title">Video Title</label>
+					<input 
+						type="text" 
+						id="title"
+						name="title" 
+						bind:value={formTitle}
+						placeholder="Week 9 - 2024 Season Highlights"
+					/>
+					<small>Leave blank to auto-generate from week/season</small>
+				</div>
+				
+				<div class="form-group">
+					<label for="description">Description</label>
+					<textarea 
+						id="description"
+						name="description" 
+						bind:value={formDescription}
+						placeholder="A recap of this week's matchups and highlights..."
+						rows="3"
+					></textarea>
 				</div>
 				
 				<div class="form-row">
@@ -157,6 +203,40 @@
 					</div>
 				</div>
 				
+				<div class="form-row">
+					<div class="form-group">
+						<label for="publish_date">Publish Date</label>
+						<input 
+							type="date" 
+							id="publish_date"
+							name="publish_date" 
+							bind:value={formPublishDate}
+						/>
+					</div>
+					
+					<div class="form-group">
+						<label for="playlist">Playlist</label>
+						<input 
+							type="text" 
+							id="playlist"
+							name="playlist" 
+							bind:value={formPlaylist}
+							placeholder="2024 Season Recaps"
+						/>
+					</div>
+				</div>
+				
+				<div class="form-group checkbox-group">
+					<label>
+						<input 
+							type="checkbox" 
+							name="is_featured"
+							bind:checked={formIsFeatured}
+						/>
+						<span>⭐ Set as Featured Video (shows on home page)</span>
+					</label>
+				</div>
+				
 				<div class="form-actions">
 					<button type="submit" class="btn-primary">
 						{editingVideo ? 'Update Video' : 'Add Video'}
@@ -171,17 +251,17 @@
 	
 	<!-- Video List -->
 	<div class="videos-grid">
-		{#each videos as video}
+		{#each videos as video (video.video_id)}
 			<div class="video-card" class:featured={video.is_featured}>
 				{#if video.is_featured}
-					<div class="featured-badge">⭐ Featured (Most Recent)</div>
+					<div class="featured-badge">⭐ Featured</div>
 				{/if}
 				
 				{#if video.video_url}
 					<div class="video-thumbnail">
 						<img 
 							src={getYoutubeThumbnail(video.video_url)} 
-							alt={video.title}
+							alt={video.title || `Week ${video.week} Video`}
 						/>
 						<div class="play-overlay">▶</div>
 					</div>
@@ -198,12 +278,23 @@
 				{/if}
 				
 				<div class="video-info">
-					<h3>{video.title}</h3>
+					<h3>{video.title || `Week ${video.week} - ${video.season_year} Season`}</h3>
+					
+					{#if video.description}
+						<p class="video-description">{video.description}</p>
+					{/if}
+					
 					<div class="video-meta">
-						<span>📅 {formatDate(video.created_at)}</span>
+						<span>📅 {formatDate(video.publish_date || video.created_at)}</span>
 						<span>🎬 Week {video.week}</span>
 						<span>📺 {video.season_year}</span>
 					</div>
+					
+					{#if video.playlist}
+						<div class="playlist-badge">
+							📂 {video.playlist}
+						</div>
+					{/if}
 					
 					<div class="status-badge" style="background: {getStatusColor(video.generation_status)}">
 						{video.generation_status || 'unknown'}
@@ -216,15 +307,23 @@
 							</a>
 						</div>
 					{/if}
-					
-					{#if video.video_provider}
-						<div class="provider-info">
-							Provider: {video.video_provider}
-						</div>
-					{/if}
 				</div>
 				
 				<div class="video-actions">
+					{#if !video.is_featured && video.video_url}
+						<form method="POST" action="?/setFeatured" use:enhance={() => {
+							return async ({ update }) => {
+								await update();
+								await invalidateAll();
+							};
+						}}>
+							<input type="hidden" name="video_id" value={video.video_id} />
+							<button type="submit" class="btn-icon" title="Set as Featured">
+								⭐
+							</button>
+						</form>
+					{/if}
+					
 					<button 
 						class="btn-icon" 
 						title="Edit"
@@ -245,7 +344,13 @@
 				{#if deleteConfirm === video.video_id}
 					<div class="delete-confirm">
 						<p>Delete this video?</p>
-						<form method="POST" action="?/delete" use:enhance>
+						<form method="POST" action="?/delete" use:enhance={() => {
+							return async ({ update }) => {
+								await update();
+								await invalidateAll();
+								deleteConfirm = null;
+							};
+						}}>
 							<input type="hidden" name="video_id" value={video.video_id} />
 							<button type="submit" class="btn-danger-confirm">
 								Yes, Delete
@@ -404,7 +509,7 @@
 	
 	.form-row {
 		display: grid;
-		grid-template-columns: 2fr 1fr;
+		grid-template-columns: 1fr 1fr;
 		gap: 1rem;
 	}
 	
@@ -417,16 +522,24 @@
 	
 	input[type="text"],
 	input[type="number"],
-	select {
+	input[type="date"],
+	select,
+	textarea {
 		width: 100%;
 		padding: 0.75rem;
 		border: 1px solid #ddd;
 		border-radius: 6px;
 		font-size: 1rem;
+		font-family: inherit;
+	}
+	
+	textarea {
+		resize: vertical;
 	}
 	
 	input:focus,
-	select:focus {
+	select:focus,
+	textarea:focus {
 		outline: none;
 		border-color: #00316b;
 		box-shadow: 0 0 0 3px rgba(0, 49, 107, 0.1);
@@ -437,6 +550,18 @@
 		color: #666;
 		font-size: 0.875rem;
 		margin-top: 0.25rem;
+	}
+	
+	.checkbox-group label {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+	}
+	
+	.checkbox-group input[type="checkbox"] {
+		width: auto;
+		margin: 0;
 	}
 	
 	.form-actions {
@@ -543,6 +668,13 @@
 		font-size: 1.1rem;
 	}
 	
+	.video-description {
+		font-size: 0.875rem;
+		color: #666;
+		margin: 0.5rem 0;
+		line-height: 1.4;
+	}
+	
 	.video-meta {
 		display: flex;
 		gap: 1rem;
@@ -550,6 +682,17 @@
 		color: #666;
 		margin-bottom: 0.5rem;
 		flex-wrap: wrap;
+	}
+	
+	.playlist-badge {
+		display: inline-block;
+		padding: 0.25rem 0.75rem;
+		border-radius: 20px;
+		background: #e3f2fd;
+		color: #1976d2;
+		font-size: 0.75rem;
+		font-weight: 600;
+		margin: 0.5rem 0;
 	}
 	
 	.status-badge {
@@ -576,12 +719,6 @@
 	
 	.video-url a:hover {
 		text-decoration: underline;
-	}
-	
-	.provider-info {
-		font-size: 0.75rem;
-		color: #999;
-		margin-top: 0.25rem;
 	}
 	
 	.video-actions {

@@ -1,5 +1,6 @@
 // src/routes/admin/videos/+page.server.js
 import { query } from '$lib/db';
+import { fail } from '@sveltejs/kit';
 
 export const load = async () => {
 	try {
@@ -9,6 +10,11 @@ export const load = async () => {
 				wsv.video_id,
 				wsv.video_url,
 				wsv.week,
+				wsv.title,
+				wsv.description,
+				wsv.publish_date,
+				wsv.playlist,
+				wsv.is_featured,
 				wsv.generation_status,
 				wsv.video_provider,
 				wsv.provider_video_id,
@@ -16,8 +22,7 @@ export const load = async () => {
 				wsv.created_at,
 				s.season_id,
 				s.season_year,
-				s.platform,
-				CONCAT('Week ', wsv.week, ' - ', s.season_year, ' Season') as title
+				s.platform
 			FROM weekly_summary_videos wsv
 			JOIN seasons s ON wsv.season_id = s.season_id
 			ORDER BY s.season_year DESC, wsv.week DESC
@@ -35,35 +40,15 @@ export const load = async () => {
 		
 		const seasonsResult = await query(seasonsQuery);
 		
-		// Get the current featured video (most recent completed one)
-		const featuredQuery = `
-			SELECT video_id
-			FROM weekly_summary_videos
-			WHERE video_url IS NOT NULL 
-			  AND generation_status = 'completed'
-			ORDER BY created_at DESC
-			LIMIT 1
-		`;
-		const featuredResult = await query(featuredQuery);
-		const featuredVideoId = featuredResult.rows.length > 0 ? featuredResult.rows[0].video_id : null;
-		
-		// Add featured flag to videos
-		const videosWithFeatured = videosResult.rows.map(video => ({
-			...video,
-			is_featured: video.video_id === featuredVideoId
-		}));
-		
 		return {
-			videos: videosWithFeatured,
-			seasons: seasonsResult.rows,
-			featuredVideoId
+			videos: videosResult.rows,
+			seasons: seasonsResult.rows
 		};
 	} catch (error) {
 		console.error('Error loading admin videos:', error);
 		return {
 			videos: [],
 			seasons: [],
-			featuredVideoId: null,
 			error: error.message
 		};
 	}
@@ -77,20 +62,33 @@ export const actions = {
 			const videoUrl = data.get('video_url');
 			const seasonId = data.get('season_id');
 			const week = data.get('week');
+			const title = data.get('title');
+			const description = data.get('description');
+			const publishDate = data.get('publish_date');
+			const playlist = data.get('playlist');
+			const isFeatured = data.get('is_featured') === 'on';
 			
 			// Extract YouTube ID from URL
 			const youtubeId = extractYoutubeId(videoUrl);
 			
+			// If this video is featured, unfeatured all others
+			if (isFeatured) {
+				await query('UPDATE weekly_summary_videos SET is_featured = false');
+			}
+			
 			// Insert new video
 			const insertQuery = `
 				INSERT INTO weekly_summary_videos 
-				(video_url, season_id, week, video_provider, generation_status, 
-				 provider_video_id, created_at)
-				VALUES ($1, $2, $3, 'youtube', 'completed', $4, NOW())
+				(video_url, season_id, week, title, description, publish_date, playlist,
+				 is_featured, video_provider, generation_status, provider_video_id, created_at)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'youtube', 'completed', $9, NOW())
 				RETURNING video_id
 			`;
 			
-			const result = await query(insertQuery, [videoUrl, seasonId, week, youtubeId]);
+			const result = await query(insertQuery, [
+				videoUrl, seasonId, week, title, description, publishDate, playlist,
+				isFeatured, youtubeId
+			]);
 			
 			return {
 				success: true,
@@ -99,10 +97,10 @@ export const actions = {
 			};
 		} catch (error) {
 			console.error('Error adding video:', error);
-			return {
+			return fail(500, {
 				success: false,
 				error: error.message
-			};
+			});
 		}
 	},
 	
@@ -114,9 +112,22 @@ export const actions = {
 			const videoUrl = data.get('video_url');
 			const seasonId = data.get('season_id');
 			const week = data.get('week');
+			const title = data.get('title');
+			const description = data.get('description');
+			const publishDate = data.get('publish_date');
+			const playlist = data.get('playlist');
+			const isFeatured = data.get('is_featured') === 'on';
 			
 			// Extract YouTube ID from URL
 			const youtubeId = extractYoutubeId(videoUrl);
+			
+			// If this video is featured, unfeatured all others
+			if (isFeatured) {
+				await query(
+					'UPDATE weekly_summary_videos SET is_featured = false WHERE video_id != $1',
+					[videoId]
+				);
+			}
 			
 			// Update video
 			const updateQuery = `
@@ -124,13 +135,21 @@ export const actions = {
 				SET video_url = $1, 
 				    season_id = $2, 
 				    week = $3,
-				    provider_video_id = $4,
+				    title = $4,
+				    description = $5,
+				    publish_date = $6,
+				    playlist = $7,
+				    is_featured = $8,
+				    provider_video_id = $9,
 				    video_provider = 'youtube',
 				    generation_status = 'completed'
-				WHERE video_id = $5
+				WHERE video_id = $10
 			`;
 			
-			await query(updateQuery, [videoUrl, seasonId, week, youtubeId, videoId]);
+			await query(updateQuery, [
+				videoUrl, seasonId, week, title, description, publishDate, playlist,
+				isFeatured, youtubeId, videoId
+			]);
 			
 			return {
 				success: true,
@@ -138,10 +157,10 @@ export const actions = {
 			};
 		} catch (error) {
 			console.error('Error updating video:', error);
-			return {
+			return fail(500, {
 				success: false,
 				error: error.message
-			};
+			});
 		}
 	},
 	
@@ -159,34 +178,38 @@ export const actions = {
 			};
 		} catch (error) {
 			console.error('Error deleting video:', error);
-			return {
+			return fail(500, {
 				success: false,
 				error: error.message
-			};
+			});
 		}
 	},
 	
-	// Set featured video (we'll track this in a separate way since there's no column)
-	// For now, the "featured" video is just the most recent completed one
+	// Set featured video
 	setFeatured: async ({ request }) => {
 		try {
-			// Since there's no is_featured column, we could:
-			// 1. Add the column to the database
-			// 2. Store in a separate settings table
-			// 3. Just use "most recent" as featured
+			const data = await request.formData();
+			const videoId = data.get('video_id');
 			
-			// For now, let's just return success
-			// The actual featured logic is handled in the load function
+			// Unfeatured all videos
+			await query('UPDATE weekly_summary_videos SET is_featured = false');
+			
+			// Feature the selected video
+			await query(
+				'UPDATE weekly_summary_videos SET is_featured = true WHERE video_id = $1',
+				[videoId]
+			);
+			
 			return {
 				success: true,
-				message: 'Feature status updated (currently using most recent video as featured)'
+				message: 'Featured video updated successfully'
 			};
 		} catch (error) {
 			console.error('Error setting featured video:', error);
-			return {
+			return fail(500, {
 				success: false,
 				error: error.message
-			};
+			});
 		}
 	}
 };

@@ -1,50 +1,64 @@
-// src/routes/video/+page.js
-
-/**
- * @typedef {Object} Video
- * @property {string} id
- * @property {string} title
- * @property {string} url - YouTube or Vimeo URL
- * @property {string} date - YYYY-MM-DD format
- * @property {string} [description]
- * @property {boolean} [featured]
- */
+// src/routes/video/+page.server.js
+import { query } from '$lib/db';
 
 export async function load() {
-  // TODO: Replace this with actual data fetching from your API or database
-  // For now, here's sample data structure - UPDATE WITH YOUR ACTUAL VIDEOS
-  
-  /** @type {Video[]} */
-  const videos = [
-    {
-      id: '1',
-      title: 'Week 8 Standings - Scary Moves!',
-      url: 'https://youtu.be/jeh1rnTPk_k', // ← UPDATE THIS WITH YOUR ACTUAL VIDEO ID
-      date: '2025-10-27',
-      description: 'Halloween Edition of the Week 8 Standings Update',
-      featured: true
-    },
-    {
-      id: '2',
-      title: 'Week 7 Highlights',
-      url: 'https://youtu.be/ZzznhH1n_wc', // ← UPDATE THIS
-      date: '2025-10-20',
-      description: 'The season is halfway over.  Check out the midway point standings update.'
-    },
-    /*{
-      id: '3',
-      title: 'Week 6 Recap',
-      url: 'https://www.youtube.com/watch?v=YOUR_VIDEO_ID', // ← UPDATE THIS
-      date: '2025-10-13',
-      description: 'Midseason review and power rankings update.'
-    }*/
-    // Add more videos here as you create them
-  ];
+	try {
+		console.log('Loading all videos from database...');
+		
+		const videosQuery = `
+			SELECT 
+				wsv.video_id,
+				wsv.video_url,
+				wsv.week,
+				wsv.title,
+				wsv.description,
+				wsv.publish_date,
+				wsv.playlist,
+				wsv.is_featured,
+				wsv.provider_video_id,
+				wsv.generation_status,
+				s.season_id,
+				s.season_year,
+				COALESCE(
+					wsv.title, 
+					CONCAT('Week ', wsv.week, ' - ', s.season_year, ' Season')
+				) as display_title,
+				COALESCE(
+					wsv.description,
+					CONCAT('Weekly recap for Week ', wsv.week, ' of the ', s.season_year, ' season')
+				) as display_description,
+				COALESCE(wsv.publish_date, wsv.created_at) as sort_date
+			FROM weekly_summary_videos wsv
+			JOIN seasons s ON wsv.season_id = s.season_id
+			WHERE wsv.video_url IS NOT NULL
+			  AND wsv.generation_status = 'completed'
+			ORDER BY s.season_year DESC, wsv.week DESC
+		`;
 
-  // Sort videos by date, newest first
-  videos.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+		const result = await query(videosQuery);
+		
+		const videos = result.rows.map(row => ({
+			id: row.video_id.toString(),
+			title: row.display_title,
+			url: row.video_url,
+			date: row.publish_date || row.sort_date.toISOString().split('T')[0],
+			description: row.display_description,
+			week: row.week,
+			season: row.season_year,
+			playlist: row.playlist,
+			featured: row.is_featured || false
+		}));
 
-  return {
-    videos
-  };
+		console.log(`Loaded ${videos.length} videos from database`);
+
+		return {
+			videos
+		};
+	} catch (error) {
+		console.error('Error loading videos:', error);
+		return {
+			videos: [],
+			error: error.message
+		};
+	}
 }
