@@ -205,16 +205,14 @@
 			</div>
 		</div>
 
-		<!-- Empty placeholder for alignment -->
-		<div class="card card-orange card-empty">
-			<div class="card-title"></div>
-			<p class="empty-message">More tech coming soon</p>
+		<!-- Blank Placeholder Card (completely empty) for alignment -->
+		<div class="card card-placeholder">
+			<!-- Intentionally blank -->
 		</div>
 
-		<!-- Empty placeholder for alignment -->
-		<div class="card card-gray card-empty">
-			<div class="card-title"></div>
-			<p class="empty-message">More system info coming soon</p>
+		<!-- Blank Placeholder Card (completely empty) for alignment -->
+		<div class="card card-placeholder">
+			<!-- Intentionally blank -->
 		</div>
 
 		<!-- Third Row-->
@@ -232,10 +230,9 @@
 			</div>
 		</div>
 
-		<!-- Empty placeholder for alignment -->
-		<div class="card card-gray card-empty">
-			<div class="card-title">Additional Stats</div>
-			<p class="empty-message">More analytics coming soon</p>
+		<!-- Blank Placeholder Card (completely empty) for alignment -->
+		<div class="card card-placeholder">
+			<!-- Intentionally blank -->
 		</div>
 		
 		<!-- Managers Card -->
@@ -248,16 +245,14 @@
 			</div>
 		</div>
 		
-		<!-- Empty placeholder for alignment -->
-		<div class="card card-orange card-empty">
-			<div class="card-title">Additional Stats</div>
-			<p class="empty-message">More analytics coming soon</p>
+		<!-- Blank Placeholder Card (completely empty) for alignment -->
+		<div class="card card-placeholder">
+			<!-- Intentionally blank -->
 		</div>
 
-		<!-- Empty placeholder for alignment -->
-		<div class="card card-gray card-empty">
-			<div class="card-title">Additional Stats</div>
-			<p class="empty-message">More analytics coming soon</p>
+		<!-- Blank Placeholder Card (completely empty) for alignment -->
+		<div class="card card-placeholder">
+			<!-- Intentionally blank -->
 		</div>
 
 		<!-- Fourth Row-->
@@ -335,6 +330,20 @@
 
 	.card-gray {
 		border-left-color: #6b7280;
+	}
+
+	.card-placeholder {
+		background: transparent;
+		border: 2px dashed #e5e7eb;
+		box-shadow: none;
+		min-height: 200px;
+		border-left: none;
+	}
+
+	.card-placeholder:hover {
+		transform: none;
+		box-shadow: none;
+		border-color: #d1d5db;
 	}
 
 	.card-empty {
