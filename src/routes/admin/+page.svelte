@@ -95,7 +95,7 @@
 			<p>Welcome back! Here's what's happening in your league.</p>
 		</div>
 	</div>
-
+	<!--First Row-->
 	<!-- Dashboard Grid -->
 	<div class="dashboard-grid">
 		<!-- Seasons Card -->
@@ -114,19 +114,34 @@
 			</div>
 		</div>
 
-		<!-- Leagues Card -->
+		<!-- Video Management Car -->
 		<div class="card card-green">
 			<div class="card-header">
-				<span class="card-label">Total Leagues</span>
-				<span class="card-label">Active Leagues</span>
+				<span class="card-label">Total Videos</span>
 			</div>
 			<div class="card-stats">
-				<span class="card-number">4</span>
-				<span class="card-number accent">1</span>
+				<span class="card-number">0</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/leagues">Manage Leagues</a>
-				<a href="/admin/leagues/new">Add New League</a>
+				<a href="/admin/videos">Add New Video</a>
+				<a href="/admin/videos/test">Test Video Connection</a>
+			</div>
+		</div>
+
+		<!-- Sleeper Integration Card -->
+		<div class="card card-purple">
+			<div class="card-title">Sleeper Integration</div>
+			<div class="card-actions">
+				<a href="/admin/videos/test" class="disabled">Sleeper Archive Status</a>
+				<a href="/admin/archive">Archive Stats</a>
+			</div>
+		</div>
+
+		<!-- API List Card -->
+		<div class="card card-orange">
+			<div class="card-title">API Endpoints</div>
+			<div class="card-actions">
+				<a href="/admin/api_list">API List</a>
 			</div>
 		</div>
 
@@ -151,6 +166,58 @@
 			</div>
 		</div>
 
+
+		<!-- Second Row -->
+		<!-- Leagues Card -->
+		<div class="card card-blue">
+			<div class="card-header">
+				<span class="card-label">Total Leagues</span>
+				<span class="card-label">Active Leagues</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">4</span>
+				<span class="card-number accent">1</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/leagues">Manage Leagues</a>
+				<a href="/admin/leagues/new">Add New League</a>
+			</div>
+		</div>
+
+		<!-- Weekly Summary Card -->
+		<div class="card card-green">
+			<div class="card-header">
+				<span class="card-label">Total Weekly Summaries</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">0</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/summaries">Generate Weekly Summary</a>
+			</div>
+		</div>
+		
+		<!-- Yahoo Stats Card-->
+		<div class="card card-purple">
+			<div class="card-title">Yahoo Stats</div>
+			<div class="card-actions">
+				<a href="/admin/confirm_yahoo_points_staging">Confirm Yahoo Positions</a>
+			</div>
+		</div>
+
+		<!-- Empty placeholder for alignment -->
+		<div class="card card-orange card-empty">
+			<div class="card-title"></div>
+			<p class="empty-message">More tech coming soon</p>
+		</div>
+
+		<!-- Empty placeholder for alignment -->
+		<div class="card card-gray card-empty">
+			<div class="card-title"></div>
+			<p class="empty-message">More system info coming soon</p>
+		</div>
+
+		<!-- Third Row-->
 		<!-- Managers Card -->
 		<div class="card card-blue">
 			<div class="card-header">
@@ -165,17 +232,26 @@
 			</div>
 		</div>
 
-		<!-- Weekly Summary Placeholder -->
-		<div class="card card-green">
+		<!-- Empty placeholder for alignment -->
+		<div class="card card-gray card-empty">
+			<div class="card-title">Additional Stats</div>
+			<p class="empty-message">More analytics coming soon</p>
+		</div>
+		
+		<!-- Managers Card -->
+		<div class="card card-purple">
 			<div class="card-header">
-				<span class="card-label">Total Weekly Summaries</span>
-			</div>
-			<div class="card-stats">
-				<span class="card-number">0</span>
+				<span class="card-label">SQL Pages</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/summaries">Generate Weekly Summary</a>
+				<a href="/admin/sql" class="disabled">SQL Insertion</a>
 			</div>
+		</div>
+		
+		<!-- Empty placeholder for alignment -->
+		<div class="card card-orange card-empty">
+			<div class="card-title">Additional Stats</div>
+			<p class="empty-message">More analytics coming soon</p>
 		</div>
 
 		<!-- Empty placeholder for alignment -->
@@ -184,6 +260,7 @@
 			<p class="empty-message">More analytics coming soon</p>
 		</div>
 
+		<!-- Fourth Row-->
 		<!-- Teams Card -->
 		<div class="card card-blue">
 			<div class="card-header">
