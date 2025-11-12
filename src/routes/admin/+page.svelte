@@ -169,191 +169,199 @@
 	import { onMount } from 'svelte';
 
 	let stats = {
-		seasons: { count: 0, loading: true },
-		activeSeasons: { count: 0, loading: true },
-		managers: { count: 0, loading: true },
-		teams: { count: 0, loading: true }
+		seasons: { total: 0, active: 0, loading: true },
+		leagues: { total: 0, active: 0, loading: true },
+		managers: { total: 0, loading: true },
+		teams: { total: 0, loading: true },
+		users: { total: 0, loading: true }
 	};
 
-	let loading = true;
-	let error = '';
+	let systemStatus = {
+		database: { status: 'checking', message: 'Checking...' },
+		lastSync: 'Checking...'
+	};
 
 	onMount(async () => {
-		await loadDashboardData();
+		await Promise.all([
+			loadStats(),
+			checkSystemStatus()
+		]);
 	});
 
-	async function loadDashboardData() {
+	async function loadStats() {
 		try {
-			// Load stats in parallel
-			const [seasonsRes, managersRes] = await Promise.all([
-				fetch('/api/admin/seasons'),
-				fetch('/api/admin/managers')
+			// Load all stats
+			const [seasonsRes, activeSeasonsRes, managersRes, teamsRes, usersRes] = await Promise.all([
+				fetch('/api/admin/stats/seasons'),
+				fetch('/api/admin/stats/active_seasons'),
+				fetch('/api/admin/stats/managers'),
+				fetch('/api/admin/stats/teams'),
+				fetch('/api/admin/stats/users')
 			]);
 
 			if (seasonsRes.ok) {
-				const seasons = await seasonsRes.json();
-				stats.seasons.count = seasons.length;
-				stats.activeSeasons.count = seasons.filter(s => s.is_active).length;
-				
-				// Count total teams across all seasons
-				stats.teams.count = seasons.reduce((sum, s) => sum + (parseInt(s.team_count) || 0), 0);
+				const data = await seasonsRes.json();
+				stats.seasons.total = data.count;
+			}
+
+			if (activeSeasonsRes.ok) {
+				const data = await activeSeasonsRes.json();
+				stats.seasons.active = data.count;
 			}
 
 			if (managersRes.ok) {
-				const managers = await managersRes.json();
-				stats.managers.count = managers.length;
+				const data = await managersRes.json();
+				stats.managers.total = data.count;
+			}
+
+			if (teamsRes.ok) {
+				const data = await teamsRes.json();
+				stats.teams.total = data.count;
+			}
+
+			if (usersRes.ok) {
+				const data = await usersRes.json();
+				stats.users.total = data.count;
 			}
 
 			stats.seasons.loading = false;
-			stats.activeSeasons.loading = false;
 			stats.managers.loading = false;
 			stats.teams.loading = false;
-
+			stats.users.loading = false;
 		} catch (err) {
-			console.error('Error loading dashboard data:', err);
-			error = err.message;
-		} finally {
-			loading = false;
+			console.error('Stats error:', err);
 		}
 	}
 
-	// Quick action buttons
-	const quickActions = [
-		{
-			title: 'Create New Season',
-			description: 'Set up a new fantasy season',
-			href: '/admin/seasons/new',
-			icon: '📅',
-			color: '#007bff'
-		},
-        {
-			title: 'Manage Seasons',
-			description: 'View and edit all seasons',
-			href: '/admin/seasons',
-			icon: '⚙️',
-			color: '#6f42c1'
-		},
-		{
-			title: 'Generate Weekly Summary',
-			description: 'Create AI-powered recap',
-			href: '/admin/weekly_summary',
-			icon: '📝',
-			color: '#28a745'
-		},
-		{
-			title: 'View Managers',
-			description: 'Manage league members',
-			href: '/admin/managers',
-			icon: '👥',
-			color: '#fd7e14'
-		},
-        {
-			title: 'Correct Position Data',
-			description: 'View and correct NFL player position data',
-			href: '/admin/confirm_yahoo_points_staging',
-            icon: '🔧',
-			color: '#6f42c1'
+	async function checkSystemStatus() {
+		try {
+			// Simple check - if we can fetch users, database is connected
+			const response = await fetch('/api/admin/users');
+			if (response.ok) {
+				systemStatus.database = { status: 'connected', message: 'Connected' };
+			} else {
+				systemStatus.database = { status: 'error', message: 'Error' };
+			}
+			systemStatus.lastSync = 'Just now';
+		} catch (err) {
+			systemStatus.database = { status: 'error', message: 'Disconnected' };
+			systemStatus.lastSync = 'Failed';
 		}
-	];
+	}
 </script>
+
+<svelte:head>
+	<title>Admin Dashboard - Fantasy Football</title>
+</svelte:head>
 
 <div class="dashboard-container">
 	<!-- Page Header -->
 	<div class="page-header">
-		<h1>Admin Dashboard</h1>
-		<p>Welcome back! Here's what's happening in your league.</p>
-	</div>
-
-	{#if error}
-		<div class="error-box">
-			<strong>Error:</strong> {error}
-		</div>
-	{/if}
-
-	<!-- Stats Grid -->
-	<div class="stats-grid">
-		<!-- Total Seasons -->
-		<div class="stat-card">
-			<div class="stat-icon">📅</div>
-			<div class="stat-content">
-				<div class="stat-label">Total Seasons</div>
-				{#if stats.seasons.loading}
-					<div class="stat-value loading">...</div>
-				{:else}
-					<div class="stat-value">{stats.seasons.count}</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Active Seasons -->
-		<div class="stat-card">
-			<div class="stat-icon">✅</div>
-			<div class="stat-content">
-				<div class="stat-label">Active Seasons</div>
-				{#if stats.activeSeasons.loading}
-					<div class="stat-value loading">...</div>
-				{:else}
-					<div class="stat-value active">{stats.activeSeasons.count}</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Total Managers -->
-		<div class="stat-card">
-			<div class="stat-icon">👥</div>
-			<div class="stat-content">
-				<div class="stat-label">Total Managers</div>
-				{#if stats.managers.loading}
-					<div class="stat-value loading">...</div>
-				{:else}
-					<div class="stat-value">{stats.managers.count}</div>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Total Teams -->
-		<div class="stat-card">
-			<div class="stat-icon">🏈</div>
-			<div class="stat-content">
-				<div class="stat-label">Total Teams</div>
-				{#if stats.teams.loading}
-					<div class="stat-value loading">...</div>
-				{:else}
-					<div class="stat-value">{stats.teams.count}</div>
-				{/if}
-			</div>
+		<div>
+			<h1>Admin Dashboard</h1>
+			<p>Welcome back! Here's what's happening in your league.</p>
 		</div>
 	</div>
 
-	<!-- Quick Actions -->
-	<div class="section">
-		<h2 class="section-title">Quick Actions</h2>
-		<div class="actions-grid">
-			{#each quickActions as action}
-				<a href={action.href} class="action-card" style="border-left: 4px solid {action.color}">
-					<div class="action-icon">{action.icon}</div>
-					<h3 class="action-title">{action.title}</h3>
-					<p class="action-description">{action.description}</p>
-				</a>
-			{/each}
+	<!-- Dashboard Grid -->
+	<div class="dashboard-grid">
+		<!-- Seasons Card -->
+		<div class="card card-blue">
+			<div class="card-header">
+				<span class="card-label">Total Seasons</span>
+				<span class="card-label">Active Seasons</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">{stats.seasons.total}</span>
+				<span class="card-number accent">{stats.seasons.active}</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/seasons">Manage Seasons</a>
+				<a href="/admin/seasons/new">Create New Season</a>
+			</div>
 		</div>
-	</div>
 
-	<!-- System Status -->
-	<div class="status-box">
-		<h2 class="section-title">System Status</h2>
-		<div class="status-grid">
-			<div class="status-item">
-				<span class="status-label">Database Connection</span>
-				<span class="status-badge success">✓ Connected</span>
+		<!-- Leagues Card -->
+		<div class="card card-green">
+			<div class="card-header">
+				<span class="card-label">Total Leagues</span>
+				<span class="card-label">Active Leagues</span>
 			</div>
-			<div class="status-item">
-				<span class="status-label">API Status</span>
-				<span class="status-badge success">✓ Operational</span>
+			<div class="card-stats">
+				<span class="card-number">4</span>
+				<span class="card-number accent">1</span>
 			</div>
-			<div class="status-item">
-				<span class="status-label">Last Data Sync</span>
-				<span class="status-text">Just now</span>
+			<div class="card-actions">
+				<a href="/admin/leagues">Manage Leagues</a>
+				<a href="/admin/leagues/new">Add New League</a>
+			</div>
+		</div>
+
+		<!-- System Status Card -->
+		<div class="card card-gray">
+			<div class="card-title">System Status</div>
+			<div class="status-grid">
+				<div class="status-row">
+					<span>Database Connection</span>
+					<span class="status-badge status-{systemStatus.database.status}">
+						✓ {systemStatus.database.message}
+					</span>
+				</div>
+				<div class="status-row">
+					<span>API Status</span>
+					<span class="status-badge status-connected">✓ Operational</span>
+				</div>
+				<div class="status-row">
+					<span>Last Data Sync</span>
+					<span>{systemStatus.lastSync}</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- Managers Card -->
+		<div class="card card-blue">
+			<div class="card-header">
+				<span class="card-label">Total Managers</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">{stats.managers.total}</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/managers">View Managers</a>
+				<a href="/admin/managers/new">Add New Managers</a>
+			</div>
+		</div>
+
+		<!-- Weekly Summary Placeholder -->
+		<div class="card card-green">
+			<div class="card-header">
+				<span class="card-label">Total Weekly Summaries</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">0</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/summaries">Generate Weekly Summary</a>
+			</div>
+		</div>
+
+		<!-- Empty placeholder for alignment -->
+		<div class="card card-gray card-empty">
+			<div class="card-title">Additional Stats</div>
+			<p class="empty-message">More analytics coming soon</p>
+		</div>
+
+		<!-- Teams Card -->
+		<div class="card card-blue">
+			<div class="card-header">
+				<span class="card-label">Total Teams</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">{stats.teams.total}</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/teams">View Teams</a>
+				<a href="/admin/teams/new">Add New Teams</a>
 			</div>
 		</div>
 	</div>
@@ -361,204 +369,202 @@
 
 <style>
 	.dashboard-container {
-		padding: 2rem;
-		max-width: 1400px;
+		padding: 32px;
+		max-width: 1600px;
 		margin: 0 auto;
 	}
 
 	.page-header {
-		margin-bottom: 2rem;
+		margin-bottom: 32px;
 	}
 
 	.page-header h1 {
-		font-size: 2.5rem;
-		font-weight: bold;
-		color: #004085;
-		margin: 0 0 0.5rem 0;
+		font-size: 32px;
+		font-weight: 700;
+		color: #1e40af;
+		margin: 0 0 8px 0;
 	}
 
 	.page-header p {
-		color: #666;
-		font-size: 1.1rem;
+		color: #6b7280;
+		font-size: 16px;
 		margin: 0;
 	}
 
-	.error-box {
-		background: #f8d7da;
-		border: 1px solid #f5c6cb;
-		color: #721c24;
-		padding: 1rem;
+	.dashboard-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 24px;
+	}
+
+	.card {
+		background: white;
 		border-radius: 8px;
-		margin-bottom: 1.5rem;
+		padding: 24px;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		border-left: 4px solid;
+		transition: transform 0.2s, box-shadow 0.2s;
 	}
 
-	/* Stats Grid */
-	.stats-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: 1.5rem;
-		margin-bottom: 2rem;
+	.card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 	}
 
-	.stat-card {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-		display: flex;
-		align-items: center;
-		gap: 1rem;
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	.card-blue {
+		border-left-color: #3b82f6;
 	}
 
-	.stat-card:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+	.card-green {
+		border-left-color: #10b981;
 	}
 
-	.stat-icon {
-		font-size: 2.5rem;
-		flex-shrink: 0;
+	.card-orange {
+		border-left-color: #f97316;
 	}
 
-	.stat-content {
-		flex: 1;
+	.card-gray {
+		border-left-color: #6b7280;
 	}
 
-	.stat-label {
-		font-size: 0.875rem;
-		color: #666;
-		margin-bottom: 0.25rem;
-	}
-
-	.stat-value {
-		font-size: 2rem;
-		font-weight: bold;
-		color: #333;
-	}
-
-	.stat-value.loading {
-		color: #999;
-	}
-
-	.stat-value.active {
-		color: #28a745;
-	}
-
-	/* Section */
-	.section {
-		margin-bottom: 2rem;
-	}
-
-	.section-title {
-		font-size: 1.5rem;
-		font-weight: bold;
-		color: #004085;
-		margin-bottom: 1rem;
-	}
-
-	/* Actions Grid */
-	.actions-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: 1.5rem;
-	}
-
-	.action-card {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		text-decoration: none;
-		color: inherit;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-		transition: transform 0.2s ease, box-shadow 0.2s ease;
+	.card-empty {
 		display: flex;
 		flex-direction: column;
+		justify-content: center;
+		align-items: center;
+		min-height: 200px;
 	}
 
-	.action-card:hover {
-		transform: translateY(-4px);
-		box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+	.card-title {
+		font-size: 18px;
+		font-weight: 600;
+		color: #1f2937;
+		margin-bottom: 16px;
 	}
 
-	.action-icon {
-		font-size: 2.5rem;
-		margin-bottom: 0.75rem;
+	.card-header {
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 12px;
 	}
 
-	.action-title {
-		font-size: 1.25rem;
-		font-weight: bold;
-		color: #333;
-		margin: 0 0 0.5rem 0;
+	.card-label {
+		font-size: 13px;
+		color: #6b7280;
+		font-weight: 500;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
 	}
 
-	.action-description {
-		color: #666;
-		margin: 0;
-		font-size: 0.95rem;
+	.card-stats {
+		display: flex;
+		justify-content: space-between;
+		margin-bottom: 20px;
 	}
 
-	/* Status Box */
-	.status-box {
-		background: white;
-		border-radius: 12px;
-		padding: 1.5rem;
-		box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+	.card-number {
+		font-size: 36px;
+		font-weight: 700;
+		color: #1f2937;
+	}
+
+	.card-number.accent {
+		color: #10b981;
+	}
+
+	.card-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding-top: 16px;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.card-actions a {
+		color: #3b82f6;
+		text-decoration: none;
+		font-size: 14px;
+		font-weight: 500;
+		transition: color 0.2s;
+	}
+
+	.card-actions a:hover {
+		color: #2563eb;
+		text-decoration: underline;
 	}
 
 	.status-grid {
 		display: flex;
 		flex-direction: column;
-		gap: 1rem;
+		gap: 12px;
 	}
 
-	.status-item {
+	.status-row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 0.5rem 0;
+		font-size: 14px;
 	}
 
-	.status-label {
-		color: #666;
-		font-size: 0.95rem;
+	.status-row span:first-child {
+		color: #6b7280;
 	}
 
 	.status-badge {
-		padding: 0.25rem 0.75rem;
-		border-radius: 6px;
-		font-size: 0.875rem;
-		font-weight: 500;
+		padding: 4px 12px;
+		border-radius: 12px;
+		font-size: 12px;
+		font-weight: 600;
 	}
 
-	.status-badge.success {
-		background: #d4edda;
-		color: #155724;
+	.status-badge.status-connected {
+		background: #d1fae5;
+		color: #065f46;
 	}
 
-	.status-text {
-		color: #333;
-		font-size: 0.95rem;
+	.status-badge.status-checking {
+		background: #fef3c7;
+		color: #92400e;
 	}
 
-	/* Mobile Responsive */
-	@media screen and (max-width: 768px) {
+	.status-badge.status-error {
+		background: #fee2e2;
+		color: #991b1b;
+	}
+
+	.empty-message {
+		color: #9ca3af;
+		font-size: 14px;
+		text-align: center;
+		margin: 0;
+	}
+
+	@media (max-width: 1200px) {
+		.dashboard-grid {
+			grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+		}
+	}
+
+	@media (max-width: 768px) {
 		.dashboard-container {
-			padding: 1rem;
+			padding: 16px;
+		}
+
+		.dashboard-grid {
+			grid-template-columns: 1fr;
+			gap: 16px;
+		}
+
+		.card {
+			padding: 20px;
 		}
 
 		.page-header h1 {
-			font-size: 2rem;
+			font-size: 24px;
 		}
 
-		.stats-grid,
-		.actions-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.stat-value {
-			font-size: 1.5rem;
+		.card-number {
+			font-size: 28px;
 		}
 	}
 </style>
