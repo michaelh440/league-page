@@ -168,8 +168,8 @@ export const actions = {
 			
 			await actions.syncRosters({ request: { formData: () => rostersFormData } });
 
-			// Then sync matchups for weeks 1-17
-			for (let week = 1; week <= 17; week++) {
+			// Then sync matchups for weeks 1-18
+			for (let week = 1; week <= 18; week++) {
 				const matchupsFormData = new FormData();
 				matchupsFormData.append('sleeper_league_id', sleeperLeagueId);
 				matchupsFormData.append('week', week.toString());
@@ -185,6 +185,135 @@ export const actions = {
 		}
 	}
 };
+
+async function getDataStatus(seasonId, sleeperLeagueId) {
+	const status = {
+		seasonStaging: {},
+		seasonProduction: {},
+		weeklyStaging: {},
+		weeklyProduction: {}
+	};
+
+	try {
+		// Season-level data status
+		
+		// Teams - staging
+		const teamsStaging = await query(
+			`SELECT COUNT(*) as count FROM sleeper_rosters_staging WHERE league_id = $1`,
+			[sleeperLeagueId]
+		);
+		status.seasonStaging.teams = parseInt(teamsStaging.rows[0]?.count || 0);
+
+		// Teams - production
+		const teamsProd = await query(
+			`SELECT COUNT(*) as count FROM teams WHERE season_id = $1`,
+			[seasonId]
+		);
+		status.seasonProduction.teams = parseInt(teamsProd.rows[0]?.count || 0);
+
+		// League data - staging
+		const leagueStaging = await query(
+			`SELECT COUNT(*) as count FROM sleeper_league_staging WHERE league_id = $1`,
+			[sleeperLeagueId]
+		);
+		status.seasonStaging.league = parseInt(leagueStaging.rows[0]?.count || 0);
+
+		// Drafts - staging
+		const draftsStaging = await query(
+			`SELECT COUNT(*) as count FROM sleeper_drafts_staging WHERE league_id = $1`,
+			[sleeperLeagueId]
+		);
+		status.seasonStaging.drafts = parseInt(draftsStaging.rows[0]?.count || 0);
+
+		// Draft picks - staging
+		const draftPicksStaging = await query(
+			`SELECT COUNT(*) as count FROM sleeper_draft_picks_staging WHERE league_id = $1`,
+			[sleeperLeagueId]
+		);
+		status.seasonStaging.draftPicks = parseInt(draftPicksStaging.rows[0]?.count || 0);
+
+		// Users/Managers - staging
+		const usersStaging = await query(
+			`SELECT COUNT(*) as count FROM sleeper_users_staging WHERE league_id = $1`,
+			[sleeperLeagueId]
+		);
+		status.seasonStaging.users = parseInt(usersStaging.rows[0]?.count || 0);
+
+		// Users/Managers - production
+		const managersProd = await query(
+			`SELECT COUNT(DISTINCT m.manager_id) as count 
+			 FROM managers m 
+			 INNER JOIN teams t ON m.manager_id = t.manager_id 
+			 WHERE t.season_id = $1`,
+			[seasonId]
+		);
+		status.seasonProduction.managers = parseInt(managersProd.rows[0]?.count || 0);
+
+		// Weekly data status (weeks 1-18)
+		for (let week = 1; week <= 18; week++) {
+			// Matchups - staging
+			const matchupsStaging = await query(
+				`SELECT COUNT(*) as count FROM sleeper_matchups_staging 
+				 WHERE league_id = $1 AND week = $2`,
+				[sleeperLeagueId, week]
+			);
+			if (!status.weeklyStaging.matchups) status.weeklyStaging.matchups = {};
+			status.weeklyStaging.matchups[week] = parseInt(matchupsStaging.rows[0]?.count || 0);
+
+			// Matchups - production
+			const matchupsProd = await query(
+				`SELECT COUNT(*) as count FROM matchups 
+				 WHERE season_id = $1 AND week = $2`,
+				[seasonId, week]
+			);
+			if (!status.weeklyProduction.matchups) status.weeklyProduction.matchups = {};
+			status.weeklyProduction.matchups[week] = parseInt(matchupsProd.rows[0]?.count || 0);
+
+			// Rosters - staging
+			const rostersStaging = await query(
+				`SELECT COUNT(*) as count FROM sleeper_rosters_staging 
+				 WHERE league_id = $1`,
+				[sleeperLeagueId]
+			);
+			if (!status.weeklyStaging.rosters) status.weeklyStaging.rosters = {};
+			status.weeklyStaging.rosters[week] = parseInt(rostersStaging.rows[0]?.count || 0);
+
+			// Weekly roster - production
+			const weeklyRosterProd = await query(
+				`SELECT COUNT(*) as count FROM weekly_roster 
+				 WHERE season_id = $1 AND week = $2`,
+				[seasonId, week]
+			);
+			if (!status.weeklyProduction.rosters) status.weeklyProduction.rosters = {};
+			status.weeklyProduction.rosters[week] = parseInt(weeklyRosterProd.rows[0]?.count || 0);
+
+			// Player stats - staging
+			const statsStaging = await query(
+				`SELECT COUNT(*) as count FROM sleeper_player_stats_staging 
+				 WHERE season = $1 AND week = $2`,
+				[sleeperLeagueId.substring(0, 4), week] // Assuming league ID contains year
+			);
+			if (!status.weeklyStaging.playerStats) status.weeklyStaging.playerStats = {};
+			status.weeklyStaging.playerStats[week] = parseInt(statsStaging.rows[0]?.count || 0);
+
+			// Playoffs - staging (typically weeks 15-18)
+			if (week >= 15) {
+				const playoffsStaging = await query(
+					`SELECT COUNT(*) as count FROM sleeper_playoffs_staging 
+					 WHERE league_id = $1 AND week = $2`,
+					[sleeperLeagueId, week]
+				);
+				if (!status.weeklyStaging.playoffs) status.weeklyStaging.playoffs = {};
+				status.weeklyStaging.playoffs[week] = parseInt(playoffsStaging.rows[0]?.count || 0);
+			}
+		}
+
+	} catch (error) {
+		console.error('Error getting data status:', error);
+	}
+
+	return status;
+}
 
 export async function load() {
 	try {
@@ -248,4 +377,9 @@ export async function load() {
 			error: error.message
 		};
 	}
+}
+
+// Export function to get data status for a specific season
+export async function getSeasonDataStatus(seasonId, sleeperLeagueId) {
+	return await getDataStatus(seasonId, sleeperLeagueId);
 }
