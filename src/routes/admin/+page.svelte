@@ -179,7 +179,6 @@
 			</div>
 			<div class="card-actions">
 				<a href="/admin/leagues">Manage Leagues</a>
-				<a href="/admin/leagues/new" class="disabled">Add New League</a>
 			</div>
 		</div>
 
@@ -225,7 +224,6 @@
 			</div>
 			<div class="card-actions">
 				<a href="/admin/managers">Manage Managers</a>
-				<a href="/admin/managers/new" class="disabled">Add New Managers</a>
 			</div>
 		</div>
 
@@ -264,8 +262,7 @@
 				<span class="card-number">{stats.teams.total}</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/teams" class="disabled">View Teams</a>
-				<a href="/admin/teams/new" class="disabled">Add New Teams</a>
+				<a href="/admin/teams">Manage Teams</a>
 			</div>
 		</div>
 	</div>
