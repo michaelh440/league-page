@@ -18,7 +18,7 @@ export const actions = {
 			const leagueQuery = `
 				INSERT INTO leagues (
 					league_id, league_name, platform, platform_id, commissioner_id,
-					season_year, num_teams, num_weeks, scoring_type, created_at
+					year, num_teams, num_weeks, scoring_type, created_at
 				)
 				VALUES ($1, $2, 'Sleeper', $3, $4, $5, $6, $7, $8, NOW())
 				ON CONFLICT (league_id) 
@@ -26,7 +26,7 @@ export const actions = {
 					league_name = EXCLUDED.league_name,
 					platform_id = EXCLUDED.platform_id,
 					commissioner_id = EXCLUDED.commissioner_id,
-					season_year = EXCLUDED.season_year,
+					year = EXCLUDED.year,
 					num_teams = EXCLUDED.num_teams,
 					num_weeks = EXCLUDED.num_weeks,
 					scoring_type = EXCLUDED.scoring_type
@@ -244,10 +244,10 @@ export async function load() {
 				league_id,
 				league_name,
 				platform_id as sleeper_league_id,
-				season_year
+				year
 			FROM leagues
 			WHERE platform = 'Sleeper'
-			ORDER BY season_year DESC
+			ORDER BY year DESC
 		`;
 		const leaguesResult = await query(leaguesQuery);
 
