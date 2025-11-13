@@ -1,213 +1,312 @@
-// src/routes/admin/sleeper_data/+page.server.js
 import { query } from '$lib/db';
-import { fail } from '@sveltejs/kit';
 
-export const load = async () => {
+export const actions = {
+	// Sync a specific league from Sleeper
+	syncLeague: async ({ request }) => {
+		const data = await request.formData();
+		const leagueId = data.get('league_id');
+		const sleeperLeagueId = data.get('sleeper_league_id');
+
+		try {
+			// Fetch league data from Sleeper API
+			const response = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}`);
+			if (!response.ok) throw new Error('Failed to fetch league from Sleeper');
+			
+			const leagueData = await response.json();
+
+			// Update or insert league data
+			const leagueQuery = `
+				INSERT INTO leagues (
+					league_id, league_name, platform, platform_id, commissioner_id,
+					season_year, num_teams, num_weeks, scoring_type, created_at
+				)
+				VALUES ($1, $2, 'Sleeper', $3, $4, $5, $6, $7, $8, NOW())
+				ON CONFLICT (league_id) 
+				DO UPDATE SET
+					league_name = EXCLUDED.league_name,
+					platform_id = EXCLUDED.platform_id,
+					commissioner_id = EXCLUDED.commissioner_id,
+					season_year = EXCLUDED.season_year,
+					num_teams = EXCLUDED.num_teams,
+					num_weeks = EXCLUDED.num_weeks,
+					scoring_type = EXCLUDED.scoring_type
+				RETURNING league_id
+			`;
+
+			await query(leagueQuery, [
+				leagueId,
+				leagueData.name,
+				sleeperLeagueId,
+				null, // Commissioner ID - we'll set this later
+				leagueData.season,
+				leagueData.total_rosters,
+				leagueData.settings?.playoff_week_start ? leagueData.settings.playoff_week_start - 1 : 14,
+				leagueData.scoring_settings?.rec ? 'PPR' : 'Standard'
+			]);
+
+			return { success: true, message: 'League synced successfully' };
+		} catch (error) {
+			console.error('Error syncing league:', error);
+			return { success: false, error: error.message };
+		}
+	},
+
+	// Sync rosters/teams for a league
+	syncRosters: async ({ request }) => {
+		const data = await request.formData();
+		const sleeperLeagueId = data.get('sleeper_league_id');
+		const seasonId = data.get('season_id');
+		const leagueId = data.get('league_id');
+
+		try {
+			// Fetch rosters from Sleeper API
+			const response = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/rosters`);
+			if (!response.ok) throw new Error('Failed to fetch rosters from Sleeper');
+			
+			const rosters = await response.json();
+
+			// Fetch users to get team names
+			const usersResponse = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}/users`);
+			const users = await usersResponse.json();
+
+			let syncedCount = 0;
+
+			for (const roster of rosters) {
+				const user = users.find(u => u.user_id === roster.owner_id);
+				if (!user) continue;
+
+				// First, ensure manager exists
+				const managerQuery = `
+					INSERT INTO managers (username, sleeper_user_id, logo_url, created_at)
+					VALUES ($1, $2, $3, NOW())
+					ON CONFLICT (sleeper_user_id) 
+					DO UPDATE SET
+						username = EXCLUDED.username,
+						logo_url = EXCLUDED.logo_url
+					RETURNING manager_id
+				`;
+
+				const managerResult = await query(managerQuery, [
+					user.display_name,
+					user.user_id,
+					user.avatar ? `https://sleepercdn.com/avatars/thumbs/${user.avatar}` : null
+				]);
+
+				const managerId = managerResult.rows[0].manager_id;
+
+				// Then create/update team
+				const teamQuery = `
+					INSERT INTO teams (
+						league_id, season_id, manager_id, team_name, platform_team_id, created_at
+					)
+					VALUES ($1, $2, $3, $4, $5, NOW())
+					ON CONFLICT (season_id, manager_id)
+					DO UPDATE SET
+						team_name = EXCLUDED.team_name,
+						platform_team_id = EXCLUDED.platform_team_id
+					RETURNING team_id
+				`;
+
+				await query(teamQuery, [
+					leagueId,
+					seasonId,
+					managerId,
+					user.metadata?.team_name || user.display_name,
+					roster.roster_id
+				]);
+
+				syncedCount++;
+			}
+
+			return { success: true, message: `Synced ${syncedCount} teams successfully` };
+		} catch (error) {
+			console.error('Error syncing rosters:', error);
+			return { success: false, error: error.message };
+		}
+	},
+
+	// Sync matchups for a specific week
+	syncMatchups: async ({ request }) => {
+		const data = await request.formData();
+		const sleeperLeagueId = data.get('sleeper_league_id');
+		const week = parseInt(data.get('week'));
+		const seasonId = data.get('season_id');
+
+		try {
+			// Fetch matchups from Sleeper API
+			const response = await fetch(
+				`https://api.sleeper.app/v1/league/${sleeperLeagueId}/matchups/${week}`
+			);
+			if (!response.ok) throw new Error('Failed to fetch matchups from Sleeper');
+			
+			const matchups = await response.json();
+
+			// Group by matchup_id to get pairs
+			const matchupPairs = {};
+			for (const matchup of matchups) {
+				if (!matchupPairs[matchup.matchup_id]) {
+					matchupPairs[matchup.matchup_id] = [];
+				}
+				matchupPairs[matchup.matchup_id].push(matchup);
+			}
+
+			let syncedCount = 0;
+
+			for (const [matchupId, teams] of Object.entries(matchupPairs)) {
+				if (teams.length !== 2) continue; // Skip byes
+
+				// Get team_ids from platform_team_id (roster_id)
+				const team1Query = await query(
+					'SELECT team_id FROM teams WHERE season_id = $1 AND platform_team_id = $2',
+					[seasonId, teams[0].roster_id.toString()]
+				);
+				const team2Query = await query(
+					'SELECT team_id FROM teams WHERE season_id = $1 AND platform_team_id = $2',
+					[seasonId, teams[1].roster_id.toString()]
+				);
+
+				if (team1Query.rows.length === 0 || team2Query.rows.length === 0) continue;
+
+				const team1Id = team1Query.rows[0].team_id;
+				const team2Id = team2Query.rows[0].team_id;
+
+				// Insert/update matchup
+				const matchupQuery = `
+					INSERT INTO matchups (
+						season_id, week, team1_id, team2_id, 
+						team1_score, team2_score, created_at
+					)
+					VALUES ($1, $2, $3, $4, $5, $6, NOW())
+					ON CONFLICT (season_id, week, team1_id, team2_id)
+					DO UPDATE SET
+						team1_score = EXCLUDED.team1_score,
+						team2_score = EXCLUDED.team2_score
+				`;
+
+				await query(matchupQuery, [
+					seasonId,
+					week,
+					team1Id,
+					team2Id,
+					teams[0].points || 0,
+					teams[1].points || 0
+				]);
+
+				syncedCount++;
+			}
+
+			return { success: true, message: `Synced ${syncedCount} matchups for week ${week}` };
+		} catch (error) {
+			console.error('Error syncing matchups:', error);
+			return { success: false, error: error.message };
+		}
+	},
+
+	// Full season sync
+	syncFullSeason: async ({ request }) => {
+		const data = await request.formData();
+		const sleeperLeagueId = data.get('sleeper_league_id');
+		const seasonId = data.get('season_id');
+		const leagueId = data.get('league_id');
+
+		try {
+			// First sync rosters
+			const rostersFormData = new FormData();
+			rostersFormData.append('sleeper_league_id', sleeperLeagueId);
+			rostersFormData.append('season_id', seasonId);
+			rostersFormData.append('league_id', leagueId);
+			
+			await actions.syncRosters({ request: { formData: () => rostersFormData } });
+
+			// Then sync matchups for weeks 1-17
+			for (let week = 1; week <= 17; week++) {
+				const matchupsFormData = new FormData();
+				matchupsFormData.append('sleeper_league_id', sleeperLeagueId);
+				matchupsFormData.append('week', week.toString());
+				matchupsFormData.append('season_id', seasonId);
+				
+				await actions.syncMatchups({ request: { formData: () => matchupsFormData } });
+			}
+
+			return { success: true, message: 'Full season sync completed' };
+		} catch (error) {
+			console.error('Error syncing full season:', error);
+			return { success: false, error: error.message };
+		}
+	}
+};
+
+export async function load() {
 	try {
-		// Get sync status/history
-		const syncHistoryQuery = `
-			SELECT 
-				'leagues' as table_name,
-				COUNT(*) as record_count,
-				MAX(created_at) as last_sync
-			FROM leagues WHERE platform = 'sleeper'
-			UNION ALL
-			SELECT 
-				'seasons' as table_name,
-				COUNT(*) as record_count,
-				MAX(created_at) as last_sync
-			FROM seasons WHERE platform = 'sleeper'
-			UNION ALL
-			SELECT 
-				'teams' as table_name,
-				COUNT(*) as record_count,
-				MAX(created_at) as last_sync
-			FROM teams
-			UNION ALL
-			SELECT 
-				'matchups' as table_name,
-				COUNT(*) as record_count,
-				MAX(created_at) as last_sync
-			FROM matchups WHERE platform = 'sleeper'
-			UNION ALL
-			SELECT 
-				'weekly_roster' as table_name,
-				COUNT(*) as record_count,
-				MAX(created_at) as last_sync
-			FROM weekly_roster
-			ORDER BY table_name
-		`;
-		
-		const syncHistoryResult = await query(syncHistoryQuery);
-		
-		// Get active Sleeper leagues
+		// Get all Sleeper leagues
 		const leaguesQuery = `
 			SELECT 
-				l.league_id,
-				l.platform_id,
-				l.league_name,
-				l.league_year,
-				COUNT(DISTINCT s.season_id) as season_count,
-				COUNT(DISTINCT t.team_id) as team_count,
-				MAX(s.is_active) as has_active_season
-			FROM leagues l
-			LEFT JOIN seasons s ON l.league_id = s.league_id
-			LEFT JOIN teams t ON l.league_id = t.league_id
-			WHERE l.platform = 'sleeper'
-			GROUP BY l.league_id, l.platform_id, l.league_name, l.league_year
-			ORDER BY l.league_year DESC
+				league_id,
+				league_name,
+				platform_id as sleeper_league_id,
+				season_year
+			FROM leagues
+			WHERE platform = 'Sleeper'
+			ORDER BY season_year DESC
 		`;
-		
 		const leaguesResult = await query(leaguesQuery);
-		
-		// Get staging table counts (if they exist)
-		let stagingCounts = {
-			staging_sleeper_matchups: 0,
-			staging_sleeper_rosters: 0
-		};
-		
-		try {
-			const stagingMatchupsCount = await query('SELECT COUNT(*) as count FROM staging_sleeper_matchups');
-			stagingCounts.staging_sleeper_matchups = stagingMatchupsCount.rows[0].count;
-		} catch (e) {
-			// Table might not exist
-		}
-		
-		try {
-			const stagingRostersCount = await query('SELECT COUNT(*) as count FROM staging_sleeper_rosters');
-			stagingCounts.staging_sleeper_rosters = stagingRostersCount.rows[0].count;
-		} catch (e) {
-			// Table might not exist
-		}
-		
-		// Get recent activity
-		const recentActivityQuery = `
+
+		// Get all seasons with their league info
+		const seasonsQuery = `
 			SELECT 
-				'matchup' as activity_type,
-				week,
-				season_id,
-				created_at,
-				CONCAT('Week ', week, ' matchups loaded') as description
-			FROM matchups
-			WHERE platform = 'sleeper'
-			ORDER BY created_at DESC
-			LIMIT 10
+				s.season_id,
+				s.league_id,
+				s.season_year,
+				s.is_active,
+				l.league_name,
+				l.platform_id as sleeper_league_id,
+				COUNT(DISTINCT t.team_id) as team_count
+			FROM seasons s
+			LEFT JOIN leagues l ON s.league_id = l.league_id
+			LEFT JOIN teams t ON s.season_id = t.season_id
+			WHERE l.platform = 'Sleeper'
+			GROUP BY s.season_id, s.league_id, s.season_year, s.is_active, 
+			         l.league_name, l.platform_id
+			ORDER BY s.season_year DESC
 		`;
-		
-		const recentActivityResult = await query(recentActivityQuery);
-		
+		const seasonsResult = await query(seasonsQuery);
+
+		// Get sync statistics
+		const statsQuery = `
+			SELECT 
+				COUNT(DISTINCT m.manager_id) as total_managers,
+				COUNT(DISTINCT t.team_id) as total_teams,
+				COUNT(DISTINCT ma.matchup_id) as total_matchups,
+				MAX(ma.created_at) as last_sync
+			FROM managers m
+			LEFT JOIN teams t ON m.manager_id = t.manager_id
+			LEFT JOIN matchups ma ON t.team_id = ma.team1_id OR t.team_id = ma.team2_id
+			WHERE m.sleeper_user_id IS NOT NULL
+		`;
+		const statsResult = await query(statsQuery);
+
 		return {
-			syncHistory: syncHistoryResult.rows,
 			leagues: leaguesResult.rows,
-			stagingCounts,
-			recentActivity: recentActivityResult.rows
+			seasons: seasonsResult.rows,
+			stats: statsResult.rows[0] || {
+				total_managers: 0,
+				total_teams: 0,
+				total_matchups: 0,
+				last_sync: null
+			}
 		};
 	} catch (error) {
 		console.error('Error loading Sleeper data:', error);
 		return {
-			syncHistory: [],
 			leagues: [],
-			stagingCounts: {},
-			recentActivity: [],
+			seasons: [],
+			stats: {
+				total_managers: 0,
+				total_teams: 0,
+				total_matchups: 0,
+				last_sync: null
+			},
 			error: error.message
 		};
 	}
-};
-
-export const actions = {
-	// Sync league data
-	syncLeague: async ({ request }) => {
-		try {
-			const data = await request.formData();
-			const leagueId = data.get('league_id');
-			
-			// This would typically call your Sleeper sync functions
-			// For now, just return success
-			return {
-				success: true,
-				message: `League sync initiated for league ${leagueId}. This is a placeholder - implement actual Sleeper API sync logic.`
-			};
-		} catch (error) {
-			console.error('Error syncing league:', error);
-			return fail(500, {
-				success: false,
-				error: error.message
-			});
-		}
-	},
-	
-	// Sync specific week
-	syncWeek: async ({ request }) => {
-		try {
-			const data = await request.formData();
-			const leagueId = data.get('league_id');
-			const seasonId = data.get('season_id');
-			const week = data.get('week');
-			
-			// This would typically call your Sleeper sync functions
-			return {
-				success: true,
-				message: `Week ${week} sync initiated. This is a placeholder - implement actual Sleeper API sync logic.`
-			};
-		} catch (error) {
-			console.error('Error syncing week:', error);
-			return fail(500, {
-				success: false,
-				error: error.message
-			});
-		}
-	},
-	
-	// Clear staging data
-	clearStaging: async ({ request }) => {
-		try {
-			const data = await request.formData();
-			const tableName = data.get('table_name');
-			
-			if (tableName === 'staging_sleeper_matchups') {
-				await query('DELETE FROM staging_sleeper_matchups');
-				return {
-					success: true,
-					message: 'Staging matchups cleared successfully'
-				};
-			} else if (tableName === 'staging_sleeper_rosters') {
-				await query('DELETE FROM staging_sleeper_rosters');
-				return {
-					success: true,
-					message: 'Staging rosters cleared successfully'
-				};
-			} else {
-				return fail(400, {
-					success: false,
-					error: 'Invalid table name'
-				});
-			}
-		} catch (error) {
-			console.error('Error clearing staging:', error);
-			return fail(500, {
-				success: false,
-				error: error.message
-			});
-		}
-	},
-	
-	// Process staging data
-	processStaging: async ({ request }) => {
-		try {
-			const data = await request.formData();
-			const tableName = data.get('table_name');
-			
-			// This would typically call your data processing functions
-			return {
-				success: true,
-				message: `Processing ${tableName}. This is a placeholder - implement actual processing logic.`
-			};
-		} catch (error) {
-			console.error('Error processing staging:', error);
-			return fail(500, {
-				success: false,
-				error: error.message
-			});
-		}
-	}
-};
+}
