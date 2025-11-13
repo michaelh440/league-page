@@ -236,7 +236,7 @@ export const actions = {
 
 export async function load() {
 	try {
-		// Get all Sleeper leagues with their most recent season year
+		// Get all leagues that have Sleeper seasons
 		const leaguesQuery = `
 			SELECT DISTINCT
 				l.league_id,
@@ -244,14 +244,14 @@ export async function load() {
 				l.platform_id as sleeper_league_id,
 				COALESCE(MAX(s.season_year), 0) as latest_season
 			FROM leagues l
-			LEFT JOIN seasons s ON l.league_id = s.league_id
-			WHERE l.platform = 'Sleeper'
+			INNER JOIN seasons s ON l.league_id = s.league_id
+			WHERE s.platform = 'Sleeper'
 			GROUP BY l.league_id, l.league_name, l.platform_id
 			ORDER BY latest_season DESC, l.league_name
 		`;
 		const leaguesResult = await query(leaguesQuery);
 
-		// Get all seasons with their league info
+		// Get all Sleeper seasons with their league info
 		const seasonsQuery = `
 			SELECT 
 				s.season_id,
@@ -262,9 +262,9 @@ export async function load() {
 				l.platform_id as sleeper_league_id,
 				COUNT(DISTINCT t.team_id) as team_count
 			FROM seasons s
-			LEFT JOIN leagues l ON s.league_id = l.league_id
+			INNER JOIN leagues l ON s.league_id = l.league_id
 			LEFT JOIN teams t ON s.season_id = t.season_id
-			WHERE l.platform = 'Sleeper'
+			WHERE s.platform = 'Sleeper'
 			GROUP BY s.season_id, s.league_id, s.season_year, s.is_active, 
 			         l.league_name, l.platform_id
 			ORDER BY s.season_year DESC
@@ -284,6 +284,9 @@ export async function load() {
 			WHERE m.sleeper_user_id IS NOT NULL
 		`;
 		const statsResult = await query(statsQuery);
+
+		console.log('Sleeper leagues found:', leaguesResult.rows.length);
+		console.log('Sleeper seasons found:', seasonsResult.rows.length);
 
 		return {
 			leagues: leaguesResult.rows,
