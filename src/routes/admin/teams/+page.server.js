@@ -22,13 +22,13 @@ export const load = async () => {
 				m.real_name as manager_real_name,
 				m.logo_url as manager_logo,
 				COUNT(DISTINCT wr.player_id) as player_count,
-				COUNT(DISTINCT tm.week) as matchup_count
+				COUNT(DISTINCT ma.week) as matchup_count
 			FROM teams t
 			LEFT JOIN leagues l ON t.league_id = l.league_id
 			LEFT JOIN seasons s ON t.season_id = s.season_id
 			LEFT JOIN managers m ON t.manager_id = m.manager_id
 			LEFT JOIN weekly_roster wr ON t.team_id = wr.team_id
-			LEFT JOIN team_matchups tm ON t.team_id = tm.team_id
+			LEFT JOIN matchups ma ON t.team_id = ma.team_id
 			GROUP BY t.team_id, t.league_id, t.season_id, t.manager_id, t.team_name, 
 			         t.platform_team_id, t.created_at, l.league_name, l.platform,
 			         s.season_year, s.is_active, m.username, m.real_name, m.logo_url
@@ -237,7 +237,7 @@ export const actions = {
 			const checkQuery = `
 				SELECT 
 					(SELECT COUNT(*) FROM weekly_roster WHERE team_id = $1) as roster_count,
-					(SELECT COUNT(*) FROM team_matchups WHERE team_id = $1) as matchup_count
+					(SELECT COUNT(*) FROM matchups WHERE team_id = $1) as matchup_count
 			`;
 			const checkResult = await query(checkQuery, [teamId]);
 			const counts = checkResult.rows[0];
