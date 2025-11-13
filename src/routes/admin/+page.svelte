@@ -224,7 +224,7 @@
 				<span class="card-number">{stats.managers.total}</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/managers" class="disabled">View Managers</a>
+				<a href="/admin/managers">Manage Managers</a>
 				<a href="/admin/managers/new" class="disabled">Add New Managers</a>
 			</div>
 		</div>
