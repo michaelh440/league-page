@@ -14,7 +14,8 @@ export const load = async () => {
 				s.platform,
 				s.created_at,
 				l.league_name,
-				l.platform_league_id,
+				l.platform_id,
+				l.platform as league_platform,
 				COUNT(DISTINCT t.team_id) as team_count,
 				COUNT(DISTINCT wsv.video_id) as video_count
 			FROM seasons s
@@ -22,7 +23,7 @@ export const load = async () => {
 			LEFT JOIN teams t ON s.season_id = t.season_id
 			LEFT JOIN weekly_summary_videos wsv ON s.season_id = wsv.season_id
 			GROUP BY s.season_id, s.league_id, s.season_year, s.is_active, 
-			         s.platform, s.created_at, l.league_name, l.platform_league_id
+			         s.platform, s.created_at, l.league_name, l.platform_id, l.platform
 			ORDER BY s.season_year DESC, s.is_active DESC
 		`;
 		
@@ -30,7 +31,7 @@ export const load = async () => {
 		
 		// Get all leagues for the dropdown
 		const leaguesQuery = `
-			SELECT league_id, league_name, platform, platform_league_id
+			SELECT league_id, league_name, platform, platform_id
 			FROM leagues
 			ORDER BY league_name
 		`;
