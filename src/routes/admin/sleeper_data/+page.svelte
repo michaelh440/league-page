@@ -5,17 +5,11 @@
 	export let data;
 	export let form;
 
-	let selectedLeague = '';
 	let selectedSeason = '';
 	let selectedWeek = 1;
-	let syncingLeague = false;
 	let syncingRosters = false;
 	let syncingMatchups = false;
 	let syncingFullSeason = false;
-
-	$: filteredSeasons = selectedLeague
-		? data.seasons.filter(s => s.league_id === parseInt(selectedLeague))
-		: data.seasons;
 
 	$: selectedSeasonData = selectedSeason
 		? data.seasons.find(s => s.season_id === parseInt(selectedSeason))
@@ -69,154 +63,197 @@
 		</div>
 	</div>
 
-	<!-- Sync Controls -->
+	<!-- Season Selection -->
 	<div class="sync-section">
-		<h2>Sync Controls</h2>
+		<h2>Select Season to Sync</h2>
 
-		<!-- League Selection -->
 		<div class="form-group">
-			<label for="league-select">Select League:</label>
-			<select id="league-select" bind:value={selectedLeague}>
-				<option value="">-- Select a Sleeper League --</option>
-				{#each data.leagues as league}
-					<option value={league.league_id}>
-						{league.league_name} ({league.season_year}) - ID: {league.sleeper_league_id}
+			<label for="season-select">Choose a Season:</label>
+			<select id="season-select" bind:value={selectedSeason}>
+				<option value="">-- Select a Season --</option>
+				{#each data.seasons as season}
+					<option value={season.season_id}>
+						{season.league_name} - {season.season_year} 
+						({season.team_count} teams, {season.matchup_count} matchups)
+						{#if season.is_active}⭐ ACTIVE{/if}
+						{#if season.platform} - {season.platform}{/if}
+						{#if season.sleeper_league_id} - Sleeper ID: {season.sleeper_league_id}{/if}
 					</option>
 				{/each}
 			</select>
 		</div>
 
-		<!-- Season Selection -->
-		{#if selectedLeague}
-			<div class="form-group">
-				<label for="season-select">Select Season:</label>
-				<select id="season-select" bind:value={selectedSeason}>
-					<option value="">-- Select a Season --</option>
-					{#each filteredSeasons as season}
-						<option value={season.season_id}>
-							{season.season_year} Season - {season.team_count} teams
-							{#if season.is_active}
-								<span class="badge">ACTIVE</span>
-							{/if}
-						</option>
-					{/each}
-				</select>
-			</div>
-		{/if}
-
-		<!-- Sync Rosters/Teams -->
-		{#if selectedSeason && selectedSeasonData}
-			<div class="sync-card">
-				<h3>📋 Sync Teams/Rosters</h3>
-				<p>Import all teams and managers from Sleeper for this season.</p>
-				<form
-					method="POST"
-					action="?/syncRosters"
-					use:enhance={() => {
-						syncingRosters = true;
-						return async ({ update }) => {
-							await update();
-							await invalidateAll();
-							syncingRosters = false;
-						};
-					}}
-				>
-					<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
-					<input type="hidden" name="season_id" value={selectedSeason} />
-					<input type="hidden" name="league_id" value={selectedLeague} />
-					<button type="submit" class="btn btn-primary" disabled={syncingRosters}>
-						{syncingRosters ? '⏳ Syncing...' : '🔄 Sync Rosters'}
-					</button>
-				</form>
-			</div>
-
-			<!-- Sync Single Week Matchups -->
-			<div class="sync-card">
-				<h3>⚔️ Sync Week Matchups</h3>
-				<p>Import matchup data for a specific week.</p>
-				<div class="form-group">
-					<label for="week-select">Select Week:</label>
-					<select id="week-select" bind:value={selectedWeek}>
-						{#each Array(17) as _, i}
-							<option value={i + 1}>Week {i + 1}</option>
-						{/each}
-					</select>
+		{#if selectedSeasonData}
+			<div class="season-info">
+				<h3>📊 Selected Season Info</h3>
+				<div class="info-grid">
+					<div class="info-item">
+						<span class="label">League:</span>
+						<span class="value">{selectedSeasonData.league_name}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Year:</span>
+						<span class="value">{selectedSeasonData.season_year}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Platform:</span>
+						<span class="value badge badge-blue">{selectedSeasonData.platform || 'Not Set'}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Sleeper League ID:</span>
+						<span class="value">{selectedSeasonData.sleeper_league_id || 'Not Set'}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Teams Synced:</span>
+						<span class="value">{selectedSeasonData.team_count}</span>
+					</div>
+					<div class="info-item">
+						<span class="label">Matchups Synced:</span>
+						<span class="value">{selectedSeasonData.matchup_count}</span>
+					</div>
 				</div>
-				<form
-					method="POST"
-					action="?/syncMatchups"
-					use:enhance={() => {
-						syncingMatchups = true;
-						return async ({ update }) => {
-							await update();
-							await invalidateAll();
-							syncingMatchups = false;
-						};
-					}}
-				>
-					<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
-					<input type="hidden" name="week" value={selectedWeek} />
-					<input type="hidden" name="season_id" value={selectedSeason} />
-					<button type="submit" class="btn btn-primary" disabled={syncingMatchups}>
-						{syncingMatchups ? '⏳ Syncing...' : `🔄 Sync Week ${selectedWeek}`}
-					</button>
-				</form>
 			</div>
 
-			<!-- Full Season Sync -->
-			<div class="sync-card sync-card-danger">
-				<h3>🚀 Full Season Sync</h3>
-				<p class="warning-text">
-					⚠️ This will sync all rosters AND all matchups (weeks 1-17). This may take several minutes.
-				</p>
-				<form
-					method="POST"
-					action="?/syncFullSeason"
-					use:enhance={() => {
-						syncingFullSeason = true;
-						return async ({ update }) => {
-							await update();
-							await invalidateAll();
-							syncingFullSeason = false;
-						};
-					}}
-				>
-					<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
-					<input type="hidden" name="season_id" value={selectedSeason} />
-					<input type="hidden" name="league_id" value={selectedLeague} />
-					<button type="submit" class="btn btn-danger" disabled={syncingFullSeason}>
-						{syncingFullSeason ? '⏳ Syncing Full Season...' : '🚀 Sync Entire Season'}
-					</button>
-				</form>
-			</div>
+			{#if !selectedSeasonData.sleeper_league_id}
+				<div class="alert alert-warning">
+					⚠️ This season doesn't have a Sleeper League ID set. You need to add the Sleeper League ID 
+					to the league's platform_id field before syncing.
+				</div>
+			{:else}
+				<!-- Sync Rosters/Teams -->
+				<div class="sync-card">
+					<h3>📋 Sync Teams/Rosters</h3>
+					<p>Import all teams and managers from Sleeper for this season.</p>
+					<p class="hint">💡 Do this first before syncing matchups!</p>
+					<form
+						method="POST"
+						action="?/syncRosters"
+						use:enhance={() => {
+							syncingRosters = true;
+							return async ({ update }) => {
+								await update();
+								await invalidateAll();
+								syncingRosters = false;
+							};
+						}}
+					>
+						<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
+						<input type="hidden" name="season_id" value={selectedSeason} />
+						<input type="hidden" name="league_id" value={selectedSeasonData.league_id} />
+						<button type="submit" class="btn btn-primary" disabled={syncingRosters}>
+							{syncingRosters ? '⏳ Syncing...' : '🔄 Sync Rosters'}
+						</button>
+					</form>
+				</div>
+
+				<!-- Sync Single Week Matchups -->
+				<div class="sync-card">
+					<h3>⚔️ Sync Week Matchups</h3>
+					<p>Import matchup data for a specific week.</p>
+					<div class="form-group">
+						<label for="week-select">Select Week:</label>
+						<select id="week-select" bind:value={selectedWeek}>
+							{#each Array(18) as _, i}
+								<option value={i + 1}>Week {i + 1}</option>
+							{/each}
+						</select>
+					</div>
+					<form
+						method="POST"
+						action="?/syncMatchups"
+						use:enhance={() => {
+							syncingMatchups = true;
+							return async ({ update }) => {
+								await update();
+								await invalidateAll();
+								syncingMatchups = false;
+							};
+						}}
+					>
+						<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
+						<input type="hidden" name="week" value={selectedWeek} />
+						<input type="hidden" name="season_id" value={selectedSeason} />
+						<button type="submit" class="btn btn-primary" disabled={syncingMatchups}>
+							{syncingMatchups ? '⏳ Syncing...' : `🔄 Sync Week ${selectedWeek}`}
+						</button>
+					</form>
+				</div>
+
+				<!-- Full Season Sync -->
+				<div class="sync-card sync-card-danger">
+					<h3>🚀 Full Season Sync</h3>
+					<p class="warning-text">
+						⚠️ This will sync all rosters AND all matchups (weeks 1-18). This may take several minutes.
+					</p>
+					<form
+						method="POST"
+						action="?/syncFullSeason"
+						use:enhance={() => {
+							syncingFullSeason = true;
+							return async ({ update }) => {
+								await update();
+								await invalidateAll();
+								syncingFullSeason = false;
+							};
+						}}
+					>
+						<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
+						<input type="hidden" name="season_id" value={selectedSeason} />
+						<input type="hidden" name="league_id" value={selectedSeasonData.league_id} />
+						<button type="submit" class="btn btn-danger" disabled={syncingFullSeason}>
+							{syncingFullSeason ? '⏳ Syncing Full Season...' : '🚀 Sync Entire Season'}
+						</button>
+					</form>
+				</div>
+			{/if}
 		{/if}
 	</div>
 
-	<!-- Leagues List -->
+	<!-- All Seasons List -->
 	<div class="list-section">
-		<h2>Available Sleeper Leagues</h2>
-		{#if data.leagues.length === 0}
-			<p class="empty-state">No Sleeper leagues found. Add a Sleeper league first.</p>
+		<h2>All Seasons</h2>
+		{#if data.seasons.length === 0}
+			<p class="empty-state">No seasons found. Create a season first in "Manage Seasons".</p>
 		{:else}
-			<div class="leagues-grid">
-				{#each data.leagues as league}
-					<div class="league-card">
-						<div class="league-header">
-							<h3>{league.league_name}</h3>
-							<span class="badge badge-blue">Sleeper</span>
-						</div>
-						<div class="league-info">
-							<div class="info-row">
-								<span class="label">Season:</span>
-								<span class="value">{league.season_year}</span>
-							</div>
-							<div class="info-row">
-								<span class="label">League ID:</span>
-								<span class="value">{league.sleeper_league_id}</span>
-							</div>
-						</div>
-					</div>
-				{/each}
+			<div class="seasons-table">
+				<table>
+					<thead>
+						<tr>
+							<th>League</th>
+							<th>Year</th>
+							<th>Platform</th>
+							<th>Sleeper ID</th>
+							<th>Teams</th>
+							<th>Matchups</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each data.seasons as season}
+							<tr class:selected={selectedSeason == season.season_id}>
+								<td>{season.league_name}</td>
+								<td>{season.season_year}</td>
+								<td>
+									{#if season.platform}
+										<span class="badge badge-blue">{season.platform}</span>
+									{:else}
+										<span class="badge badge-gray">Not Set</span>
+									{/if}
+								</td>
+								<td>{season.sleeper_league_id || '-'}</td>
+								<td>{season.team_count}</td>
+								<td>{season.matchup_count}</td>
+								<td>
+									{#if season.is_active}
+										<span class="badge badge-green">ACTIVE</span>
+									{:else}
+										<span class="badge badge-gray">Inactive</span>
+									{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
 			</div>
 		{/if}
 	</div>
@@ -225,17 +262,23 @@
 	<div class="help-section">
 		<h2>📖 How to Use</h2>
 		<ol class="help-list">
-			<li><strong>Select a League:</strong> Choose the Sleeper league you want to sync from.</li>
-			<li><strong>Select a Season:</strong> Choose which season/year to sync data for.</li>
 			<li>
-				<strong>Sync Rosters First:</strong> Always sync rosters/teams before syncing matchups. This imports
-				all managers and their teams.
+				<strong>Setup League:</strong> Make sure your league has a Sleeper League ID set in the 
+				platform_id field (you can set this in "Manage Leagues").
+			</li>
+			<li><strong>Select Season:</strong> Choose the season you want to sync from the dropdown above.</li>
+			<li>
+				<strong>Sync Rosters First:</strong> Always sync rosters/teams before syncing matchups. 
+				This imports all managers and their teams.
 			</li>
 			<li>
-				<strong>Sync Matchups:</strong> Sync individual weeks or use "Full Season Sync" to import all
-				matchup data at once.
+				<strong>Sync Matchups:</strong> Sync individual weeks as they complete, or use "Full Season Sync" 
+				to import all weeks at once.
 			</li>
-			<li><strong>Monitor Progress:</strong> Check the stats dashboard to see your sync progress.</li>
+			<li>
+				<strong>Monitor Progress:</strong> The table below shows which seasons have data synced 
+				(team count and matchup count).
+			</li>
 		</ol>
 	</div>
 </div>
@@ -280,6 +323,13 @@
 		background-color: #f8d7da;
 		color: #721c24;
 		border: 1px solid #f5c6cb;
+	}
+
+	.alert-warning {
+		background-color: #fff3cd;
+		color: #856404;
+		border: 1px solid #ffeaa7;
+		margin-top: 1rem;
 	}
 
 	/* Stats Grid */
@@ -367,6 +417,42 @@
 		border-color: #00316b;
 	}
 
+	.season-info {
+		background: #f8f9fa;
+		border: 2px solid #e0e0e0;
+		border-radius: 8px;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.season-info h3 {
+		margin-top: 0;
+		margin-bottom: 1rem;
+		color: #00316b;
+	}
+
+	.info-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+	}
+
+	.info-item {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.info-item .label {
+		color: #666;
+		font-size: 0.9rem;
+	}
+
+	.info-item .value {
+		color: #333;
+		font-weight: 600;
+	}
+
 	.sync-card {
 		background: #f8f9fa;
 		border: 2px solid #e0e0e0;
@@ -384,6 +470,11 @@
 	.sync-card p {
 		margin-bottom: 1rem;
 		color: #666;
+	}
+
+	.hint {
+		font-style: italic;
+		color: #00316b !important;
 	}
 
 	.sync-card-danger {
@@ -447,6 +538,16 @@
 		color: white;
 	}
 
+	.badge-green {
+		background-color: #28a745;
+		color: white;
+	}
+
+	.badge-gray {
+		background-color: #6c757d;
+		color: white;
+	}
+
 	/* Lists Section */
 	.list-section {
 		background: white;
@@ -470,59 +571,35 @@
 		font-size: 1.1rem;
 	}
 
-	.leagues-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-		gap: 1.5rem;
+	.seasons-table {
+		overflow-x: auto;
 	}
 
-	.league-card {
+	table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	th {
 		background: #f8f9fa;
-		border: 2px solid #e0e0e0;
-		border-radius: 8px;
-		padding: 1.5rem;
-		transition: all 0.3s ease;
-	}
-
-	.league-card:hover {
-		border-color: #00316b;
-		transform: translateY(-2px);
-		box-shadow: 0 4px 8px rgba(0, 49, 107, 0.1);
-	}
-
-	.league-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 1rem;
-	}
-
-	.league-header h3 {
-		margin: 0;
-		color: #00316b;
-		font-size: 1.1rem;
-	}
-
-	.league-info {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-	}
-
-	.info-row {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.info-row .label {
-		color: #666;
-		font-size: 0.9rem;
-	}
-
-	.info-row .value {
-		color: #333;
+		padding: 1rem;
+		text-align: left;
 		font-weight: 600;
+		color: #00316b;
+		border-bottom: 2px solid #e0e0e0;
+	}
+
+	td {
+		padding: 1rem;
+		border-bottom: 1px solid #e0e0e0;
+	}
+
+	tr.selected {
+		background: #e3f2fd;
+	}
+
+	tbody tr:hover {
+		background: #f8f9fa;
 	}
 
 	/* Help Section */
@@ -563,7 +640,7 @@
 			grid-template-columns: 1fr;
 		}
 
-		.leagues-grid {
+		.info-grid {
 			grid-template-columns: 1fr;
 		}
 	}

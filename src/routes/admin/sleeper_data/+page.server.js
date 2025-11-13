@@ -1,54 +1,6 @@
 import { query } from '$lib/db';
 
 export const actions = {
-	// Sync a specific league from Sleeper
-	syncLeague: async ({ request }) => {
-		const data = await request.formData();
-		const leagueId = data.get('league_id');
-		const sleeperLeagueId = data.get('sleeper_league_id');
-
-		try {
-			// Fetch league data from Sleeper API
-			const response = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}`);
-			if (!response.ok) throw new Error('Failed to fetch league from Sleeper');
-			
-			const leagueData = await response.json();
-
-			// Update or insert league data
-			const leagueQuery = `
-				INSERT INTO leagues (
-					league_id, league_name, platform, platform_id, commissioner_id,
-					num_teams, num_weeks, scoring_type, created_at
-				)
-				VALUES ($1, $2, 'Sleeper', $3, $4, $5, $6, $7, NOW())
-				ON CONFLICT (league_id) 
-				DO UPDATE SET
-					league_name = EXCLUDED.league_name,
-					platform_id = EXCLUDED.platform_id,
-					commissioner_id = EXCLUDED.commissioner_id,
-					num_teams = EXCLUDED.num_teams,
-					num_weeks = EXCLUDED.num_weeks,
-					scoring_type = EXCLUDED.scoring_type
-				RETURNING league_id
-			`;
-
-			await query(leagueQuery, [
-				leagueId,
-				leagueData.name,
-				sleeperLeagueId,
-				null, // Commissioner ID - we'll set this later
-				leagueData.total_rosters,
-				leagueData.settings?.playoff_week_start ? leagueData.settings.playoff_week_start - 1 : 14,
-				leagueData.scoring_settings?.rec ? 'PPR' : 'Standard'
-			]);
-
-			return { success: true, message: 'League synced successfully' };
-		} catch (error) {
-			console.error('Error syncing league:', error);
-			return { success: false, error: error.message };
-		}
-	},
-
 	// Sync rosters/teams for a league
 	syncRosters: async ({ request }) => {
 		const data = await request.formData();
@@ -236,42 +188,29 @@ export const actions = {
 
 export async function load() {
 	try {
-		// Get all leagues that have Sleeper seasons
-		const leaguesQuery = `
-			SELECT DISTINCT
-				l.league_id,
-				l.league_name,
-				l.platform_id as sleeper_league_id,
-				COALESCE(MAX(s.season_year), 0) as latest_season
-			FROM leagues l
-			INNER JOIN seasons s ON l.league_id = s.league_id
-			WHERE s.platform = 'Sleeper'
-			GROUP BY l.league_id, l.league_name, l.platform_id
-			ORDER BY latest_season DESC, l.league_name
-		`;
-		const leaguesResult = await query(leaguesQuery);
-
-		// Get all Sleeper seasons with their league info
+		// Get ALL seasons with their league info and data counts
 		const seasonsQuery = `
 			SELECT 
 				s.season_id,
 				s.league_id,
 				s.season_year,
 				s.is_active,
+				s.platform,
 				l.league_name,
 				l.platform_id as sleeper_league_id,
-				COUNT(DISTINCT t.team_id) as team_count
+				COUNT(DISTINCT t.team_id) as team_count,
+				COUNT(DISTINCT ma.matchup_id) as matchup_count
 			FROM seasons s
 			INNER JOIN leagues l ON s.league_id = l.league_id
 			LEFT JOIN teams t ON s.season_id = t.season_id
-			WHERE s.platform = 'Sleeper'
+			LEFT JOIN matchups ma ON s.season_id = ma.season_id
 			GROUP BY s.season_id, s.league_id, s.season_year, s.is_active, 
-			         l.league_name, l.platform_id
-			ORDER BY s.season_year DESC
+			         s.platform, l.league_name, l.platform_id
+			ORDER BY s.season_year DESC, l.league_name
 		`;
 		const seasonsResult = await query(seasonsQuery);
 
-		// Get sync statistics
+		// Get sync statistics for ALL Sleeper data
 		const statsQuery = `
 			SELECT 
 				COUNT(DISTINCT m.manager_id) as total_managers,
@@ -285,11 +224,9 @@ export async function load() {
 		`;
 		const statsResult = await query(statsQuery);
 
-		console.log('Sleeper leagues found:', leaguesResult.rows.length);
-		console.log('Sleeper seasons found:', seasonsResult.rows.length);
+		console.log('Total seasons found:', seasonsResult.rows.length);
 
 		return {
-			leagues: leaguesResult.rows,
 			seasons: seasonsResult.rows,
 			stats: statsResult.rows[0] || {
 				total_managers: 0,
@@ -301,7 +238,6 @@ export async function load() {
 	} catch (error) {
 		console.error('Error loading Sleeper data:', error);
 		return {
-			leagues: [],
 			seasons: [],
 			stats: {
 				total_managers: 0,
