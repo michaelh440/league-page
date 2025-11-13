@@ -131,7 +131,7 @@
 		<div class="card card-purple">
 			<div class="card-title">Sleeper Integration</div>
 			<div class="card-actions">
-				<a href="/admin/videos/test" class="disabled">Sleeper Archive Status</a>
+				<a href="/admin/sleeper_data">Sleeper Archive Status</a>
 				<a href="/admin/archive">Archive Stats</a>
 			</div>
 		</div>
