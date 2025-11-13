@@ -110,7 +110,6 @@
 			</div>
 			<div class="card-actions">
 				<a href="/admin/seasons">Manage Seasons</a>
-				<a href="/admin/seasons/new" class="disabled">Create New Season</a>
 			</div>
 		</div>
 
@@ -179,7 +178,7 @@
 				<span class="card-number accent">1</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/leagues" class="disabled">Manage Leagues</a>
+				<a href="/admin/leagues">Manage Leagues</a>
 				<a href="/admin/leagues/new" class="disabled">Add New League</a>
 			</div>
 		</div>
