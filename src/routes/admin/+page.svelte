@@ -109,7 +109,7 @@
 				<span class="card-number accent">{stats.seasons.active}</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/seasons" class="disabled">Manage Seasons</a>
+				<a href="/admin/seasons">Manage Seasons</a>
 				<a href="/admin/seasons/new" class="disabled">Create New Season</a>
 			</div>
 		</div>
