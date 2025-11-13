@@ -378,8 +378,3 @@ export async function load() {
 		};
 	}
 }
-
-// Export function to get data status for a specific season
-export async function getSeasonDataStatus(seasonId, sleeperLeagueId) {
-	return await getDataStatus(seasonId, sleeperLeagueId);
-}
