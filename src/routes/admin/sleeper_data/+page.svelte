@@ -1,5 +1,4 @@
 <script>
-	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 
 	export let data;
@@ -7,8 +6,8 @@
 
 	let selectedSeason = '';
 	let selectedWeek = 1;
-	let archiveType = 'regular';
 	let isArchiving = false;
+	let isImporting = false;
 	let dataStatus = null;
 	let loadingStatus = false;
 
@@ -65,29 +64,50 @@
 		isArchiving = false;
 	}
 
+	async function importWeekMatchups() {
+		if (isImporting) return;
+		
+		isImporting = true;
+		
+		try {
+			const response = await fetch('/api/import_sleeper_week', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					season: parseInt(selectedSeasonData.season_year),
+					week: parseInt(selectedWeek),
+					processImmediately: true
+				})
+			});
+			
+			const result = await response.json();
+			
+			if (result.success) {
+				form = { 
+					success: true, 
+					message: `Week ${selectedWeek} matchups imported successfully!`
+				};
+				await loadDataStatus(selectedSeasonData.season_id, selectedSeasonData.season_year);
+			} else {
+				form = { success: false, error: result.error || 'Failed to import matchups' };
+			}
+		} catch (error) {
+			form = { success: false, error: error.message };
+		}
+		
+		isImporting = false;
+	}
+
 	function formatDate(dateString) {
 		if (!dateString) return 'Never';
 		return new Date(dateString).toLocaleString();
-	}
-
-	function getStatusColor(staging, production) {
-		if (production > 0) return 'green';
-		if (staging > 0) return 'yellow';
-		return 'gray';
-	}
-
-	function getStatusText(staging, production) {
-		if (production > 0 && staging === 0) return 'Processed';
-		if (production > 0 && staging > 0) return 'Partial';
-		if (staging > 0 && production === 0) return 'Staged';
-		return 'Missing';
 	}
 </script>
 
 <div class="container">
 	<div class="header">
 		<h1>🏈 Sleeper Data Integration</h1>
-		<p class="subtitle">Archive fantasy football data from Sleeper API to database</p>
+		<p class="subtitle">Comprehensive data management for Sleeper fantasy football</p>
 	</div>
 
 	{#if form?.success}
@@ -128,7 +148,7 @@
 
 	<!-- Season Selection -->
 	<div class="sync-section">
-		<h2>Select Season to Archive</h2>
+		<h2>Select Season</h2>
 
 		<div class="form-group">
 			<label for="season-select">Choose a Season:</label>
@@ -137,7 +157,7 @@
 				{#each data.seasons as season}
 					<option value={season.season_id}>
 						{season.league_name} - {season.season_year}
-						{#if season.platform === 'sleeper'}⭐ Sleeper{/if}
+						{#if season.platform === 'sleeper'}⭐{/if}
 					</option>
 				{/each}
 			</select>
@@ -181,12 +201,40 @@
 					{#if loadingStatus}
 						<p class="loading">Loading data status...</p>
 					{:else if dataStatus}
+						<!-- Season-Level Data -->
+						<div class="status-section">
+							<h4>Season-Level Data</h4>
+							<div class="season-data-grid">
+								<div class="data-card">
+									<div class="data-icon">👥</div>
+									<div class="data-value">{dataStatus.seasonData.teams}</div>
+									<div class="data-label">Teams</div>
+								</div>
+								<div class="data-card">
+									<div class="data-icon">👤</div>
+									<div class="data-value">{dataStatus.seasonData.managers}</div>
+									<div class="data-label">Managers</div>
+								</div>
+								<div class="data-card">
+									<div class="data-icon">🎯</div>
+									<div class="data-value">{dataStatus.seasonData.draftPicks}</div>
+									<div class="data-label">Draft Picks</div>
+								</div>
+								<div class="data-card">
+									<div class="data-icon">🏈</div>
+									<div class="data-value">{dataStatus.seasonData.hasLeagueData ? '✓' : '✗'}</div>
+									<div class="data-label">League Data</div>
+								</div>
+							</div>
+						</div>
+
 						<!-- Weekly Data Grid -->
 						<div class="status-section">
 							<h4>Weekly Data Status</h4>
 							<div class="weekly-grid">
 								<!-- Header Row -->
 								<div class="grid-header">Week</div>
+								<div class="grid-header">Matchups</div>
 								<div class="grid-header">Rosters</div>
 								<div class="grid-header">Stats</div>
 								<div class="grid-header">Type</div>
@@ -196,15 +244,19 @@
 								{#each Array(18) as _, i}
 									{@const week = i + 1}
 									{@const isPlayoff = week >= 15}
+									{@const matchups = isPlayoff 
+										? (dataStatus.playoffs?.[week] || 0)
+										: (dataStatus.matchups?.[week] || 0)}
 									{@const rosters = isPlayoff 
 										? (dataStatus.playoffRosters?.[week] || 0)
 										: (dataStatus.weeklyRosters?.[week] || 0)}
 									{@const stats = isPlayoff
 										? (dataStatus.playoffStats?.[week] || 0)
 										: (dataStatus.playerStats?.[week] || 0)}
-									{@const hasData = rosters > 0 || stats > 0}
+									{@const hasData = matchups > 0 || rosters > 0 || stats > 0}
 									
 									<div class="grid-cell week-cell">W{week}</div>
+									<div class="grid-cell">{matchups > 0 ? matchups : '-'}</div>
 									<div class="grid-cell">{rosters > 0 ? rosters : '-'}</div>
 									<div class="grid-cell">{stats > 0 ? stats : '-'}</div>
 									<div class="grid-cell">
@@ -230,11 +282,15 @@
 									<span class="value">{dataStatus.regularWeeksCount || 0} / 14</span>
 								</div>
 								<div class="summary-stat">
-									<span class="label">Total rosters:</span>
+									<span class="label">Matchups:</span>
+									<span class="value">{dataStatus.totalRegularMatchups || 0}</span>
+								</div>
+								<div class="summary-stat">
+									<span class="label">Rosters:</span>
 									<span class="value">{dataStatus.totalRegularRosters || 0}</span>
 								</div>
 								<div class="summary-stat">
-									<span class="label">Total stats:</span>
+									<span class="label">Stats:</span>
 									<span class="value">{dataStatus.totalRegularStats || 0}</span>
 								</div>
 							</div>
@@ -246,11 +302,15 @@
 									<span class="value">{dataStatus.playoffWeeksCount || 0} / 4</span>
 								</div>
 								<div class="summary-stat">
-									<span class="label">Total rosters:</span>
+									<span class="label">Playoff records:</span>
+									<span class="value">{dataStatus.totalPlayoffs || 0}</span>
+								</div>
+								<div class="summary-stat">
+									<span class="label">Rosters:</span>
 									<span class="value">{dataStatus.totalPlayoffRosters || 0}</span>
 								</div>
 								<div class="summary-stat">
-									<span class="label">Total stats:</span>
+									<span class="label">Stats:</span>
 									<span class="value">{dataStatus.totalPlayoffStats || 0}</span>
 								</div>
 							</div>
@@ -261,6 +321,10 @@
 							<h4>🗃️ Staging Tables (Unprocessed Data)</h4>
 							<div class="staging-grid">
 								<div class="staging-item">
+									<span class="label">Matchups:</span>
+									<span class="value">{dataStatus.stagingMatchups || 0}</span>
+								</div>
+								<div class="staging-item">
 									<span class="label">Weekly Rosters:</span>
 									<span class="value">{dataStatus.stagingRosters || 0}</span>
 								</div>
@@ -269,8 +333,8 @@
 									<span class="value">{dataStatus.stagingStats || 0}</span>
 								</div>
 							</div>
-							{#if (dataStatus.stagingRosters > 0 || dataStatus.stagingStats > 0)}
-								<p class="hint">⚠️ You have unprocessed data in staging tables. Run archival to process it.</p>
+							{#if (dataStatus.stagingMatchups > 0 || dataStatus.stagingRosters > 0 || dataStatus.stagingStats > 0)}
+								<p class="hint">⚠️ You have unprocessed data in staging tables.</p>
 							{/if}
 						</div>
 					{:else}
@@ -281,7 +345,7 @@
 				<!-- Week Detail View -->
 				<div class="week-detail-section">
 					<h3>🔍 Week Detail View</h3>
-					<p>Select a week to see detailed staging vs production data:</p>
+					<p>Select a week to see detailed data and perform actions:</p>
 					
 					<div class="form-group">
 						<label for="detail-week-select">Select Week:</label>
@@ -294,8 +358,12 @@
 
 					{#if dataStatus}
 						{@const isPlayoff = selectedWeek >= 15}
+						{@const stagingMatchups = dataStatus.stagingByWeek?.matchups?.[selectedWeek] || 0}
 						{@const stagingRosters = dataStatus.stagingByWeek?.rosters?.[selectedWeek] || 0}
 						{@const stagingStats = dataStatus.stagingByWeek?.stats?.[selectedWeek] || 0}
+						{@const prodMatchups = isPlayoff 
+							? (dataStatus.playoffs?.[selectedWeek] || 0)
+							: (dataStatus.matchups?.[selectedWeek] || 0)}
 						{@const prodRosters = isPlayoff 
 							? (dataStatus.playoffRosters?.[selectedWeek] || 0)
 							: (dataStatus.weeklyRosters?.[selectedWeek] || 0)}
@@ -306,6 +374,12 @@
 						<div class="week-detail-grid">
 							<div class="week-detail-card">
 								<h4>📦 Staging Tables</h4>
+								<div class="detail-stat">
+									<span class="label">Matchups (unprocessed):</span>
+									<span class="value {stagingMatchups > 0 ? 'has-data' : 'no-data'}">
+										{stagingMatchups}
+									</span>
+								</div>
 								<div class="detail-stat">
 									<span class="label">Rosters (unprocessed):</span>
 									<span class="value {stagingRosters > 0 ? 'has-data' : 'no-data'}">
@@ -318,7 +392,7 @@
 										{stagingStats}
 									</span>
 								</div>
-								{#if stagingRosters > 0 || stagingStats > 0}
+								{#if stagingMatchups > 0 || stagingRosters > 0 || stagingStats > 0}
 									<p class="status-message warning">⚠️ Unprocessed data available</p>
 								{:else}
 									<p class="status-message success">✓ No unprocessed data</p>
@@ -327,6 +401,12 @@
 
 							<div class="week-detail-card">
 								<h4>✅ Production Tables</h4>
+								<div class="detail-stat">
+									<span class="label">{isPlayoff ? 'Playoff Matchups' : 'Matchups'}:</span>
+									<span class="value {prodMatchups > 0 ? 'has-data' : 'no-data'}">
+										{prodMatchups}
+									</span>
+								</div>
 								<div class="detail-stat">
 									<span class="label">{isPlayoff ? 'Playoff Rosters' : 'Weekly Rosters'}:</span>
 									<span class="value {prodRosters > 0 ? 'has-data' : 'no-data'}">
@@ -339,7 +419,7 @@
 										{prodStats}
 									</span>
 								</div>
-								{#if prodRosters > 0 || prodStats > 0}
+								{#if prodMatchups > 0 || prodRosters > 0 || prodStats > 0}
 									<p class="status-message success">✓ Data processed</p>
 								{:else}
 									<p class="status-message warning">⚠️ No processed data</p>
@@ -359,12 +439,12 @@
 								<div class="detail-stat">
 									<span class="label">Target Tables:</span>
 									<span class="value small-text">
-										{isPlayoff ? 'playoff_roster, playoff_fantasy_stats' : 'weekly_roster, player_fantasy_stats'}
+										{isPlayoff ? 'playoffs, playoff_roster, playoff_fantasy_stats' : 'matchups, weekly_roster, player_fantasy_stats'}
 									</span>
 								</div>
-								{#if stagingRosters > 0 || stagingStats > 0}
-									<p class="status-message info">💡 Ready to archive</p>
-								{:else if prodRosters > 0 || prodStats > 0}
+								{#if stagingMatchups > 0 || stagingRosters > 0 || stagingStats > 0}
+									<p class="status-message info">💡 Staging data ready</p>
+								{:else if prodMatchups > 0 || prodRosters > 0 || prodStats > 0}
 									<p class="status-message success">✓ Complete</p>
 								{:else}
 									<p class="status-message">No data for this week</p>
@@ -374,44 +454,76 @@
 					{/if}
 				</div>
 
-				<!-- Archive Controls -->
+				<!-- Action Controls -->
 				<div class="sync-controls">
-					<h3>🔄 Archive Week Data</h3>
+					<h3>🔄 Week Actions</h3>
 					
-					<div class="archive-card">
-						<h4>📥 Archive Week {selectedWeek}</h4>
-						<p>Fetch and archive data for <strong>Week {selectedWeek}</strong> from Sleeper.</p>
-						
-						<div class="archive-preview">
-							<p><strong>Auto-detected Type:</strong> 
-								<span class="badge badge-{archiveType === 'playoff' ? 'purple' : 'blue'}">
-									{archiveType === 'playoff' ? 'Playoff' : 'Regular Season'}
-								</span>
-							</p>
-							<p><strong>Will archive to:</strong></p>
-							<ul>
-								<li><code>{archiveType === 'regular' ? 'weekly_roster' : 'playoff_roster'}</code></li>
-								<li><code>{archiveType === 'regular' ? 'player_fantasy_stats' : 'playoff_fantasy_stats'}</code></li>
-							</ul>
+					<div class="action-grid">
+						<!-- Archive Rosters/Stats -->
+						<div class="archive-card">
+							<h4>📥 Archive Rosters & Stats</h4>
+							<p>Fetch and archive roster/stats data for <strong>Week {selectedWeek}</strong> from Sleeper.</p>
+							
+							<div class="archive-preview">
+								<p><strong>Type:</strong> 
+									<span class="badge badge-{archiveType === 'playoff' ? 'purple' : 'blue'}">
+										{archiveType === 'playoff' ? 'Playoff' : 'Regular Season'}
+									</span>
+								</p>
+								<p><strong>Tables:</strong> 
+									<code>{archiveType === 'regular' ? 'weekly_roster' : 'playoff_roster'}</code>, 
+									<code>{archiveType === 'regular' ? 'player_fantasy_stats' : 'playoff_fantasy_stats'}</code>
+								</p>
+							</div>
+
+							<button 
+								type="button" 
+								class="btn btn-primary" 
+								disabled={isArchiving}
+								on:click={archiveWeek}
+							>
+								{isArchiving ? '⏳ Archiving...' : `🔄 Archive Week ${selectedWeek}`}
+							</button>
 						</div>
 
-						<button 
-							type="button" 
-							class="btn btn-primary" 
-							disabled={isArchiving}
-							on:click={archiveWeek}
-						>
-							{isArchiving ? '⏳ Archiving...' : `🔄 Archive Week ${selectedWeek}`}
-						</button>
-					</div>
+						<!-- Import Matchups -->
+						<div class="archive-card">
+							<h4>⚔️ Import Matchups</h4>
+							<p>Import matchup data for <strong>Week {selectedWeek}</strong> from Sleeper.</p>
+							
+							<div class="archive-preview">
+								<p><strong>Target Table:</strong> <code>matchups</code></p>
+								<p class="hint">This imports head-to-head matchup results and scores.</p>
+							</div>
 
-					<!-- Bulk Archive Link -->
-					<div class="archive-card archive-card-info">
-						<h4>📦 Bulk Archive</h4>
-						<p>For archiving multiple weeks at once, use the dedicated archive page.</p>
-						<a href="/admin/archive" class="btn btn-secondary">
-							Go to Bulk Archive Page →
-						</a>
+							<button 
+								type="button" 
+								class="btn btn-secondary" 
+								disabled={isImporting || selectedWeek >= 15}
+								on:click={importWeekMatchups}
+							>
+								{isImporting ? '⏳ Importing...' : `⚔️ Import Week ${selectedWeek} Matchups`}
+							</button>
+							{#if selectedWeek >= 15}
+								<p class="hint" style="margin-top: 0.5rem; color: #d97706;">
+									⚠️ Playoff matchups must be manually entered via the Weekly Summary page
+								</p>
+							{/if}
+						</div>
+
+						<!-- Bulk Actions Link -->
+						<div class="archive-card archive-card-info">
+							<h4>📦 Additional Tools</h4>
+							<p>Access other data management pages:</p>
+							<div style="display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1rem;">
+								<a href="/admin/archive" class="btn btn-secondary">
+									📦 Bulk Archive Page →
+								</a>
+								<a href="/admin/weekly_summary" class="btn btn-secondary">
+									📊 Weekly Summary (Playoffs) →
+								</a>
+							</div>
+						</div>
 					</div>
 				</div>
 			{/if}
@@ -420,6 +532,7 @@
 </div>
 
 <style>
+	/* All CSS from previous version - keeping it the same */
 	.container {
 		max-width: 1400px;
 		margin: 0 auto;
@@ -605,11 +718,44 @@
 		margin-bottom: 1rem;
 	}
 
+	.season-data-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+		gap: 1rem;
+		margin-bottom: 2rem;
+	}
+
+	.data-card {
+		background: #f8f9fa;
+		border: 2px solid #e0e0e0;
+		border-radius: 8px;
+		padding: 1.5rem;
+		text-align: center;
+	}
+
+	.data-icon {
+		font-size: 2rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.data-value {
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #00316b;
+		margin-bottom: 0.25rem;
+	}
+
+	.data-label {
+		color: #666;
+		font-size: 0.9rem;
+	}
+
 	.weekly-grid {
 		display: grid;
-		grid-template-columns: 60px 100px 100px 100px 80px;
+		grid-template-columns: 60px 100px 100px 100px 100px 80px;
 		gap: 0.5rem;
 		margin-bottom: 1rem;
+		overflow-x: auto;
 	}
 
 	.grid-header {
@@ -826,12 +972,17 @@
 		margin-bottom: 1.5rem;
 	}
 
+	.action-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+		gap: 1.5rem;
+	}
+
 	.archive-card {
 		background: #f8f9fa;
 		border: 2px solid #e0e0e0;
 		border-radius: 8px;
 		padding: 1.5rem;
-		margin-bottom: 1.5rem;
 	}
 
 	.archive-card h4 {
@@ -856,15 +1007,6 @@
 		margin: 0.5rem 0;
 	}
 
-	.archive-preview ul {
-		margin: 0.5rem 0 0 0;
-		padding-left: 1.5rem;
-	}
-
-	.archive-preview li {
-		margin: 0.25rem 0;
-	}
-
 	.archive-preview code {
 		font-family: monospace;
 		color: #00316b;
@@ -883,6 +1025,8 @@
 		transition: all 0.3s;
 		text-decoration: none;
 		display: inline-block;
+		width: 100%;
+		text-align: center;
 	}
 
 	.btn-primary {
@@ -904,8 +1048,13 @@
 		color: white;
 	}
 
-	.btn-secondary:hover {
+	.btn-secondary:hover:not(:disabled) {
 		background: #5a6268;
+	}
+
+	.btn-secondary:disabled {
+		background: #ccc;
+		cursor: not-allowed;
 	}
 
 	.loading {
