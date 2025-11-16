@@ -11,7 +11,7 @@
 	let dataStatus = null;
 	let loadingStatus = false;
 
-	$: selectedSeasonData = selectedSeason
+	$: selectedSeasonData = selectedSeason && data?.seasons
 		? data.seasons.find(s => s.season_id === parseInt(selectedSeason))
 		: null;
 
@@ -126,22 +126,22 @@
 	<div class="stats-grid">
 		<div class="stat-card">
 			<div class="stat-icon">🏆</div>
-			<div class="stat-value">{data.stats.total_seasons}</div>
+			<div class="stat-value">{data?.stats?.total_seasons || 0}</div>
 			<div class="stat-label">Total Seasons</div>
 		</div>
 		<div class="stat-card">
 			<div class="stat-icon">📊</div>
-			<div class="stat-value">{data.stats.total_rosters}</div>
+			<div class="stat-value">{data?.stats?.total_rosters || 0}</div>
 			<div class="stat-label">Roster Records</div>
 		</div>
 		<div class="stat-card">
 			<div class="stat-icon">📈</div>
-			<div class="stat-value">{data.stats.total_stats}</div>
+			<div class="stat-value">{data?.stats?.total_stats || 0}</div>
 			<div class="stat-label">Player Stats</div>
 		</div>
 		<div class="stat-card">
 			<div class="stat-icon">🔄</div>
-			<div class="stat-value">{formatDate(data.stats.last_update)}</div>
+			<div class="stat-value">{formatDate(data?.stats?.last_update)}</div>
 			<div class="stat-label">Last Update</div>
 		</div>
 	</div>
@@ -154,7 +154,7 @@
 			<label for="season-select">Choose a Season:</label>
 			<select id="season-select" bind:value={selectedSeason}>
 				<option value="">-- Select a Season --</option>
-				{#each data.seasons as season}
+				{#each data?.seasons || [] as season}
 					<option value={season.season_id}>
 						{season.league_name} - {season.season_year}
 						{#if season.platform === 'sleeper'}⭐{/if}

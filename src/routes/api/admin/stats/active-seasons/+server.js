@@ -1,20 +1,53 @@
-// src/routes/api/admin/stats/active-seasons/+server.js
+// src/routes/api/admin/stats/active_seasons/+server.js
 import { json } from '@sveltejs/kit';
-import { neon } from '@neondatabase/serverless';
-import { DATABASE_URL } from '$env/static/private';
+import { query } from '$lib/db';
 
-const sql = neon(DATABASE_URL);
-
-export async function GET({ locals }) {
-	if (!locals.user || !locals.user.is_admin) {
-		return json({ error: 'Unauthorized' }, { status: 401 });
-	}
-
+export async function GET() {
 	try {
-		const result = await sql`SELECT COUNT(*) as count FROM seasons WHERE is_active = TRUE`;
-		return json({ count: parseInt(result[0].count) });
+		// Get all seasons with their basic stats
+		const result = await query(`
+			SELECT 
+				s.season_id,
+				s.season_year,
+				s.league_name,
+				s.platform,
+				COUNT(DISTINCT t.team_id) as team_count,
+				COUNT(DISTINCT t.manager_id) as manager_count,
+				(
+					SELECT COUNT(*) 
+					FROM matchups m 
+					WHERE m.season_id = s.season_id
+				) as matchup_count,
+				(
+					SELECT COUNT(*) 
+					FROM weekly_roster wr 
+					WHERE wr.season_id = s.season_id
+				) as roster_count,
+				(
+					SELECT COUNT(*) 
+					FROM player_fantasy_stats pfs 
+					WHERE pfs.season_id = s.season_id
+				) as stats_count,
+				(
+					SELECT MAX(week)
+					FROM matchups m
+					WHERE m.season_id = s.season_id
+				) as latest_week
+			FROM seasons s
+			LEFT JOIN teams t ON s.season_id = t.season_id
+			GROUP BY s.season_id, s.season_year, s.league_name, s.platform
+			ORDER BY s.season_year DESC
+		`);
+
+		return json({
+			success: true,
+			seasons: result.rows
+		});
 	} catch (error) {
-		console.error('Stats error:', error);
-		return json({ error: 'Failed to fetch stats' }, { status: 500 });
+		console.error('Error fetching active seasons stats:', error);
+		return json({
+			success: false,
+			error: error.message
+		}, { status: 500 });
 	}
 }
