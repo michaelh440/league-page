@@ -7,30 +7,38 @@ import { getSleeperPlayers } from '$lib/sleeper_players_cache';
 const sql = neon(DATABASE_URL);
 
 export async function GET({ url }) {
+	console.log('🔍 weekly_summary GET request started');
 	try {
 		const season = url.searchParams.get('season');
 		const week = url.searchParams.get('week');
-		const type = url.searchParams.get('type') || 'regular'; // NEW: default to regular season
+		const type = url.searchParams.get('type') || 'regular';
+
+		console.log('📊 Request params:', { season, week, type });
 
 		if (!season || !week) {
+			console.log('❌ Missing required params');
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
 		}
 
-		// Get season_id
+		console.log('🔍 Fetching season_id for year:', season);
 		const seasonResult = await sql`
 			SELECT season_id FROM seasons WHERE season_year = ${parseInt(season)}
 		`;
 
+		console.log('✅ Season query result:', seasonResult);
+
 		if (seasonResult.length === 0) {
+			console.log('❌ Season not found');
 			return json({ success: false, error: 'Season not found' }, { status: 404 });
 		}
 
 		const seasonId = seasonResult[0].season_id;
+		console.log('✅ Found season_id:', seasonId);
 
 		let matchups;
 
 		if (type === 'playoffs') {
-			// Query the playoffs table
+			console.log('🏆 Querying playoffs data...');
 			matchups = await sql`
 				SELECT 
 					p.playoff_id as matchup_id,
@@ -70,8 +78,12 @@ export async function GET({ url }) {
 					AND p.team2_score IS NOT NULL
 				ORDER BY p.round_name, p.playoff_id
 			`;
+			console.log('✅ Playoffs query completed, found', matchups.length, 'matchups');
 		} else {
-			// Query the regular season matchups table (original query)
+			console.log('📅 Querying regular season matchups...');
+			console.log('   Query params: season_id =', seasonId, ', week =', week);
+			
+			// ORIGINAL WORKING QUERY - WITHOUT season filter on teams join
 			matchups = await sql`
 				SELECT 
 					m.matchup_id,
@@ -111,39 +123,47 @@ export async function GET({ url }) {
 					AND m.team2_score IS NOT NULL
 				ORDER BY m.matchup_id
 			`;
+			console.log('✅ Matchups query completed, found', matchups.length, 'matchups');
 		}
 
-		// For each matchup, get roster details with fantasy points
-		for (let matchup of matchups) {
-			// Get team1 roster
+		console.log('🎮 Processing rosters for', matchups.length, 'matchups...');
+		for (let i = 0; i < matchups.length; i++) {
+			const matchup = matchups[i];
+			console.log(`  📦 Processing matchup ${i + 1}/${matchups.length}...`);
+			
+			console.log(`    🔍 Fetching team1 roster (platform_id: ${matchup.team1_platform_id})`);
 			matchup.team1_roster = await getTeamRosterWithPoints(
 				matchup.team1_platform_id, 
 				parseInt(season), 
 				parseInt(week)
 			);
+			console.log(`    ✅ Team1 roster: ${matchup.team1_roster.length} players`);
 			
-			// Get team2 roster
+			console.log(`    🔍 Fetching team2 roster (platform_id: ${matchup.team2_platform_id})`);
 			matchup.team2_roster = await getTeamRosterWithPoints(
 				matchup.team2_platform_id, 
 				parseInt(season), 
 				parseInt(week)
 			);
+			console.log(`    ✅ Team2 roster: ${matchup.team2_roster.length} players`);
 		}
 
+		console.log('✅ All processing complete, returning', matchups.length, 'matchups');
 		return json({
 			success: true,
 			type: type,
 			matchups: matchups
 		});
 	} catch (error) {
-		console.error('Error fetching weekly summary:', error);
+		console.error('❌ ERROR in weekly_summary:', error);
+		console.error('   Error message:', error.message);
+		console.error('   Error stack:', error.stack);
 		return json({ success: false, error: error.message }, { status: 500 });
 	}
 }
 
 async function getTeamRosterWithPoints(platformTeamId, seasonYear, week) {
 	try {
-		// Get matchup data which has players_points, starters, and starters_points
 		const matchupData = await sql`
 			SELECT 
 				starters,
@@ -166,10 +186,8 @@ async function getTeamRosterWithPoints(platformTeamId, seasonYear, week) {
 			return [];
 		}
 
-		// Get player IDs
 		const playerIds = Object.keys(players_points);
 		
-		// Try to get player info from nfl_players first
 		const playerInfoMap = {};
 		if (playerIds.length > 0) {
 			const playerInfos = await sql`
@@ -186,14 +204,12 @@ async function getTeamRosterWithPoints(platformTeamId, seasonYear, week) {
 			});
 		}
 		
-		// For any players not found in database, fetch from Sleeper API
 		const missingPlayerIds = playerIds.filter(id => !playerInfoMap[id]);
 		if (missingPlayerIds.length > 0) {
 			const sleeperPlayers = await getSleeperPlayers(missingPlayerIds);
 			Object.assign(playerInfoMap, sleeperPlayers);
 		}
 
-		// Convert players_points JSONB to array of player data
 		const roster = [];
 		const startersArray = starters ? (Array.isArray(starters) ? starters : []) : [];
 
@@ -210,7 +226,6 @@ async function getTeamRosterWithPoints(platformTeamId, seasonYear, week) {
 			});
 		}
 
-		// Sort: starters first (by points desc), then bench (by points desc)
 		roster.sort((a, b) => {
 			if (a.is_starter && !b.is_starter) return -1;
 			if (!a.is_starter && b.is_starter) return 1;
