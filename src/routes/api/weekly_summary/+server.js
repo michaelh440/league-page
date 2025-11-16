@@ -10,7 +10,7 @@ export async function GET({ url }) {
 	try {
 		const season = url.searchParams.get('season');
 		const week = url.searchParams.get('week');
-		const type = url.searchParams.get('type') || 'regular'; // NEW: default to regular season
+		const type = url.searchParams.get('type') || 'regular';
 
 		if (!season || !week) {
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
@@ -56,11 +56,11 @@ export async function GET({ url }) {
 					END as winner,
 					ABS(p.team1_score - p.team2_score) as margin
 				FROM playoffs p
-				JOIN teams t1 ON p.team1_id = t1.team_id
+				JOIN teams t1 ON p.team1_id = t1.team_id AND t1.season_id = ${seasonId}
 				JOIN managers mgr1 ON t1.manager_id = mgr1.manager_id
 				LEFT JOIN manager_team_names mtn1 ON mtn1.manager_id = mgr1.manager_id 
 					AND mtn1.season_year = ${parseInt(season)}
-				JOIN teams t2 ON p.team2_id = t2.team_id
+				JOIN teams t2 ON p.team2_id = t2.team_id AND t2.season_id = ${seasonId}
 				JOIN managers mgr2 ON t2.manager_id = mgr2.manager_id
 				LEFT JOIN manager_team_names mtn2 ON mtn2.manager_id = mgr2.manager_id 
 					AND mtn2.season_year = ${parseInt(season)}
@@ -71,7 +71,7 @@ export async function GET({ url }) {
 				ORDER BY p.round_name, p.playoff_id
 			`;
 		} else {
-			// Query the regular season matchups table (original query)
+			// Query the regular season matchups table
 			matchups = await sql`
 				SELECT 
 					m.matchup_id,
@@ -97,11 +97,11 @@ export async function GET({ url }) {
 					END as winner,
 					ABS(m.team1_score - m.team2_score) as margin
 				FROM matchups m
-				JOIN teams t1 ON m.team1_id = t1.team_id
+				JOIN teams t1 ON m.team1_id = t1.team_id AND t1.season_id = ${seasonId}
 				JOIN managers mgr1 ON t1.manager_id = mgr1.manager_id
 				LEFT JOIN manager_team_names mtn1 ON mtn1.manager_id = mgr1.manager_id 
 					AND mtn1.season_year = ${parseInt(season)}
-				JOIN teams t2 ON m.team2_id = t2.team_id
+				JOIN teams t2 ON m.team2_id = t2.team_id AND t2.season_id = ${seasonId}
 				JOIN managers mgr2 ON t2.manager_id = mgr2.manager_id
 				LEFT JOIN manager_team_names mtn2 ON mtn2.manager_id = mgr2.manager_id 
 					AND mtn2.season_year = ${parseInt(season)}
