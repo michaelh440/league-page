@@ -21,6 +21,9 @@
 		loadDataStatus(selectedSeasonData.season_id, selectedSeasonData.season_year);
 	}
 
+	// Auto-detect archive type based on selected week
+	$: archiveType = selectedWeek >= 15 ? 'playoff' : 'regular';
+
 	async function loadDataStatus(seasonId, seasonYear) {
 		loadingStatus = true;
 		try {
@@ -275,38 +278,120 @@
 					{/if}
 				</div>
 
+				<!-- Week Detail View -->
+				<div class="week-detail-section">
+					<h3>🔍 Week Detail View</h3>
+					<p>Select a week to see detailed staging vs production data:</p>
+					
+					<div class="form-group">
+						<label for="detail-week-select">Select Week:</label>
+						<select id="detail-week-select" bind:value={selectedWeek}>
+							{#each Array(18) as _, i}
+								<option value={i + 1}>Week {i + 1}</option>
+							{/each}
+						</select>
+					</div>
+
+					{#if dataStatus}
+						{@const isPlayoff = selectedWeek >= 15}
+						{@const stagingRosters = dataStatus.stagingByWeek?.rosters?.[selectedWeek] || 0}
+						{@const stagingStats = dataStatus.stagingByWeek?.stats?.[selectedWeek] || 0}
+						{@const prodRosters = isPlayoff 
+							? (dataStatus.playoffRosters?.[selectedWeek] || 0)
+							: (dataStatus.weeklyRosters?.[selectedWeek] || 0)}
+						{@const prodStats = isPlayoff
+							? (dataStatus.playoffStats?.[selectedWeek] || 0)
+							: (dataStatus.playerStats?.[selectedWeek] || 0)}
+
+						<div class="week-detail-grid">
+							<div class="week-detail-card">
+								<h4>📦 Staging Tables</h4>
+								<div class="detail-stat">
+									<span class="label">Rosters (unprocessed):</span>
+									<span class="value {stagingRosters > 0 ? 'has-data' : 'no-data'}">
+										{stagingRosters}
+									</span>
+								</div>
+								<div class="detail-stat">
+									<span class="label">Player Stats (unprocessed):</span>
+									<span class="value {stagingStats > 0 ? 'has-data' : 'no-data'}">
+										{stagingStats}
+									</span>
+								</div>
+								{#if stagingRosters > 0 || stagingStats > 0}
+									<p class="status-message warning">⚠️ Unprocessed data available</p>
+								{:else}
+									<p class="status-message success">✓ No unprocessed data</p>
+								{/if}
+							</div>
+
+							<div class="week-detail-card">
+								<h4>✅ Production Tables</h4>
+								<div class="detail-stat">
+									<span class="label">{isPlayoff ? 'Playoff Rosters' : 'Weekly Rosters'}:</span>
+									<span class="value {prodRosters > 0 ? 'has-data' : 'no-data'}">
+										{prodRosters}
+									</span>
+								</div>
+								<div class="detail-stat">
+									<span class="label">{isPlayoff ? 'Playoff Stats' : 'Player Stats'}:</span>
+									<span class="value {prodStats > 0 ? 'has-data' : 'no-data'}">
+										{prodStats}
+									</span>
+								</div>
+								{#if prodRosters > 0 || prodStats > 0}
+									<p class="status-message success">✓ Data processed</p>
+								{:else}
+									<p class="status-message warning">⚠️ No processed data</p>
+								{/if}
+							</div>
+
+							<div class="week-detail-card">
+								<h4>📊 Week Summary</h4>
+								<div class="detail-stat">
+									<span class="label">Week Type:</span>
+									<span class="value">
+										<span class="badge badge-{isPlayoff ? 'purple' : 'blue'}">
+											{isPlayoff ? 'Playoff' : 'Regular Season'}
+										</span>
+									</span>
+								</div>
+								<div class="detail-stat">
+									<span class="label">Target Tables:</span>
+									<span class="value small-text">
+										{isPlayoff ? 'playoff_roster, playoff_fantasy_stats' : 'weekly_roster, player_fantasy_stats'}
+									</span>
+								</div>
+								{#if stagingRosters > 0 || stagingStats > 0}
+									<p class="status-message info">💡 Ready to archive</p>
+								{:else if prodRosters > 0 || prodStats > 0}
+									<p class="status-message success">✓ Complete</p>
+								{:else}
+									<p class="status-message">No data for this week</p>
+								{/if}
+							</div>
+						</div>
+					{/if}
+				</div>
+
 				<!-- Archive Controls -->
 				<div class="sync-controls">
 					<h3>🔄 Archive Week Data</h3>
 					
 					<div class="archive-card">
-						<h4>📥 Archive Single Week</h4>
-						<p>Fetch and archive data for a specific week from Sleeper.</p>
+						<h4>📥 Archive Week {selectedWeek}</h4>
+						<p>Fetch and archive data for <strong>Week {selectedWeek}</strong> from Sleeper.</p>
 						
-						<div class="form-row">
-							<div class="form-group">
-								<label for="week-select">Week:</label>
-								<select id="week-select" bind:value={selectedWeek}>
-									{#each Array(18) as _, i}
-										<option value={i + 1}>Week {i + 1}</option>
-									{/each}
-								</select>
-							</div>
-
-							<div class="form-group">
-								<label for="archive-type">Type:</label>
-								<select id="archive-type" bind:value={archiveType}>
-									<option value="regular">Regular Season</option>
-									<option value="playoff">Playoff</option>
-								</select>
-							</div>
-						</div>
-
 						<div class="archive-preview">
+							<p><strong>Auto-detected Type:</strong> 
+								<span class="badge badge-{archiveType === 'playoff' ? 'purple' : 'blue'}">
+									{archiveType === 'playoff' ? 'Playoff' : 'Regular Season'}
+								</span>
+							</p>
 							<p><strong>Will archive to:</strong></p>
 							<ul>
-								<li>{archiveType === 'regular' ? 'weekly_roster' : 'playoff_roster'}</li>
-								<li>{archiveType === 'regular' ? 'player_fantasy_stats' : 'playoff_fantasy_stats'}</li>
+								<li><code>{archiveType === 'regular' ? 'weekly_roster' : 'playoff_roster'}</code></li>
+								<li><code>{archiveType === 'regular' ? 'player_fantasy_stats' : 'playoff_fantasy_stats'}</code></li>
 							</ul>
 						</div>
 
@@ -632,6 +717,102 @@
 		color: #856404;
 	}
 
+	.week-detail-section {
+		background: white;
+		border: 2px solid #e0e0e0;
+		border-radius: 12px;
+		padding: 2rem;
+		margin-bottom: 2rem;
+	}
+
+	.week-detail-section h3 {
+		color: #00316b;
+		margin-top: 0;
+		margin-bottom: 1rem;
+	}
+
+	.week-detail-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.5rem;
+		margin-top: 1.5rem;
+	}
+
+	.week-detail-card {
+		background: #f8f9fa;
+		border: 2px solid #e0e0e0;
+		border-radius: 8px;
+		padding: 1.5rem;
+	}
+
+	.week-detail-card h4 {
+		margin-top: 0;
+		color: #00316b;
+		margin-bottom: 1rem;
+	}
+
+	.detail-stat {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		padding: 0.75rem 0;
+		border-bottom: 1px solid #dee2e6;
+	}
+
+	.detail-stat:last-of-type {
+		border-bottom: none;
+	}
+
+	.detail-stat .label {
+		color: #666;
+		font-weight: 500;
+	}
+
+	.detail-stat .value {
+		font-weight: 700;
+		font-size: 1.1rem;
+	}
+
+	.detail-stat .value.has-data {
+		color: #28a745;
+	}
+
+	.detail-stat .value.no-data {
+		color: #6c757d;
+	}
+
+	.detail-stat .value.small-text {
+		font-size: 0.85rem;
+		font-family: monospace;
+		color: #00316b;
+	}
+
+	.status-message {
+		margin-top: 1rem;
+		padding: 0.75rem;
+		border-radius: 4px;
+		font-weight: 600;
+		text-align: center;
+	}
+
+	.status-message.success {
+		background: #d4edda;
+		color: #155724;
+		border: 1px solid #c3e6cb;
+	}
+
+	.status-message.warning {
+		background: #fff3cd;
+		color: #856404;
+		border: 1px solid #ffeeba;
+	}
+
+	.status-message.info {
+		background: #d1ecf1;
+		color: #0c5460;
+		border: 1px solid #bee5eb;
+	}
+
 	.sync-controls {
 		background: white;
 		border: 2px solid #e0e0e0;
@@ -663,13 +844,6 @@
 		border-color: #2196f3;
 	}
 
-	.form-row {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-		gap: 1rem;
-		margin-bottom: 1rem;
-	}
-
 	.archive-preview {
 		background: white;
 		border: 1px solid #dee2e6;
@@ -678,15 +852,25 @@
 		margin-bottom: 1rem;
 	}
 
+	.archive-preview p {
+		margin: 0.5rem 0;
+	}
+
 	.archive-preview ul {
 		margin: 0.5rem 0 0 0;
 		padding-left: 1.5rem;
 	}
 
 	.archive-preview li {
+		margin: 0.25rem 0;
+	}
+
+	.archive-preview code {
 		font-family: monospace;
 		color: #00316b;
-		margin: 0.25rem 0;
+		background: #f0f0f0;
+		padding: 0.125rem 0.375rem;
+		border-radius: 3px;
 	}
 
 	.btn {

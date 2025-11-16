@@ -16,6 +16,10 @@ export async function GET({ url }) {
 			playerStats: {},
 			playoffRosters: {},
 			playoffStats: {},
+			stagingByWeek: {
+				rosters: {},
+				stats: {}
+			},
 			stagingRosters: 0,
 			stagingStats: 0,
 			regularWeeksCount: 0,
@@ -102,6 +106,31 @@ export async function GET({ url }) {
 			WHERE season_year = $1 AND processed = false
 		`, [seasonYear]);
 		status.stagingStats = parseInt(stagingStatsQuery.rows[0]?.count || 0);
+
+		// Get staging data BY WEEK
+		const stagingRostersByWeekQuery = await query(`
+			SELECT week, COUNT(*) as count
+			FROM staging_sleeper_weekly_rosters
+			WHERE season_year = $1 AND processed = false
+			GROUP BY week
+			ORDER BY week
+		`, [seasonYear]);
+
+		for (const row of stagingRostersByWeekQuery.rows) {
+			status.stagingByWeek.rosters[row.week] = parseInt(row.count);
+		}
+
+		const stagingStatsByWeekQuery = await query(`
+			SELECT week, COUNT(*) as count
+			FROM staging_sleeper_player_stats
+			WHERE season_year = $1 AND processed = false
+			GROUP BY week
+			ORDER BY week
+		`, [seasonYear]);
+
+		for (const row of stagingStatsByWeekQuery.rows) {
+			status.stagingByWeek.stats[row.week] = parseInt(row.count);
+		}
 
 		return json(status);
 	} catch (error) {
