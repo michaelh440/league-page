@@ -7,9 +7,8 @@
 
 	let selectedSeason = '';
 	let selectedWeek = 1;
-	let syncingRosters = false;
-	let syncingMatchups = false;
-	let syncingFullSeason = false;
+	let archiveType = 'regular';
+	let isArchiving = false;
 	let dataStatus = null;
 	let loadingStatus = false;
 
@@ -19,15 +18,13 @@
 
 	// Load data status when season is selected
 	$: if (selectedSeasonData && selectedSeasonData.sleeper_league_id) {
-		loadDataStatus(selectedSeasonData.season_id, selectedSeasonData.sleeper_league_id);
+		loadDataStatus(selectedSeasonData.season_id, selectedSeasonData.season_year);
 	}
 
-	async function loadDataStatus(seasonId, sleeperLeagueId) {
+	async function loadDataStatus(seasonId, seasonYear) {
 		loadingStatus = true;
 		try {
-			// This would need to be an API call in real implementation
-			// For now, using fetch to a custom endpoint
-			const response = await fetch(`/api/sleeper-status?season_id=${seasonId}&sleeper_league_id=${sleeperLeagueId}`);
+			const response = await fetch(`/api/sleeper-status?season_id=${seasonId}&season_year=${seasonYear}`);
 			if (response.ok) {
 				dataStatus = await response.json();
 			}
@@ -35,6 +32,34 @@
 			console.error('Error loading data status:', error);
 		}
 		loadingStatus = false;
+	}
+
+	async function archiveWeek() {
+		if (isArchiving) return;
+		
+		isArchiving = true;
+		const endpoint = archiveType === 'regular' ? '/api/archive_rosters_stats' : '/api/archive_playoff';
+		
+		try {
+			const response = await fetch(
+				`${endpoint}?league_id=${selectedSeasonData.sleeper_league_id}&season=${selectedSeasonData.season_year}&week=${selectedWeek}`
+			);
+			const result = await response.json();
+			
+			if (result.success) {
+				form = { 
+					success: true, 
+					message: `Week ${selectedWeek} archived: ${result.staged.teams || result.staged.rosters} teams, ${result.staged.stats} stats staged. ${result.processed.playerRecords || result.processed.rosters} player records processed.`
+				};
+				await loadDataStatus(selectedSeasonData.season_id, selectedSeasonData.season_year);
+			} else {
+				form = { success: false, error: result.error };
+			}
+		} catch (error) {
+			form = { success: false, error: error.message };
+		}
+		
+		isArchiving = false;
 	}
 
 	function formatDate(dateString) {
@@ -59,7 +84,7 @@
 <div class="container">
 	<div class="header">
 		<h1>🏈 Sleeper Data Integration</h1>
-		<p class="subtitle">Sync fantasy football data from Sleeper API</p>
+		<p class="subtitle">Archive fantasy football data from Sleeper API to database</p>
 	</div>
 
 	{#if form?.success}
@@ -77,30 +102,30 @@
 	<!-- Stats Dashboard -->
 	<div class="stats-grid">
 		<div class="stat-card">
-			<div class="stat-icon">👥</div>
-			<div class="stat-value">{data.stats.total_managers}</div>
-			<div class="stat-label">Synced Managers</div>
-		</div>
-		<div class="stat-card">
 			<div class="stat-icon">🏆</div>
-			<div class="stat-value">{data.stats.total_teams}</div>
-			<div class="stat-label">Synced Teams</div>
+			<div class="stat-value">{data.stats.total_seasons}</div>
+			<div class="stat-label">Total Seasons</div>
 		</div>
 		<div class="stat-card">
-			<div class="stat-icon">⚔️</div>
-			<div class="stat-value">{data.stats.total_matchups}</div>
-			<div class="stat-label">Synced Matchups</div>
+			<div class="stat-icon">📊</div>
+			<div class="stat-value">{data.stats.total_rosters}</div>
+			<div class="stat-label">Roster Records</div>
+		</div>
+		<div class="stat-card">
+			<div class="stat-icon">📈</div>
+			<div class="stat-value">{data.stats.total_stats}</div>
+			<div class="stat-label">Player Stats</div>
 		</div>
 		<div class="stat-card">
 			<div class="stat-icon">🔄</div>
-			<div class="stat-value">{formatDate(data.stats.last_sync)}</div>
-			<div class="stat-label">Last Sync</div>
+			<div class="stat-value">{formatDate(data.stats.last_update)}</div>
+			<div class="stat-label">Last Update</div>
 		</div>
 	</div>
 
 	<!-- Season Selection -->
 	<div class="sync-section">
-		<h2>Select Season to Sync</h2>
+		<h2>Select Season to Archive</h2>
 
 		<div class="form-group">
 			<label for="season-select">Choose a Season:</label>
@@ -108,10 +133,8 @@
 				<option value="">-- Select a Season --</option>
 				{#each data.seasons as season}
 					<option value={season.season_id}>
-						{season.league_name} - {season.season_year} 
-						({season.team_count} teams, {season.matchup_count} matchups)
-						{#if season.is_active}⭐ ACTIVE{/if}
-						{#if season.platform} - {season.platform}{/if}
+						{season.league_name} - {season.season_year}
+						{#if season.platform === 'sleeper'}⭐ Sleeper{/if}
 					</option>
 				{/each}
 			</select>
@@ -131,19 +154,22 @@
 					</div>
 					<div class="info-item">
 						<span class="label">Platform:</span>
-						<span class="value badge badge-blue">{selectedSeasonData.platform || 'Not Set'}</span>
+						<span class="value badge badge-blue">{selectedSeasonData.platform || 'Yahoo'}</span>
 					</div>
 					<div class="info-item">
 						<span class="label">Sleeper League ID:</span>
-						<span class="value">{selectedSeasonData.sleeper_league_id || 'Not Set'}</span>
+						<span class="value">{selectedSeasonData.sleeper_league_id || 'N/A'}</span>
 					</div>
 				</div>
 			</div>
 
-			{#if !selectedSeasonData.sleeper_league_id}
+			{#if selectedSeasonData.platform !== 'sleeper'}
 				<div class="alert alert-warning">
-					⚠️ This season doesn't have a Sleeper League ID set. You need to add the Sleeper League ID 
-					to the league's platform_id field before syncing.
+					⚠️ This is a {selectedSeasonData.platform || 'Yahoo'} season. This page is for Sleeper data only.
+				</div>
+			{:else if !selectedSeasonData.sleeper_league_id}
+				<div class="alert alert-warning">
+					⚠️ This season doesn't have a Sleeper League ID set.
 				</div>
 			{:else}
 				<!-- Data Status Dashboard -->
@@ -152,295 +178,155 @@
 					{#if loadingStatus}
 						<p class="loading">Loading data status...</p>
 					{:else if dataStatus}
-						<!-- Season-Level Data -->
-						<div class="status-section">
-							<h4>Season-Level Data</h4>
-							<div class="status-grid">
-								<div class="status-item">
-									<div class="status-label">👥 Teams/Rosters</div>
-									<div class="status-bars">
-										<div class="status-bar">
-											<span class="bar-label">Staging:</span>
-											<div class="bar-container">
-												<div class="bar bar-staging" style="width: {dataStatus.seasonStaging.teams > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonStaging.teams}</span>
-											</div>
-										</div>
-										<div class="status-bar">
-											<span class="bar-label">Production:</span>
-											<div class="bar-container">
-												<div class="bar bar-production" style="width: {dataStatus.seasonProduction.teams > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonProduction.teams}</span>
-											</div>
-										</div>
-									</div>
-									<span class="status-badge status-{getStatusColor(dataStatus.seasonStaging.teams, dataStatus.seasonProduction.teams)}">
-										{getStatusText(dataStatus.seasonStaging.teams, dataStatus.seasonProduction.teams)}
-									</span>
-								</div>
-
-								<div class="status-item">
-									<div class="status-label">🏈 League Data</div>
-									<div class="status-bars">
-										<div class="status-bar">
-											<span class="bar-label">Staging:</span>
-											<div class="bar-container">
-												<div class="bar bar-staging" style="width: {dataStatus.seasonStaging.league > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonStaging.league}</span>
-											</div>
-										</div>
-									</div>
-									<span class="status-badge status-{getStatusColor(dataStatus.seasonStaging.league, 1)}">
-										{getStatusText(dataStatus.seasonStaging.league, 1)}
-									</span>
-								</div>
-
-								<div class="status-item">
-									<div class="status-label">📋 Drafts</div>
-									<div class="status-bars">
-										<div class="status-bar">
-											<span class="bar-label">Staging:</span>
-											<div class="bar-container">
-												<div class="bar bar-staging" style="width: {dataStatus.seasonStaging.drafts > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonStaging.drafts}</span>
-											</div>
-										</div>
-									</div>
-									<span class="status-badge status-{getStatusColor(dataStatus.seasonStaging.drafts, 0)}">
-										{getStatusText(dataStatus.seasonStaging.drafts, 0)}
-									</span>
-								</div>
-
-								<div class="status-item">
-									<div class="status-label">🎯 Draft Picks</div>
-									<div class="status-bars">
-										<div class="status-bar">
-											<span class="bar-label">Staging:</span>
-											<div class="bar-container">
-												<div class="bar bar-staging" style="width: {dataStatus.seasonStaging.draftPicks > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonStaging.draftPicks}</span>
-											</div>
-										</div>
-									</div>
-									<span class="status-badge status-{getStatusColor(dataStatus.seasonStaging.draftPicks, 0)}">
-										{getStatusText(dataStatus.seasonStaging.draftPicks, 0)}
-									</span>
-								</div>
-
-								<div class="status-item">
-									<div class="status-label">👤 Users/Managers</div>
-									<div class="status-bars">
-										<div class="status-bar">
-											<span class="bar-label">Staging:</span>
-											<div class="bar-container">
-												<div class="bar bar-staging" style="width: {dataStatus.seasonStaging.users > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonStaging.users}</span>
-											</div>
-										</div>
-										<div class="status-bar">
-											<span class="bar-label">Production:</span>
-											<div class="bar-container">
-												<div class="bar bar-production" style="width: {dataStatus.seasonProduction.managers > 0 ? '100%' : '0%'}"></div>
-												<span class="bar-count">{dataStatus.seasonProduction.managers}</span>
-											</div>
-										</div>
-									</div>
-									<span class="status-badge status-{getStatusColor(dataStatus.seasonStaging.users, dataStatus.seasonProduction.managers)}">
-										{getStatusText(dataStatus.seasonStaging.users, dataStatus.seasonProduction.managers)}
-									</span>
-								</div>
-							</div>
-						</div>
-
-						<!-- Weekly Data -->
+						<!-- Weekly Data Grid -->
 						<div class="status-section">
 							<h4>Weekly Data Status</h4>
-							<div class="weekly-status">
-								<!-- Matchups -->
-								<div class="weekly-item">
-									<h5>⚔️ Matchups</h5>
-									<div class="week-grid">
-										{#each Array(18) as _, i}
-											{@const week = i + 1}
-											{@const staging = dataStatus.weeklyStaging.matchups?.[week] || 0}
-											{@const production = dataStatus.weeklyProduction.matchups?.[week] || 0}
-											<div class="week-box status-{getStatusColor(staging, production)}" title="Week {week}: {staging} staging, {production} production">
-												<div class="week-label">W{week}</div>
-												<div class="week-counts">
-													<span class="staging-count">{staging}</span>
-													<span class="production-count">{production}</span>
-												</div>
-											</div>
-										{/each}
-									</div>
-								</div>
+							<div class="weekly-grid">
+								<!-- Header Row -->
+								<div class="grid-header">Week</div>
+								<div class="grid-header">Rosters</div>
+								<div class="grid-header">Stats</div>
+								<div class="grid-header">Type</div>
+								<div class="grid-header">Status</div>
 
-								<!-- Rosters -->
-								<div class="weekly-item">
-									<h5>📊 Weekly Rosters</h5>
-									<div class="week-grid">
-										{#each Array(18) as _, i}
-											{@const week = i + 1}
-											{@const staging = dataStatus.weeklyStaging.rosters?.[week] || 0}
-											{@const production = dataStatus.weeklyProduction.rosters?.[week] || 0}
-											<div class="week-box status-{getStatusColor(staging, production)}" title="Week {week}: {staging} staging, {production} production">
-												<div class="week-label">W{week}</div>
-												<div class="week-counts">
-													<span class="staging-count">{staging}</span>
-													<span class="production-count">{production}</span>
-												</div>
-											</div>
-										{/each}
+								<!-- Data Rows -->
+								{#each Array(18) as _, i}
+									{@const week = i + 1}
+									{@const isPlayoff = week >= 15}
+									{@const rosters = isPlayoff 
+										? (dataStatus.playoffRosters?.[week] || 0)
+										: (dataStatus.weeklyRosters?.[week] || 0)}
+									{@const stats = isPlayoff
+										? (dataStatus.playoffStats?.[week] || 0)
+										: (dataStatus.playerStats?.[week] || 0)}
+									{@const hasData = rosters > 0 || stats > 0}
+									
+									<div class="grid-cell week-cell">W{week}</div>
+									<div class="grid-cell">{rosters > 0 ? rosters : '-'}</div>
+									<div class="grid-cell">{stats > 0 ? stats : '-'}</div>
+									<div class="grid-cell">
+										<span class="badge badge-{isPlayoff ? 'purple' : 'blue'}">
+											{isPlayoff ? 'Playoff' : 'Regular'}
+										</span>
 									</div>
-								</div>
+									<div class="grid-cell">
+										<span class="status-badge status-{hasData ? 'green' : 'gray'}">
+											{hasData ? '✓' : '✗'}
+										</span>
+									</div>
+								{/each}
+							</div>
+						</div>
 
-								<!-- Player Stats -->
-								<div class="weekly-item">
-									<h5>📈 Player Fantasy Stats</h5>
-									<div class="week-grid">
-										{#each Array(18) as _, i}
-											{@const week = i + 1}
-											{@const staging = dataStatus.weeklyStaging.playerStats?.[week] || 0}
-											<div class="week-box status-{getStatusColor(staging, 0)}" title="Week {week}: {staging} staging">
-												<div class="week-label">W{week}</div>
-												<div class="week-counts">
-													<span class="staging-count">{staging}</span>
-												</div>
-											</div>
-										{/each}
-									</div>
+						<!-- Summary Stats -->
+						<div class="summary-grid">
+							<div class="summary-card">
+								<h4>📊 Regular Season</h4>
+								<div class="summary-stat">
+									<span class="label">Weeks with data:</span>
+									<span class="value">{dataStatus.regularWeeksCount || 0} / 14</span>
 								</div>
+								<div class="summary-stat">
+									<span class="label">Total rosters:</span>
+									<span class="value">{dataStatus.totalRegularRosters || 0}</span>
+								</div>
+								<div class="summary-stat">
+									<span class="label">Total stats:</span>
+									<span class="value">{dataStatus.totalRegularStats || 0}</span>
+								</div>
+							</div>
 
-								<!-- Playoffs -->
-								<div class="weekly-item">
-									<h5>🏆 Playoffs (Weeks 15-18)</h5>
-									<div class="week-grid">
-										{#each Array(4) as _, i}
-											{@const week = i + 15}
-											{@const staging = dataStatus.weeklyStaging.playoffs?.[week] || 0}
-											<div class="week-box status-{getStatusColor(staging, 0)}" title="Week {week}: {staging} staging">
-												<div class="week-label">W{week}</div>
-												<div class="week-counts">
-													<span class="staging-count">{staging}</span>
-												</div>
-											</div>
-										{/each}
-									</div>
+							<div class="summary-card">
+								<h4>🏆 Playoffs</h4>
+								<div class="summary-stat">
+									<span class="label">Weeks with data:</span>
+									<span class="value">{dataStatus.playoffWeeksCount || 0} / 4</span>
+								</div>
+								<div class="summary-stat">
+									<span class="label">Total rosters:</span>
+									<span class="value">{dataStatus.totalPlayoffRosters || 0}</span>
+								</div>
+								<div class="summary-stat">
+									<span class="label">Total stats:</span>
+									<span class="value">{dataStatus.totalPlayoffStats || 0}</span>
 								</div>
 							</div>
 						</div>
 
-						<!-- Legend -->
-						<div class="legend">
-							<h5>Legend:</h5>
-							<div class="legend-items">
-								<div class="legend-item">
-									<span class="status-badge status-green">Processed</span>
-									<span>Data in production tables</span>
+						<!-- Staging Tables Status -->
+						<div class="status-section">
+							<h4>🗃️ Staging Tables (Unprocessed Data)</h4>
+							<div class="staging-grid">
+								<div class="staging-item">
+									<span class="label">Weekly Rosters:</span>
+									<span class="value">{dataStatus.stagingRosters || 0}</span>
 								</div>
-								<div class="legend-item">
-									<span class="status-badge status-yellow">Staged</span>
-									<span>Data in staging, needs processing</span>
-								</div>
-								<div class="legend-item">
-									<span class="status-badge status-gray">Missing</span>
-									<span>No data downloaded</span>
+								<div class="staging-item">
+									<span class="label">Player Stats:</span>
+									<span class="value">{dataStatus.stagingStats || 0}</span>
 								</div>
 							</div>
+							{#if (dataStatus.stagingRosters > 0 || dataStatus.stagingStats > 0)}
+								<p class="hint">⚠️ You have unprocessed data in staging tables. Run archival to process it.</p>
+							{/if}
 						</div>
 					{:else}
-						<p class="hint">Data status will appear here after loading...</p>
+						<p class="hint">Select a season to view data status...</p>
 					{/if}
 				</div>
 
-				<!-- Sync Controls -->
+				<!-- Archive Controls -->
 				<div class="sync-controls">
-					<h3>🔄 Sync Controls</h3>
+					<h3>🔄 Archive Week Data</h3>
 					
-					<!-- Sync Rosters/Teams -->
-					<div class="sync-card">
-						<h4>📋 Sync Teams/Rosters</h4>
-						<p>Import all teams and managers from Sleeper for this season.</p>
-						<p class="hint">💡 Do this first before syncing matchups!</p>
-						<form
-							method="POST"
-							action="?/syncRosters"
-							use:enhance={() => {
-								syncingRosters = true;
-								return async ({ update }) => {
-									await update();
-									await invalidateAll();
-									syncingRosters = false;
-								};
-							}}
-						>
-							<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
-							<input type="hidden" name="season_id" value={selectedSeason} />
-							<input type="hidden" name="league_id" value={selectedSeasonData.league_id} />
-							<button type="submit" class="btn btn-primary" disabled={syncingRosters}>
-								{syncingRosters ? '⏳ Syncing...' : '🔄 Sync Rosters'}
-							</button>
-						</form>
-					</div>
+					<div class="archive-card">
+						<h4>📥 Archive Single Week</h4>
+						<p>Fetch and archive data for a specific week from Sleeper.</p>
+						
+						<div class="form-row">
+							<div class="form-group">
+								<label for="week-select">Week:</label>
+								<select id="week-select" bind:value={selectedWeek}>
+									{#each Array(18) as _, i}
+										<option value={i + 1}>Week {i + 1}</option>
+									{/each}
+								</select>
+							</div>
 
-					<!-- Sync Single Week Matchups -->
-					<div class="sync-card">
-						<h4>⚔️ Sync Week Matchups</h4>
-						<p>Import matchup data for a specific week.</p>
-						<div class="form-group">
-							<label for="week-select">Select Week:</label>
-							<select id="week-select" bind:value={selectedWeek}>
-								{#each Array(18) as _, i}
-									<option value={i + 1}>Week {i + 1}</option>
-								{/each}
-							</select>
+							<div class="form-group">
+								<label for="archive-type">Type:</label>
+								<select id="archive-type" bind:value={archiveType}>
+									<option value="regular">Regular Season</option>
+									<option value="playoff">Playoff</option>
+								</select>
+							</div>
 						</div>
-						<form
-							method="POST"
-							action="?/syncMatchups"
-							use:enhance={() => {
-								syncingMatchups = true;
-								return async ({ update }) => {
-									await update();
-									await invalidateAll();
-									syncingMatchups = false;
-								};
-							}}
+
+						<div class="archive-preview">
+							<p><strong>Will archive to:</strong></p>
+							<ul>
+								<li>{archiveType === 'regular' ? 'weekly_roster' : 'playoff_roster'}</li>
+								<li>{archiveType === 'regular' ? 'player_fantasy_stats' : 'playoff_fantasy_stats'}</li>
+							</ul>
+						</div>
+
+						<button 
+							type="button" 
+							class="btn btn-primary" 
+							disabled={isArchiving}
+							on:click={archiveWeek}
 						>
-							<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
-							<input type="hidden" name="week" value={selectedWeek} />
-							<input type="hidden" name="season_id" value={selectedSeason} />
-							<button type="submit" class="btn btn-primary" disabled={syncingMatchups}>
-								{syncingMatchups ? '⏳ Syncing...' : `🔄 Sync Week ${selectedWeek}`}
-							</button>
-						</form>
+							{isArchiving ? '⏳ Archiving...' : `🔄 Archive Week ${selectedWeek}`}
+						</button>
 					</div>
 
-					<!-- Full Season Sync -->
-					<div class="sync-card sync-card-danger">
-						<h4>🚀 Full Season Sync</h4>
-						<p class="warning-text">
-							⚠️ This will sync all rosters AND all matchups (weeks 1-18). This may take several minutes.
-						</p>
-						<form
-							method="POST"
-							action="?/syncFullSeason"
-							use:enhance={() => {
-								syncingFullSeason = true;
-								return async ({ update }) => {
-									await update();
-									await invalidateAll();
-									syncingFullSeason = false;
-								};
-							}}
-						>
-							<input type="hidden" name="sleeper_league_id" value={selectedSeasonData.sleeper_league_id} />
-							<input type="hidden" name="season_id" value={selectedSeason} />
-							<input type="hidden" name="league_id" value={selectedSeasonData.league_id} />
-							<button type="submit" class="btn btn-danger" disabled={syncingFullSeason}>
-								{syncingFullSeason ? '⏳ Syncing Full Season...' : '🚀 Sync Entire Season'}
-							</button>
-						</form>
+					<!-- Bulk Archive Link -->
+					<div class="archive-card archive-card-info">
+						<h4>📦 Bulk Archive</h4>
+						<p>For archiving multiple weeks at once, use the dedicated archive page.</p>
+						<a href="/admin/archive" class="btn btn-secondary">
+							Go to Bulk Archive Page →
+						</a>
 					</div>
 				</div>
 			{/if}
@@ -449,7 +335,6 @@
 </div>
 
 <style>
-	/* Previous styles remain the same... */
 	.container {
 		max-width: 1400px;
 		margin: 0 auto;
@@ -468,7 +353,150 @@
 		margin: 0;
 	}
 
-	/* Status Dashboard */
+	.alert {
+		padding: 1rem;
+		border-radius: 8px;
+		margin-bottom: 1.5rem;
+	}
+
+	.alert-success {
+		background: #d4edda;
+		border: 1px solid #c3e6cb;
+		color: #155724;
+	}
+
+	.alert-error {
+		background: #f8d7da;
+		border: 1px solid #f5c6cb;
+		color: #721c24;
+	}
+
+	.alert-warning {
+		background: #fff3cd;
+		border: 1px solid #ffeeba;
+		color: #856404;
+	}
+
+	.stats-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+		gap: 1.5rem;
+		margin-bottom: 2rem;
+	}
+
+	.stat-card {
+		background: white;
+		border: 2px solid #e0e0e0;
+		border-radius: 12px;
+		padding: 1.5rem;
+		text-align: center;
+	}
+
+	.stat-icon {
+		font-size: 2.5rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.stat-value {
+		font-size: 2rem;
+		font-weight: 700;
+		color: #00316b;
+		margin-bottom: 0.25rem;
+	}
+
+	.stat-label {
+		color: #666;
+		font-size: 0.9rem;
+	}
+
+	.sync-section {
+		background: white;
+		border: 2px solid #e0e0e0;
+		border-radius: 12px;
+		padding: 2rem;
+		margin-bottom: 2rem;
+	}
+
+	.sync-section h2 {
+		color: #00316b;
+		margin-top: 0;
+		margin-bottom: 1.5rem;
+	}
+
+	.form-group {
+		margin-bottom: 1.5rem;
+	}
+
+	.form-group label {
+		display: block;
+		margin-bottom: 0.5rem;
+		font-weight: 600;
+		color: #333;
+	}
+
+	.form-group select {
+		width: 100%;
+		padding: 0.75rem;
+		border: 2px solid #ddd;
+		border-radius: 6px;
+		font-size: 1rem;
+	}
+
+	.season-info {
+		background: #f8f9fa;
+		border: 2px solid #e0e0e0;
+		border-radius: 8px;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
+	}
+
+	.season-info h3 {
+		margin-top: 0;
+		color: #00316b;
+	}
+
+	.info-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+	}
+
+	.info-item {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.5rem;
+		background: white;
+		border-radius: 4px;
+	}
+
+	.info-item .label {
+		color: #666;
+		font-weight: 500;
+	}
+
+	.info-item .value {
+		font-weight: 600;
+		color: #00316b;
+	}
+
+	.badge {
+		display: inline-block;
+		padding: 0.25rem 0.75rem;
+		border-radius: 12px;
+		font-size: 0.85rem;
+		font-weight: 600;
+	}
+
+	.badge-blue {
+		background: #2196f3;
+		color: white;
+	}
+
+	.badge-purple {
+		background: #9c27b0;
+		color: white;
+	}
+
 	.status-dashboard {
 		background: white;
 		border: 2px solid #e0e0e0;
@@ -490,88 +518,43 @@
 	.status-section h4 {
 		color: #00316b;
 		margin-bottom: 1rem;
-		font-size: 1.2rem;
 	}
 
-	.status-grid {
+	.weekly-grid {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-		gap: 1.5rem;
-		margin-bottom: 2rem;
+		grid-template-columns: 60px 100px 100px 100px 80px;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
 	}
 
-	.status-item {
+	.grid-header {
+		font-weight: 600;
+		color: #00316b;
+		padding: 0.5rem;
 		background: #f8f9fa;
-		border: 2px solid #e0e0e0;
-		border-radius: 8px;
-		padding: 1rem;
-	}
-
-	.status-label {
-		font-weight: 600;
-		color: #333;
-		margin-bottom: 0.75rem;
-		display: block;
-	}
-
-	.status-bars {
-		display: flex;
-		flex-direction: column;
-		gap: 0.5rem;
-		margin-bottom: 0.75rem;
-	}
-
-	.status-bar {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-	}
-
-	.bar-label {
-		font-size: 0.85rem;
-		color: #666;
-		width: 80px;
-	}
-
-	.bar-container {
-		flex: 1;
-		height: 24px;
-		background: #e0e0e0;
 		border-radius: 4px;
-		position: relative;
-		overflow: hidden;
+		text-align: center;
 	}
 
-	.bar {
-		height: 100%;
-		transition: width 0.3s ease;
+	.grid-cell {
+		padding: 0.5rem;
+		border: 1px solid #e0e0e0;
+		border-radius: 4px;
+		text-align: center;
+		font-size: 0.9rem;
 	}
 
-	.bar-staging {
-		background: linear-gradient(90deg, #ffd700 0%, #ffed4e 100%);
-	}
-
-	.bar-production {
-		background: linear-gradient(90deg, #28a745 0%, #34ce57 100%);
-	}
-
-	.bar-count {
-		position: absolute;
-		right: 8px;
-		top: 50%;
-		transform: translateY(-50%);
-		font-size: 0.85rem;
+	.week-cell {
 		font-weight: 600;
-		color: #333;
+		background: #f8f9fa;
 	}
 
 	.status-badge {
 		display: inline-block;
-		padding: 0.25rem 0.75rem;
-		border-radius: 12px;
-		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		border-radius: 4px;
 		font-weight: 600;
-		text-transform: uppercase;
+		font-size: 0.85rem;
 	}
 
 	.status-green {
@@ -579,109 +562,166 @@
 		color: white;
 	}
 
-	.status-yellow {
-		background: #ffc107;
-		color: #333;
-	}
-
 	.status-gray {
 		background: #6c757d;
 		color: white;
 	}
 
-	/* Weekly Status */
-	.weekly-status {
-		display: flex;
-		flex-direction: column;
-		gap: 2rem;
+	.summary-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 1.5rem;
+		margin-bottom: 2rem;
 	}
 
-	.weekly-item h5 {
+	.summary-card {
+		background: #f8f9fa;
+		border: 2px solid #e0e0e0;
+		border-radius: 8px;
+		padding: 1.5rem;
+	}
+
+	.summary-card h4 {
+		margin-top: 0;
 		color: #00316b;
+	}
+
+	.summary-stat {
+		display: flex;
+		justify-content: space-between;
+		padding: 0.5rem 0;
+		border-bottom: 1px solid #dee2e6;
+	}
+
+	.summary-stat:last-child {
+		border-bottom: none;
+	}
+
+	.summary-stat .label {
+		color: #666;
+	}
+
+	.summary-stat .value {
+		font-weight: 600;
+		color: #00316b;
+	}
+
+	.staging-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
 		margin-bottom: 1rem;
 	}
 
-	.week-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
-		gap: 0.75rem;
-	}
-
-	.week-box {
-		background: white;
-		border: 2px solid #e0e0e0;
-		border-radius: 8px;
-		padding: 0.5rem;
-		text-align: center;
-		cursor: pointer;
-		transition: all 0.2s ease;
-	}
-
-	.week-box:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-	}
-
-	.week-box.status-green {
-		border-color: #28a745;
-		background: #d4edda;
-	}
-
-	.week-box.status-yellow {
-		border-color: #ffc107;
-		background: #fff3cd;
-	}
-
-	.week-box.status-gray {
-		border-color: #6c757d;
-		background: #f8f9fa;
-	}
-
-	.week-label {
-		font-weight: 600;
-		color: #00316b;
-		font-size: 0.85rem;
-		margin-bottom: 0.25rem;
-	}
-
-	.week-counts {
+	.staging-item {
 		display: flex;
-		justify-content: space-around;
-		font-size: 0.75rem;
+		justify-content: space-between;
+		padding: 0.75rem;
+		background: #fff3cd;
+		border: 1px solid #ffeeba;
+		border-radius: 4px;
 	}
 
-	.staging-count {
+	.staging-item .label {
+		color: #856404;
+		font-weight: 500;
+	}
+
+	.staging-item .value {
+		font-weight: 700;
 		color: #856404;
 	}
 
-	.production-count {
-		color: #155724;
-		font-weight: 600;
+	.sync-controls {
+		background: white;
+		border: 2px solid #e0e0e0;
+		border-radius: 12px;
+		padding: 2rem;
 	}
 
-	/* Legend */
-	.legend {
-		margin-top: 2rem;
-		padding: 1rem;
+	.sync-controls h3 {
+		color: #00316b;
+		margin-top: 0;
+		margin-bottom: 1.5rem;
+	}
+
+	.archive-card {
 		background: #f8f9fa;
+		border: 2px solid #e0e0e0;
 		border-radius: 8px;
+		padding: 1.5rem;
+		margin-bottom: 1.5rem;
 	}
 
-	.legend h5 {
-		margin: 0 0 0.75rem 0;
+	.archive-card h4 {
+		margin-top: 0;
 		color: #00316b;
 	}
 
-	.legend-items {
-		display: flex;
-		gap: 2rem;
-		flex-wrap: wrap;
+	.archive-card-info {
+		background: #e3f2fd;
+		border-color: #2196f3;
 	}
 
-	.legend-item {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
+	.form-row {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.archive-preview {
+		background: white;
+		border: 1px solid #dee2e6;
+		border-radius: 4px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.archive-preview ul {
+		margin: 0.5rem 0 0 0;
+		padding-left: 1.5rem;
+	}
+
+	.archive-preview li {
+		font-family: monospace;
+		color: #00316b;
+		margin: 0.25rem 0;
+	}
+
+	.btn {
+		padding: 0.75rem 1.5rem;
+		border: none;
+		border-radius: 6px;
+		font-size: 1rem;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.3s;
+		text-decoration: none;
+		display: inline-block;
+	}
+
+	.btn-primary {
+		background: #2196f3;
+		color: white;
+	}
+
+	.btn-primary:hover:not(:disabled) {
+		background: #1976d2;
+	}
+
+	.btn-primary:disabled {
+		background: #ccc;
+		cursor: not-allowed;
+	}
+
+	.btn-secondary {
+		background: #6c757d;
+		color: white;
+	}
+
+	.btn-secondary:hover {
+		background: #5a6268;
 	}
 
 	.loading {
@@ -693,52 +733,7 @@
 
 	.hint {
 		font-style: italic;
-		color: #00316b;
-	}
-
-	/* Sync Controls */
-	.sync-controls {
-		background: white;
-		border: 2px solid #e0e0e0;
-		border-radius: 12px;
-		padding: 2rem;
-		margin-bottom: 2rem;
-	}
-
-	.sync-controls h3 {
-		color: #00316b;
-		margin-top: 0;
-		margin-bottom: 1.5rem;
-	}
-
-	.sync-card {
-		background: #f8f9fa;
-		border: 2px solid #e0e0e0;
-		border-radius: 8px;
-		padding: 1.5rem;
-		margin-bottom: 1.5rem;
-	}
-
-	.sync-card h4 {
-		margin-top: 0;
-		margin-bottom: 0.5rem;
-		color: #00316b;
-	}
-
-	.sync-card p {
-		margin-bottom: 1rem;
 		color: #666;
+		font-size: 0.9rem;
 	}
-
-	.sync-card-danger {
-		background: #fff5f5;
-		border-color: #fc8181;
-	}
-
-	.warning-text {
-		color: #c53030 !important;
-		font-weight: 600;
-	}
-
-	/* Rest of your existing styles... */
 </style>
