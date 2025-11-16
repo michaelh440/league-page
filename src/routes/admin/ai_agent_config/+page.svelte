@@ -28,6 +28,9 @@
     // Tone presets with descriptions
     const tonePresets = [
         { value: 'snarky', label: 'Snarky', description: 'Witty, sarcastic, and entertaining' },
+        { value: 'flirty', label: 'Flirty', description: 'Flirty, Sassy, Confident, Sarcastic, Sexy and Entertaining' },
+        { value: 'disgruntled', label: 'Disgruntled', description: 'Tired, Disgruntled, Distainful' },
+        { value: 'madden', label: 'Madden', description: 'John Madden like, professional, upbeat, funny, light hearted, confident, with consistent humor' },
         { value: 'professional', label: 'Professional', description: 'Formal analysis with statistics' },
         { value: 'humorous', label: 'Humorous', description: 'Funny and lighthearted' },
         { value: 'dramatic', label: 'Dramatic', description: 'Epic storytelling style' },
