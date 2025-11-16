@@ -1,41 +1,42 @@
-<!-- src/routes/admin/weekly_summary/+page.svelte -->
-<!--Adding comment to force-->
 <script>
     import { onMount } from 'svelte';
     
+    // State Management
     let selectedSeason = '2025';
     let selectedWeek = '1';
-    let seasonType = 'regular'; // NEW: 'regular' or 'playoffs'
+    let seasonType = 'regular';
     let matchups = [];
-    let loading = false;
-    let importing = false;
-    let generating = false;
     let generatedSummary = '';
-    let error = '';
-    let dataLoaded = false;
-    let editMode = false;
-    let saving = false;
-    let summaryExists = false;
-    let showAdvancedSettings = false;
-    let systemPrompt = '';
+    let videoData = null;
     let savedPrompts = [];
     let selectedPromptName = 'Default Snarky Analyst';
-    let refining = false;
-    let showRefinement = false;
+    let systemPrompt = '';
     let refinementInstructions = '';
-    let videoData = null;
-    let generatingVideo = false;
-    let checkingVideo = false;
-    let testMode = true;
-    
     let availableAvatars = [];
     let availableVoices = [];
     let selectedAvatar = null;
     let selectedVoice = null;
+    
+    // UI State
+    let loading = false;
+    let importing = false;
+    let generating = false;
+    let saving = false;
+    let refining = false;
+    let generatingVideo = false;
+    let checkingVideo = false;
     let loadingAvatars = false;
     let loadingVoices = false;
+    let error = '';
+    let dataLoaded = false;
+    let summaryExists = false;
+    let editMode = false;
+    let showAdvancedSettings = false;
+    let showRefinement = false;
     let showVideoSettings = false;
+    let testMode = true;
     
+    // Constants
     const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
     
@@ -43,6 +44,10 @@
         loadPrompts();
         loadAvatarsAndVoices();
     });
+    
+    // ============================================
+    // INITIALIZATION FUNCTIONS
+    // ============================================
     
     async function loadPrompts() {
         try {
@@ -93,6 +98,359 @@
         }
     }
     
+    // ============================================
+    // DATA LOADING FUNCTIONS
+    // ============================================
+    
+    async function loadWeeklyData() {
+        loading = true;
+        error = '';
+        matchups = [];
+        generatedSummary = '';
+        summaryExists = false;
+        editMode = false;
+        dataLoaded = false;
+        showRefinement = false;
+        videoData = null;
+        
+        console.log('📊 Loading data for:', selectedSeason, 'Week', selectedWeek, seasonType);
+        
+        try {
+            const matchupsUrl = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}&type=${seasonType}`;
+            console.log('🔍 Fetching matchups:', matchupsUrl);
+            
+            const matchupsResponse = await fetch(matchupsUrl);
+            const matchupsData = await matchupsResponse.json();
+            
+            console.log('✅ Received matchup data:', matchupsData);
+            
+            if (matchupsData.success) {
+                matchups = matchupsData.matchups || [];
+                dataLoaded = true;
+                console.log(`✅ Found ${matchups.length} matchups`);
+                
+                if (matchups.length > 0) {
+                    await loadExistingSummary();
+                    await loadExistingVideo();
+                }
+            } else {
+                error = matchupsData.error || 'Failed to load data';
+                dataLoaded = true;
+            }
+        } catch (err) {
+            error = 'Failed to fetch weekly data';
+            console.error('❌ Error:', err);
+            dataLoaded = true;
+        } finally {
+            loading = false;
+        }
+    }
+    
+    async function loadExistingSummary() {
+        try {
+            const summaryUrl = `/api/weekly_summary_text?season=${selectedSeason}&week=${selectedWeek}`;
+            const response = await fetch(summaryUrl);
+            const data = await response.json();
+            
+            if (data.success && data.summary) {
+                generatedSummary = data.summary.summary_text;
+                summaryExists = true;
+                console.log('✅ Loaded existing summary');
+            } else {
+                summaryExists = false;
+            }
+        } catch (err) {
+            console.error('❌ Error loading existing summary:', err);
+        }
+    }
+    
+    async function loadExistingVideo() {
+        checkingVideo = true;
+        try {
+            const videoUrl = `/api/weekly_summary_video?season=${selectedSeason}&week=${selectedWeek}`;
+            const response = await fetch(videoUrl);
+            const data = await response.json();
+            
+            if (data.success && data.video) {
+                videoData = data.video;
+                console.log('✅ Loaded existing video:', videoData);
+            } else {
+                videoData = null;
+            }
+        } catch (err) {
+            console.error('❌ Error loading existing video:', err);
+            videoData = null;
+        } finally {
+            checkingVideo = false;
+        }
+    }
+    
+    // ============================================
+    // IMPORT & GENERATION FUNCTIONS
+    // ============================================
+    
+    async function importWeek() {
+        importing = true;
+        error = '';
+        
+        try {
+            console.log('📥 Importing week:', selectedSeason, 'Week', selectedWeek);
+            
+            const response = await fetch('/api/import_sleeper_week', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    season: parseInt(selectedSeason),
+                    week: parseInt(selectedWeek),
+                    processImmediately: true
+                })
+            });
+            
+            const contentType = response.headers.get('content-type');
+            if (!contentType || !contentType.includes('application/json')) {
+                const text = await response.text();
+                console.error('❌ Non-JSON response:', text);
+                error = 'API endpoint not found. Make sure the import endpoint exists.';
+                return;
+            }
+            
+            const data = await response.json();
+            console.log('✅ Import result:', data);
+            
+            if (data.success) {
+                alert('✅ Week imported successfully!');
+                await loadWeeklyData();
+            } else {
+                error = data.error || 'Failed to import week data';
+            }
+        } catch (err) {
+            console.error('❌ Import error:', err);
+            error = 'Failed to import: ' + (err.message || 'Unknown error');
+        } finally {
+            importing = false;
+        }
+    }
+    
+    async function generateSummary() {
+        if (matchups.length === 0) {
+            error = 'No matchup data to summarize. Import the week first.';
+            return;
+        }
+        
+        generating = true;
+        error = '';
+        showRefinement = false;
+        
+        try {
+            console.log('🤖 Generating AI summary with enhanced context...');
+            
+            // Format basic matchup data
+            const basicPrompt = formatMatchupData(matchups);
+            
+            const response = await fetch('/api/generate_summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: basicPrompt,
+                    season: selectedSeason,
+                    week: selectedWeek,
+                    systemPrompt: systemPrompt || undefined,
+                    seasonType: seasonType
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                generatedSummary = data.summary;
+                summaryExists = true;
+                editMode = false;
+                console.log('✅ Summary generated successfully!');
+            } else {
+                error = data.error || 'Failed to generate summary';
+            }
+        } catch (err) {
+            error = 'Failed to generate summary';
+            console.error('❌ Error:', err);
+        } finally {
+            generating = false;
+        }
+    }
+    
+    async function refineSummary() {
+        if (!generatedSummary || !refinementInstructions.trim()) {
+            error = 'Please enter refinement instructions';
+            return;
+        }
+        
+        refining = true;
+        error = '';
+        
+        try {
+            console.log('✨ Refining summary...');
+            
+            const response = await fetch('/api/generate_summary', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    refinementMode: true,
+                    existingSummary: generatedSummary,
+                    refinementInstructions: refinementInstructions,
+                    systemPrompt: systemPrompt || undefined,
+                    season: selectedSeason,
+                    week: selectedWeek
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                generatedSummary = data.summary;
+                refinementInstructions = '';
+                showRefinement = false;
+                console.log('✅ Summary refined successfully!');
+            } else {
+                error = data.error || 'Failed to refine summary';
+            }
+        } catch (err) {
+            error = 'Failed to refine summary';
+            console.error('❌ Error:', err);
+        } finally {
+            refining = false;
+        }
+    }
+    
+    async function saveSummary() {
+        if (!generatedSummary.trim()) {
+            error = 'Summary cannot be empty';
+            return;
+        }
+        
+        saving = true;
+        error = '';
+        
+        try {
+            console.log('💾 Saving summary...');
+            
+            const response = await fetch('/api/weekly_summary_text', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    season: selectedSeason,
+                    week: selectedWeek,
+                    summaryText: generatedSummary
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                summaryExists = true;
+                editMode = false;
+                alert('✅ Summary saved successfully!');
+            } else {
+                error = data.error || 'Failed to save summary';
+            }
+        } catch (err) {
+            error = 'Failed to save summary';
+            console.error('❌ Error:', err);
+        } finally {
+            saving = false;
+        }
+    }
+    
+    // ============================================
+    // VIDEO GENERATION FUNCTIONS
+    // ============================================
+    
+    async function generateVideo() {
+        if (!generatedSummary || !generatedSummary.trim()) {
+            error = 'No summary available to generate video from';
+            return;
+        }
+
+        if (!selectedAvatar) {
+            alert('Please select an avatar');
+            return;
+        }
+
+        if (!selectedVoice) {
+            alert('Please select a voice');
+            return;
+        }
+        
+        generatingVideo = true;
+        error = '';
+        
+        try {
+            console.log('🎬 Generating video...');
+            
+            const response = await fetch('/api/generate_weekly_summary_video', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    season: selectedSeason,
+                    week: selectedWeek,
+                    summary: generatedSummary,
+                    testMode: testMode,
+                    avatarId: selectedAvatar.avatar_id,
+                    voiceId: selectedVoice.voice_id
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                const message = testMode 
+                    ? '✅ Test video generation started! Check back in a few seconds.'
+                    : '✅ HeyGen video generation started! This usually takes 2-3 minutes.';
+                alert(message);
+                
+                pollVideoStatus(data.videoId);
+            } else {
+                error = data.error || 'Failed to generate video';
+            }
+        } catch (err) {
+            error = 'Failed to generate video';
+            console.error('❌ Error:', err);
+        } finally {
+            generatingVideo = false;
+        }
+    }
+    
+    async function pollVideoStatus(videoId, attempts = 0) {
+        const maxAttempts = testMode ? 20 : 60;
+        const pollInterval = testMode ? 500 : 5000;
+        
+        if (attempts > maxAttempts) {
+            console.log('⏱️ Polling timeout');
+            await loadExistingVideo();
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/generate_weekly_summary_video?videoId=${videoId}`);
+            const data = await response.json();
+            
+            if (data.success && data.video) {
+                if (data.video.generation_status === 'completed') {
+                    console.log('✅ Video completed!');
+                    await loadExistingVideo();
+                } else if (data.video.generation_status === 'processing' || data.video.generation_status === 'pending') {
+                    setTimeout(() => pollVideoStatus(videoId, attempts + 1), pollInterval);
+                } else {
+                    await loadExistingVideo();
+                }
+            }
+        } catch (err) {
+            console.error('❌ Error polling video status:', err);
+        }
+    }
+    
+    // ============================================
+    // PROMPT MANAGEMENT
+    // ============================================
+    
     function loadSelectedPrompt() {
         const selected = savedPrompts.find(p => p.prompt_name === selectedPromptName);
         if (selected) {
@@ -117,368 +475,35 @@
             
             const data = await response.json();
             if (data.success) {
-                alert('Prompt saved successfully!');
+                alert('✅ Prompt saved successfully!');
                 await loadPrompts();
             }
         } catch (err) {
-            console.error('Error saving prompt:', err);
+            console.error('❌ Error saving prompt:', err);
             error = 'Failed to save prompt';
         }
     }
     
-    async function loadWeeklyData() {
-        loading = true;
-        error = '';
-        matchups = [];
-        generatedSummary = '';
-        summaryExists = false;
-        editMode = false;
-        dataLoaded = false;
-        showRefinement = false;
-        videoData = null;
-        
-        console.log('Loading data for:', selectedSeason, selectedWeek, seasonType);
-        
-        try {
-            const matchupsUrl = `/api/weekly_summary?season=${selectedSeason}&week=${selectedWeek}&type=${seasonType}`;
-            console.log('Fetching matchups:', matchupsUrl);
-            
-            const matchupsResponse = await fetch(matchupsUrl);
-            const matchupsData = await matchupsResponse.json();
-            
-            console.log('Received matchup data:', matchupsData);
-            
-            if (matchupsData.success) {
-                matchups = matchupsData.matchups || [];
-                dataLoaded = true;
-                console.log(`Found ${matchups.length} matchups`);
-                
-                if (matchups.length > 0) {
-                    await loadExistingSummary();
-                    await loadExistingVideo();
-                }
-            } else {
-                error = matchupsData.error || 'Failed to load data';
-                dataLoaded = true;
-            }
-        } catch (err) {
-            error = 'Failed to fetch weekly data';
-            console.error(err);
-            dataLoaded = true;
-        } finally {
-            loading = false;
-        }
-    }
+    // ============================================
+    // UTILITY FUNCTIONS
+    // ============================================
     
-    async function loadExistingSummary() {
-        try {
-            const summaryUrl = `/api/weekly_summary_text?season=${selectedSeason}&week=${selectedWeek}`;
-            const response = await fetch(summaryUrl);
-            const data = await response.json();
-            
-            if (data.success && data.summary) {
-                generatedSummary = data.summary.summary_text;
-                summaryExists = true;
-                console.log('Loaded existing summary');
-            } else {
-                summaryExists = false;
-            }
-        } catch (err) {
-            console.error('Error loading existing summary:', err);
-        }
-    }
-    
-    async function loadExistingVideo() {
-        checkingVideo = true;
-        try {
-            const videoUrl = `/api/weekly_summary_video?season=${selectedSeason}&week=${selectedWeek}`;
-            const response = await fetch(videoUrl);
-            const data = await response.json();
-            
-            if (data.success && data.video) {
-                videoData = data.video;
-                console.log('Loaded existing video:', videoData);
-            } else {
-                videoData = null;
-            }
-        } catch (err) {
-            console.error('Error loading existing video:', err);
-            videoData = null;
-        } finally {
-            checkingVideo = false;
-        }
-    }
-    
-    async function importWeek() {
-        importing = true;
-        error = '';
-        
-        try {
-            console.log('Importing week:', selectedSeason, selectedWeek);
-            
-            const response = await fetch('/api/import_sleeper_week', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    season: parseInt(selectedSeason),
-                    week: parseInt(selectedWeek),
-                    processImmediately: true
-                })
-            });
-            
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-                const text = await response.text();
-                console.error('Non-JSON response:', text);
-                error = 'API endpoint not found. Make sure src/routes/api/import_sleeper_week/+server.js exists.';
-                return;
-            }
-            
-            const data = await response.json();
-            console.log('Import result:', data);
-            
-            if (data.success) {
-                alert('Week imported successfully!');
-                await loadWeeklyData();
-            } else {
-                error = data.error || 'Failed to import week data';
-            }
-        } catch (err) {
-            console.error('Import error:', err);
-            error = 'Failed to import: ' + (err.message || 'Unknown error');
-        } finally {
-            importing = false;
-        }
-    }
-    
-    async function generateSummary() {
-        if (matchups.length === 0) {
-            error = 'No matchup data to summarize. Import the week first.';
-            return;
-        }
-        
-        generating = true;
-        error = '';
-        showRefinement = false;
-        
-        try {
-            const summaryPrompt = formatDataForAI(matchups);
-            
-            const response = await fetch('/api/generate_summary', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: summaryPrompt,
-                    season: selectedSeason,
-                    week: selectedWeek,
-                    systemPrompt: systemPrompt || undefined,
-                    seasonType: seasonType
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                generatedSummary = data.summary;
-                summaryExists = true;
-                editMode = false;
-            } else {
-                error = data.error || 'Failed to generate summary';
-            }
-        } catch (err) {
-            error = 'Failed to generate summary';
-            console.error(err);
-        } finally {
-            generating = false;
-        }
-    }
-    
-    async function refineSummary() {
-        if (!generatedSummary || !refinementInstructions.trim()) {
-            error = 'Please enter refinement instructions';
-            return;
-        }
-        
-        refining = true;
-        error = '';
-        
-        try {
-            const response = await fetch('/api/generate_summary', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    refinementMode: true,
-                    existingSummary: generatedSummary,
-                    refinementInstructions: refinementInstructions,
-                    systemPrompt: systemPrompt || undefined,
-                    season: selectedSeason,
-                    week: selectedWeek
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                generatedSummary = data.summary;
-                refinementInstructions = '';
-                showRefinement = false;
-            } else {
-                error = data.error || 'Failed to refine summary';
-            }
-        } catch (err) {
-            error = 'Failed to refine summary';
-            console.error(err);
-        } finally {
-            refining = false;
-        }
-    }
-    
-    async function saveSummary() {
-        if (!generatedSummary.trim()) {
-            error = 'Summary cannot be empty';
-            return;
-        }
-        
-        saving = true;
-        error = '';
-        
-        try {
-            const response = await fetch('/api/weekly_summary_text', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    season: selectedSeason,
-                    week: selectedWeek,
-                    summaryText: generatedSummary
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                summaryExists = true;
-                editMode = false;
-                alert('Summary saved successfully!');
-            } else {
-                error = data.error || 'Failed to save summary';
-            }
-        } catch (err) {
-            error = 'Failed to save summary';
-            console.error(err);
-        } finally {
-            saving = false;
-        }
-    }
-    
-    async function generateVideo() {
-        if (!generatedSummary || !generatedSummary.trim()) {
-            error = 'No summary available to generate video from';
-            return;
-        }
-
-        if (!selectedAvatar) {
-            alert('Please select an avatar');
-            return;
-        }
-
-        if (!selectedVoice) {
-            alert('Please select a voice');
-            return;
-        }
-        
-        generatingVideo = true;
-        error = '';
-        
-        try {
-            const response = await fetch('/api/generate_weekly_summary_video', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    season: selectedSeason,
-                    week: selectedWeek,
-                    summary: generatedSummary,
-                    testMode: testMode,
-                    avatarId: selectedAvatar.avatar_id,
-                    voiceId: selectedVoice.voice_id
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.success) {
-                const message = testMode 
-                    ? 'Test video generation started! Check back in a few seconds.'
-                    : 'HeyGen video generation started! This usually takes 2-3 minutes.';
-                alert(message);
-                
-                pollVideoStatus(data.videoId);
-            } else {
-                error = data.error || 'Failed to generate video';
-            }
-        } catch (err) {
-            error = 'Failed to generate video';
-            console.error(err);
-        } finally {
-            generatingVideo = false;
-        }
-    }
-    
-    async function pollVideoStatus(videoId, attempts = 0) {
-        const maxAttempts = testMode ? 20 : 60;
-        const pollInterval = testMode ? 500 : 5000;
-        
-        if (attempts > maxAttempts) {
-            console.log('Polling timeout');
-            await loadExistingVideo();
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/api/generate_weekly_summary_video?videoId=${videoId}`);
-            const data = await response.json();
-            
-            if (data.success && data.video) {
-                if (data.video.generation_status === 'completed') {
-                    await loadExistingVideo();
-                } else if (data.video.generation_status === 'processing' || data.video.generation_status === 'pending') {
-                    setTimeout(() => pollVideoStatus(videoId, attempts + 1), pollInterval);
-                } else {
-                    await loadExistingVideo();
-                }
-            }
-        } catch (err) {
-            console.error('Error polling video status:', err);
-        }
-    }
-    
-    function toggleEditMode() {
-        editMode = !editMode;
-    }
-    
-    function cancelEdit() {
-        editMode = false;
-        loadExistingSummary();
-    }
-    
-    function formatDataForAI(matchups) {
+    function formatMatchupData(matchups) {
         const typeLabel = seasonType === 'playoffs' ? 'PLAYOFF' : 'REGULAR SEASON';
-        let prompt = `You are a snarky fantasy football analyst creating a ${typeLabel} recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
+        let prompt = `Creating a ${typeLabel} recap for Week ${selectedWeek} of the ${selectedSeason} season.\n\n`;
         
         matchups.forEach((m, idx) => {
             const margin = parseFloat(m.margin) || 0;
             
             prompt += `MATCHUP ${idx + 1}`;
-            if (m.round_name) {
-                prompt += ` - ${m.round_name}`;
-            }
-            if (m.bracket) {
-                prompt += ` (${m.bracket} Bracket)`;
-            }
+            if (m.round_name) prompt += ` - ${m.round_name}`;
+            if (m.bracket) prompt += ` (${m.bracket} Bracket)`;
             prompt += `:\n`;
             
             prompt += `${m.team1_name} (${m.manager1_name}) ${m.team1_score} vs ${m.team2_name} (${m.manager2_name}) ${m.team2_score}\n`;
             prompt += `Winner: ${m.winner} by ${margin.toFixed(2)} points\n`;
             
+            // Add team 1 roster details
             if (m.team1_roster && m.team1_roster.length > 0) {
                 prompt += `\n${m.team1_name} TOP PERFORMERS:\n`;
                 const topScorers = m.team1_roster
@@ -494,13 +519,14 @@
                     .sort((a, b) => (b.points || 0) - (a.points || 0));
                     
                 if (benchBlunders.length > 0) {
-                    prompt += `\n${m.team1_name} BENCH PLAYERS (left on bench):\n`;
+                    prompt += `\n${m.team1_name} HIGH-SCORING BENCH:\n`;
                     benchBlunders.slice(0, 2).forEach(p => {
                         prompt += `  - ${p.player_name} (${p.position}): ${(p.points || 0).toFixed(1)} pts (BENCHED!)\n`;
                     });
                 }
             }
             
+            // Add team 2 roster details
             if (m.team2_roster && m.team2_roster.length > 0) {
                 prompt += `\n${m.team2_name} TOP PERFORMERS:\n`;
                 const topScorers = m.team2_roster
@@ -516,7 +542,7 @@
                     .sort((a, b) => (b.points || 0) - (a.points || 0));
                     
                 if (benchBlunders.length > 0) {
-                    prompt += `\n${m.team2_name} BENCH PLAYERS (left on bench):\n`;
+                    prompt += `\n${m.team2_name} HIGH-SCORING BENCH:\n`;
                     benchBlunders.slice(0, 2).forEach(p => {
                         prompt += `  - ${p.player_name} (${p.position}): ${(p.points || 0).toFixed(1)} pts (BENCHED!)\n`;
                     });
@@ -527,15 +553,24 @@
         });
         
         if (seasonType === 'playoffs') {
-            prompt += '\nRemember this is a playoff game - emphasize the high stakes, pressure, and what this means for championship hopes!';
+            prompt += '\nThis is a PLAYOFF game - emphasize the high stakes and championship implications!';
         }
         
         return prompt;
     }
     
+    function toggleEditMode() {
+        editMode = !editMode;
+    }
+    
+    function cancelEdit() {
+        editMode = false;
+        loadExistingSummary();
+    }
+    
     function copyToClipboard(text) {
         navigator.clipboard.writeText(text);
-        alert('Summary copied!');
+        alert('📋 Summary copied to clipboard!');
     }
     
     function handleSeasonTypeChange() {
@@ -547,82 +582,95 @@
     }
 </script>
 
-<div class="content">
-    <h2>📊 Weekly Summary Generator (Admin)</h2>
+<div class="page-container">
+    <header class="page-header">
+        <h1>📊 Weekly Summary Generator</h1>
+        <p class="subtitle">Generate AI-powered fantasy football recaps with enhanced context</p>
+    </header>
     
-    <div class="controls">
-        <div class="selector">
-            <label for="season">Season:</label>
-            <select id="season" bind:value={selectedSeason}>
-                {#each seasons as season}
-                    <option value={season}>{season}</option>
-                {/each}
-            </select>
+    <!-- Main Controls -->
+    <section class="controls-section card">
+        <div class="controls-grid">
+            <div class="control-group">
+                <label for="season">Season</label>
+                <select id="season" bind:value={selectedSeason}>
+                    {#each seasons as season}
+                        <option value={season}>{season}</option>
+                    {/each}
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="week">Week</label>
+                <select id="week" bind:value={selectedWeek}>
+                    {#each weeks as week}
+                        <option value={week}>Week {week}</option>
+                    {/each}
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="seasonType">Type</label>
+                <select id="seasonType" bind:value={seasonType} on:change={handleSeasonTypeChange}>
+                    <option value="regular">Regular Season</option>
+                    <option value="playoffs">Playoffs</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>&nbsp;</label>
+                <button 
+                    on:click={loadWeeklyData} 
+                    disabled={loading}
+                    class="btn btn-primary btn-load"
+                >
+                    {#if loading}
+                        <span class="spinner"></span> Loading...
+                    {:else}
+                        🔍 Load Week Data
+                    {/if}
+                </button>
+            </div>
         </div>
-        
-        <div class="selector">
-            <label for="week">Week:</label>
-            <select id="week" bind:value={selectedWeek}>
-                {#each weeks as week}
-                    <option value={week}>Week {week}</option>
-                {/each}
-            </select>
-        </div>
-        
-        <div class="selector">
-            <label for="seasonType">Type:</label>
-            <select id="seasonType" bind:value={seasonType} on:change={handleSeasonTypeChange}>
-                <option value="regular">Regular Season</option>
-                <option value="playoffs">Playoffs</option>
-            </select>
-        </div>
-        
-        <button 
-            on:click={loadWeeklyData} 
-            disabled={loading}
-            class="btn-primary"
-            style="margin-top: auto;"
-        >
-            {loading ? '⏳ Loading...' : '🔍 Load Week Data'}
-        </button>
-    </div>
+    </section>
     
+    <!-- Error Display -->
     {#if error}
-        <div class="error">{error}</div>
+        <div class="alert alert-error">
+            <strong>❌ Error:</strong> {error}
+        </div>
     {/if}
     
     <!-- Advanced Settings -->
-    <div class="advanced-settings">
+    <section class="card">
         <button 
             on:click={() => showAdvancedSettings = !showAdvancedSettings}
-            class="btn-secondary"
-            style="width: 100%; text-align: left; margin-bottom: 1rem;"
+            class="accordion-trigger"
         >
-            {showAdvancedSettings ? '▼' : '▶'} Advanced AI Settings
+            <span>{showAdvancedSettings ? '▼' : '▶'} Advanced AI Settings</span>
         </button>
         
         {#if showAdvancedSettings}
-            <div class="settings-panel">
-                <div style="margin-bottom: 1.5rem; padding: 1rem; background: #fef3c7; border: 2px solid #f59e0b; border-radius: 6px;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" bind:checked={testMode} style="width: 20px; height: 20px; cursor: pointer;">
-                        <span style="font-weight: 700; font-size: 1.05em;">🧪 Test Mode (Use Mock Video)</span>
+            <div class="settings-content">
+                <!-- Test Mode Toggle -->
+                <div class="test-mode-banner">
+                    <label class="test-mode-toggle">
+                        <input type="checkbox" bind:checked={testMode}>
+                        <span class="toggle-label">🧪 Test Mode (Use Mock Video)</span>
                     </label>
-                    <p style="margin: 0.5rem 0 0 1.75rem; font-size: 0.9em; color: #92400e;">
-                        When enabled, video generation will use a test video instead of calling HeyGen API (saves money during testing)
+                    <p class="help-text">
+                        When enabled, video generation uses a test video instead of calling HeyGen API (saves money during testing)
                     </p>
                 </div>
                 
-                <div style="margin-bottom: 1rem;">
-                    <label for="promptSelect" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
-                        Load Saved Prompt:
-                    </label>
-                    <div style="display: flex; gap: 0.5rem;">
+                <!-- Prompt Selection -->
+                <div class="form-group">
+                    <label for="promptSelect">Load Saved Prompt</label>
+                    <div class="input-with-button">
                         <select 
                             id="promptSelect"
                             bind:value={selectedPromptName}
                             on:change={loadSelectedPrompt}
-                            style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;"
                         >
                             {#each savedPrompts as prompt}
                                 <option value={prompt.prompt_name}>
@@ -633,188 +681,206 @@
                     </div>
                 </div>
                 
-                <div>
-                    <label for="systemPrompt" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
-                        System Prompt:
-                    </label>
+                <!-- System Prompt -->
+                <div class="form-group">
+                    <label for="systemPrompt">System Prompt</label>
                     <textarea
                         id="systemPrompt"
                         bind:value={systemPrompt}
                         rows="6"
                         placeholder="Enter the AI system prompt here..."
-                        style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.9em;"
+                        class="code-textarea"
                     ></textarea>
-                    <button on:click={savePrompt} class="btn-secondary" style="margin-top: 0.5rem;">
+                    <button on:click={savePrompt} class="btn btn-secondary btn-sm">
                         💾 Save as New Prompt
                     </button>
                 </div>
             </div>
         {/if}
-    </div>
+    </section>
     
+    <!-- Data Status -->
     {#if dataLoaded}
         {#if matchups.length === 0}
-            <div class="status-card warning-card">
-                <div class="status-message">
-                    <span class="warning">⚠️ No {seasonType === 'playoffs' ? 'playoff' : 'regular season'} data found for Week {selectedWeek} of {selectedSeason}</span>
+            <div class="alert alert-warning">
+                <div class="alert-content">
+                    <p class="alert-message">
+                        <strong>⚠️ No {seasonType === 'playoffs' ? 'playoff' : 'regular season'} data found</strong>
+                        for Week {selectedWeek} of {selectedSeason}
+                    </p>
                     {#if seasonType === 'regular'}
-                        <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
-                            Click the button below to import this week's data from Sleeper.
-                        </p>
+                        <p class="help-text">Click the button below to import this week's data from Sleeper.</p>
+                        <button 
+                            on:click={importWeek} 
+                            disabled={importing}
+                            class="btn btn-primary btn-lg"
+                        >
+                            {#if importing}
+                                <span class="spinner"></span> Importing from Sleeper...
+                            {:else}
+                                📥 Import Week from Sleeper
+                            {/if}
+                        </button>
                     {:else}
-                        <p style="margin: 0.5rem 0 0 0; font-size: 0.9em;">
-                            Playoff data must be manually entered in the database.
-                        </p>
+                        <p class="help-text">Playoff data must be manually entered in the database.</p>
                     {/if}
                 </div>
-                {#if seasonType === 'regular'}
-                    <button 
-                        on:click={importWeek} 
-                        disabled={importing}
-                        class="btn-primary btn-large"
-                    >
-                        {importing ? '⏳ Importing from Sleeper...' : '📥 Import Week from Sleeper'}
-                    </button>
-                {/if}
             </div>
         {:else}
-            <div class="status-card success-card">
-                <span class="success">✓ {seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} data loaded ({matchups.length} matchups)</span>
-                <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
-                    <button 
-                        on:click={loadWeeklyData} 
-                        disabled={loading}
-                        class="btn-secondary"
-                    >
-                        {loading ? 'Loading...' : '🔄 Reload Data'}
-                    </button>
-                    
-                    <button 
-                        on:click={generateSummary} 
-                        disabled={loading || generating}
-                        class="btn-primary"
-                    >
-                        {generating ? '⏳ Generating...' : summaryExists ? '🔄 Regenerate Summary' : '🤖 Generate AI Summary'}
-                    </button>
+            <div class="alert alert-success">
+                <div class="alert-content">
+                    <p class="alert-message">
+                        ✅ {seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} data loaded 
+                        ({matchups.length} matchup{matchups.length !== 1 ? 's' : ''})
+                    </p>
+                    <div class="button-group">
+                        <button 
+                            on:click={loadWeeklyData} 
+                            disabled={loading}
+                            class="btn btn-secondary"
+                        >
+                            {loading ? 'Loading...' : '🔄 Reload Data'}
+                        </button>
+                        
+                        <button 
+                            on:click={generateSummary} 
+                            disabled={loading || generating}
+                            class="btn btn-primary"
+                        >
+                            {#if generating}
+                                <span class="spinner"></span> Generating with Enhanced Context...
+                            {:else if summaryExists}
+                                🔄 Regenerate Summary
+                            {:else}
+                                🤖 Generate AI Summary
+                            {/if}
+                        </button>
+                    </div>
                 </div>
             </div>
         {/if}
     {/if}
     
+    <!-- Generated Summary -->
     {#if generatedSummary}
-        <div class="summary-output">
-            <div class="summary-header">
-                <h3>Weekly Summary</h3>
-                <div style="display: flex; gap: 0.5rem;">
+        <section class="card summary-card">
+            <div class="card-header">
+                <h2>Weekly Summary</h2>
+                <div class="button-group">
                     {#if !editMode}
-                        <button on:click={() => showRefinement = !showRefinement} class="btn-secondary">
+                        <button on:click={() => showRefinement = !showRefinement} class="btn btn-secondary btn-sm">
                             ✨ Refine
                         </button>
-                        <button on:click={toggleEditMode} class="btn-secondary">
+                        <button on:click={toggleEditMode} class="btn btn-secondary btn-sm">
                             ✏️ Edit
                         </button>
-                        <button on:click={() => copyToClipboard(generatedSummary)} class="btn-secondary">
+                        <button on:click={() => copyToClipboard(generatedSummary)} class="btn btn-secondary btn-sm">
                             📋 Copy
                         </button>
-                        <button on:click={saveSummary} disabled={saving} class="btn-primary">
-                            {saving ? '⏳ Saving...' : '💾 Save'}
+                        <button on:click={saveSummary} disabled={saving} class="btn btn-primary btn-sm">
+                            {saving ? 'Saving...' : '💾 Save'}
                         </button>
                     {:else}
-                        <button on:click={saveSummary} disabled={saving} class="btn-primary">
-                            {saving ? '⏳ Saving...' : '💾 Save'}
+                        <button on:click={saveSummary} disabled={saving} class="btn btn-primary btn-sm">
+                            {saving ? 'Saving...' : '💾 Save Changes'}
                         </button>
-                        <button on:click={cancelEdit} disabled={saving} class="btn-secondary">
+                        <button on:click={cancelEdit} disabled={saving} class="btn btn-secondary btn-sm">
                             ❌ Cancel
                         </button>
                     {/if}
                 </div>
             </div>
             
+            <!-- Refinement Panel -->
             {#if showRefinement && !editMode}
                 <div class="refinement-panel">
-                    <label for="refinementInstructions" style="display: block; margin-bottom: 0.5rem; font-weight: 600;">
-                        How would you like to refine this summary?
-                    </label>
+                    <label for="refinementInstructions">How would you like to refine this summary?</label>
                     <textarea
                         id="refinementInstructions"
                         bind:value={refinementInstructions}
                         rows="3"
-                        placeholder="E.g., 'Make it funnier', 'Add more stats', 'Focus on the upsets', 'Make it more professional'..."
-                        style="width: 100%; padding: 0.75rem; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 0.5rem;"
+                        placeholder="E.g., 'Make it funnier', 'Add more stats', 'Focus on the upsets'..."
                     ></textarea>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button on:click={refineSummary} disabled={refining || !refinementInstructions.trim()} class="btn-primary">
-                            {refining ? '⏳ Refining...' : '✨ Apply Refinement'}
+                    <div class="button-group">
+                        <button 
+                            on:click={refineSummary} 
+                            disabled={refining || !refinementInstructions.trim()} 
+                            class="btn btn-primary"
+                        >
+                            {refining ? 'Refining...' : '✨ Apply Refinement'}
                         </button>
-                        <button on:click={() => { showRefinement = false; refinementInstructions = ''; }} class="btn-secondary">
+                        <button 
+                            on:click={() => { showRefinement = false; refinementInstructions = ''; }} 
+                            class="btn btn-secondary"
+                        >
                             Cancel
                         </button>
                     </div>
                 </div>
             {/if}
             
+            <!-- Summary Content -->
             {#if editMode}
                 <textarea
                     bind:value={generatedSummary}
-                    class="summary-textarea"
+                    class="summary-editor"
                     rows="15"
                     placeholder="Enter your summary..."
                 ></textarea>
             {:else}
-                <div class="summary-text">
+                <div class="summary-display">
                     {generatedSummary}
                 </div>
             {/if}
-        </div>
+        </section>
         
         <!-- Video Section -->
-        <div class="video-section">
-            <div class="section-header">
-                <h3>🎥 AI Sportscaster Video</h3>
+        <section class="card">
+            <div class="card-header">
+                <h2>🎥 AI Sportscaster Video</h2>
             </div>
             
+            <!-- Video Settings -->
             <button 
                 on:click={() => showVideoSettings = !showVideoSettings}
-                class="btn-secondary"
-                style="width: 100%; text-align: left; margin-bottom: 1rem;"
+                class="accordion-trigger"
             >
-                {showVideoSettings ? '▼' : '▶'} Video Settings (Avatar & Voice)
+                <span>{showVideoSettings ? '▼' : '▶'} Video Settings (Avatar & Voice)</span>
             </button>
             
             {#if showVideoSettings}
-                <div class="settings-panel" style="margin-bottom: 1.5rem;">
-                    <div style="margin-bottom: 1.5rem;">
-                        <h4 style="margin: 0 0 0.75rem 0;">Select Avatar</h4>
+                <div class="settings-content">
+                    <!-- Avatar Selection -->
+                    <div class="form-group">
+                        <h3>Select Avatar</h3>
                         {#if loadingAvatars}
-                            <p style="margin: 0; color: #6b7280;">⏳ Loading avatars...</p>
+                            <p class="loading-text">⏳ Loading avatars...</p>
                         {:else if availableAvatars.length > 0}
                             <div class="avatar-grid">
                                 {#each availableAvatars as avatar}
-                                    <div
+                                    <button
                                         class="avatar-card {selectedAvatar?.avatar_id === avatar.avatar_id ? 'selected' : ''}"
                                         on:click={() => (selectedAvatar = avatar)}
-                                        role="button"
-                                        tabindex="0"
-                                        on:keypress={(e) => e.key === 'Enter' && (selectedAvatar = avatar)}
                                     >
                                         {#if avatar.preview_image_url}
                                             <img src={avatar.preview_image_url} alt={avatar.avatar_name} />
                                         {/if}
                                         <p>{avatar.avatar_name || avatar.avatar_id}</p>
-                                    </div>
+                                    </button>
                                 {/each}
                             </div>
                         {:else}
-                            <p style="margin: 0; color: #6b7280;">No avatars available. Using default avatar.</p>
+                            <p class="help-text">No avatars available. Using default avatar.</p>
                         {/if}
                     </div>
                     
-                    <div>
-                        <h4 style="margin: 0 0 0.75rem 0;">Select Voice</h4>
+                    <!-- Voice Selection -->
+                    <div class="form-group">
+                        <h3>Select Voice</h3>
                         {#if loadingVoices}
-                            <p style="margin: 0; color: #6b7280;">⏳ Loading voices...</p>
+                            <p class="loading-text">⏳ Loading voices...</p>
                         {:else if availableVoices.length > 0}
-                            <select bind:value={selectedVoice} style="width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px;">
+                            <select bind:value={selectedVoice} class="voice-select">
                                 {#each availableVoices as voice}
                                     <option value={voice}>
                                         {voice.name || voice.voice_id} ({voice.language || 'English'}) {voice.gender ? `- ${voice.gender}` : ''}
@@ -822,194 +888,241 @@
                                 {/each}
                             </select>
                         {:else}
-                            <p style="margin: 0; color: #6b7280;">No voices available. Using default voice.</p>
+                            <p class="help-text">No voices available. Using default voice.</p>
                         {/if}
                     </div>
                 </div>
             {/if}
             
-            {#if checkingVideo}
-                <div class="status-card" style="text-align: center;">
-                    <p>⏳ Checking for existing video...</p>
-                </div>
-            {:else if videoData}
-                {#if videoData.generation_status === 'completed' && videoData.video_url}
-                    <div class="video-player">
-                        <video controls style="width: 100%; max-width: 800px; border-radius: 8px;">
-                            <source src={videoData.video_url} type="video/mp4">
-                            Your browser does not support the video tag.
-                        </video>
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.75rem; margin-top: 1rem; width: 100%;">
+            <!-- Video Display/Generation -->
+            <div class="video-content">
+                {#if checkingVideo}
+                    <div class="video-placeholder">
+                        <p>⏳ Checking for existing video...</p>
+                    </div>
+                {:else if videoData}
+                    {#if videoData.generation_status === 'completed' && videoData.video_url}
+                        <div class="video-player">
+                            <video controls>
+                                <source src={videoData.video_url} type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
                             {#if videoData.completed_at}
-                                <p style="margin: 0; color: #6b7280; font-size: 0.9em;">
-                                    Generated: {new Date(videoData.completed_at).toLocaleString()}
-                                </p>
+                                <p class="video-meta">Generated: {new Date(videoData.completed_at).toLocaleString()}</p>
                             {/if}
                             <button 
                                 on:click={generateVideo} 
                                 disabled={generatingVideo}
-                                class="btn-primary"
-                                style="padding: 0.75rem 1.5rem;"
+                                class="btn btn-primary"
                             >
-                                {generatingVideo ? '⏳ Regenerating...' : '🔄 Regenerate Video with Current Summary'}
+                                {generatingVideo ? 'Regenerating...' : '🔄 Regenerate Video'}
                             </button>
                         </div>
-                    </div>
-                {:else if videoData.generation_status === 'processing' || videoData.generation_status === 'pending'}
-                    <div class="status-card warning-card">
-                        <p style="margin: 0;">⏳ Video is being generated...</p>
-                        {#if videoData.error_message}
-                            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #d97706;">
-                                Note: {videoData.error_message}
-                            </p>
-                        {/if}
-                    </div>
-                {:else if videoData.generation_status === 'failed'}
-                    <div class="status-card" style="background: #fee2e2; border: 2px solid #dc2626;">
-                        <p style="margin: 0; color: #991b1b;">❌ Video generation failed</p>
-                        {#if videoData.error_message}
-                            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #991b1b;">
-                                Error: {videoData.error_message}
-                            </p>
+                    {:else if videoData.generation_status === 'processing' || videoData.generation_status === 'pending'}
+                        <div class="alert alert-warning">
+                            <p>⏳ Video is being generated...</p>
+                            {#if videoData.error_message}
+                                <p class="help-text">{videoData.error_message}</p>
+                            {/if}
+                        </div>
+                    {:else if videoData.generation_status === 'failed'}
+                        <div class="alert alert-error">
+                            <p><strong>❌ Video generation failed</strong></p>
+                            {#if videoData.error_message}
+                                <p class="help-text">{videoData.error_message}</p>
+                            {/if}
+                            <button 
+                                on:click={generateVideo} 
+                                disabled={generatingVideo}
+                                class="btn btn-primary"
+                            >
+                                {generatingVideo ? 'Retrying...' : '🔄 Retry Generation'}
+                            </button>
+                        </div>
+                    {/if}
+                {:else}
+                    <div class="video-placeholder">
+                        <p>📹 No video generated yet</p>
+                        {#if testMode}
+                            <p class="help-text success-text">🧪 Test mode enabled - will use mock video</p>
                         {/if}
                         <button 
                             on:click={generateVideo} 
-                            disabled={generatingVideo}
-                            class="btn-primary"
-                            style="margin-top: 1rem;"
+                            disabled={generatingVideo || !generatedSummary}
+                            class="btn btn-primary btn-lg"
                         >
-                            {generatingVideo ? '⏳ Retrying...' : '🔄 Retry Generation'}
+                            {#if generatingVideo}
+                                <span class="spinner"></span> Generating Video...
+                            {:else}
+                                🎬 Generate Video
+                            {/if}
                         </button>
                     </div>
                 {/if}
-            {:else}
-                <div class="status-card" style="text-align: center;">
-                    <p style="margin: 0 0 1rem 0; color: #6b7280;">
-                        📹 No video generated yet. Click "Generate Video" to create an AI sportscaster video from your summary!
-                    </p>
-                    {#if testMode}
-                        <p style="margin: 0 0 1rem 0; font-size: 0.85em; color: #059669;">
-                            🧪 Test mode is enabled - will use a mock video for testing
-                        </p>
-                    {/if}
-                    <button 
-                        on:click={generateVideo} 
-                        disabled={generatingVideo || !generatedSummary}
-                        class="btn-primary btn-large"
-                    >
-                        {generatingVideo ? '⏳ Generating Video...' : '🎬 Generate Video'}
-                    </button>
-                </div>
-            {/if}
-        </div>
+            </div>
+        </section>
     {/if}
-
+    
+    <!-- Matchups Display -->
     {#if matchups.length > 0}
-        <div class="matchups">
-            <h3>{seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} Matchups</h3>
+        <section class="card">
+            <div class="card-header">
+                <h2>
+                    {seasonType === 'playoffs' ? 'Playoff' : 'Regular Season'} Week {selectedWeek} Matchups
+                </h2>
+            </div>
             
-            {#each matchups as matchup, idx}
-                <div class="matchup-card">
-                    <div class="matchup-title">
-                        {#if matchup.round_name}
-                            {matchup.round_name} - Matchup {idx + 1}
-                        {:else}
-                            Matchup {idx + 1}
-                        {/if}
-                        {#if matchup.bracket}
-                            <span class="bracket-label">({matchup.bracket})</span>
-                        {/if}
-                    </div>
-                    
-                    <div class="matchup-score">
-                        <div class="team">
-                            <div class="team-name">{matchup.team1_name}</div>
-                            <div class="manager-name">({matchup.manager1_name})</div>
-                            <div class="score {parseFloat(matchup.team1_score) > parseFloat(matchup.team2_score) ? 'winner' : ''}">
-                                {parseFloat(matchup.team1_score || 0).toFixed(2)}
+            <div class="matchups-grid">
+                {#each matchups as matchup, idx}
+                    <div class="matchup-card">
+                        <div class="matchup-header">
+                            <span class="matchup-number">Matchup {idx + 1}</span>
+                            {#if matchup.round_name}
+                                <span class="round-label">{matchup.round_name}</span>
+                            {/if}
+                            {#if matchup.bracket}
+                                <span class="bracket-label">{matchup.bracket}</span>
+                            {/if}
+                        </div>
+                        
+                        <div class="matchup-teams">
+                            <div class="team">
+                                <div class="team-name">{matchup.team1_name}</div>
+                                <div class="manager-name">({matchup.manager1_name})</div>
+                                <div class="score {parseFloat(matchup.team1_score) > parseFloat(matchup.team2_score) ? 'winner' : ''}">
+                                    {parseFloat(matchup.team1_score || 0).toFixed(2)}
+                                </div>
+                            </div>
+                            
+                            <div class="vs">VS</div>
+                            
+                            <div class="team">
+                                <div class="team-name">{matchup.team2_name}</div>
+                                <div class="manager-name">({matchup.manager2_name})</div>
+                                <div class="score {parseFloat(matchup.team2_score) > parseFloat(matchup.team1_score) ? 'winner' : ''}">
+                                    {parseFloat(matchup.team2_score || 0).toFixed(2)}
+                                </div>
                             </div>
                         </div>
                         
-                        <div class="vs">VS</div>
-                        
-                        <div class="team">
-                            <div class="team-name">{matchup.team2_name}</div>
-                            <div class="manager-name">({matchup.manager2_name})</div>
-                            <div class="score {parseFloat(matchup.team2_score) > parseFloat(matchup.team1_score) ? 'winner' : ''}">
-                                {parseFloat(matchup.team2_score || 0).toFixed(2)}
+                        {#if matchup.margin}
+                            <div class="matchup-margin">
+                                Margin: {parseFloat(matchup.margin || 0).toFixed(2)} points
                             </div>
-                        </div>
+                        {/if}
                     </div>
-                    
-                    {#if matchup.margin}
-                        <div class="margin">
-                            Margin: {parseFloat(matchup.margin || 0).toFixed(2)} points
-                        </div>
-                    {/if}
-                </div>
-            {/each}
-        </div>
+                {/each}
+            </div>
+        </section>
     {/if}
 </div>
 
 <style>
-    .content {
-        padding: 2em;
-        max-width: 1200px;
+    :global(body) {
+        background: #f3f4f6;
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+    
+    .page-container {
+        max-width: 1400px;
         margin: 0 auto;
+        padding: 2rem;
     }
     
-    h2 {
-        font-size: 1.75em;
-        margin-bottom: 1em;
+    .page-header {
+        margin-bottom: 2rem;
     }
     
-    h3 {
-        font-size: 1.25em;
-        margin: 1em 0 0.5em 0;
-    }
-
-    h4 {
-        font-size: 1.1em;
+    .page-header h1 {
+        font-size: 2rem;
+        margin: 0 0 0.5rem 0;
+        color: #111827;
     }
     
-    .controls {
-        display: flex;
-        gap: 1rem;
+    .subtitle {
+        color: #6b7280;
+        margin: 0;
+        font-size: 1rem;
+    }
+    
+    /* Card Component */
+    .card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         margin-bottom: 1.5rem;
-        flex-wrap: wrap;
-        align-items: flex-end;
+        overflow: hidden;
     }
     
-    .selector {
+    .card-header {
+        padding: 1.5rem;
+        border-bottom: 1px solid #e5e7eb;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .card-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: #111827;
+    }
+    
+    /* Controls */
+    .controls-section {
+        padding: 1.5rem;
+    }
+    
+    .controls-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    
+    .control-group {
         display: flex;
         flex-direction: column;
-        gap: 0.25rem;
+        gap: 0.5rem;
     }
     
-    .selector label {
-        font-size: 0.9em;
+    .control-group label {
+        font-size: 0.875rem;
         font-weight: 600;
+        color: #374151;
     }
     
     select {
         padding: 0.5rem;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 1em;
-    }
-    
-    button {
-        padding: 0.6rem 1.2rem;
-        border: none;
-        border-radius: 4px;
-        font-weight: 600;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-size: 1rem;
+        background: white;
         cursor: pointer;
-        font-size: 0.95em;
-        transition: background 0.2s;
     }
     
-    button:disabled {
+    select:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    /* Buttons */
+    .btn {
+        padding: 0.625rem 1rem;
+        border: none;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 0.875rem;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        justify-content: center;
+    }
+    
+    .btn:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
@@ -1023,11 +1136,6 @@
         background: #1d4ed8;
     }
     
-    .btn-large {
-        padding: 0.75rem 1.5rem;
-        font-size: 1.05em;
-    }
-    
     .btn-secondary {
         background: #6b7280;
         color: white;
@@ -1037,74 +1145,332 @@
         background: #4b5563;
     }
     
-    .error {
-        padding: 1rem;
-        background: #fee2e2;
-        border-left: 4px solid #dc2626;
-        margin-bottom: 1rem;
-        color: #991b1b;
+    .btn-sm {
+        padding: 0.5rem 0.875rem;
+        font-size: 0.8125rem;
     }
     
-    .status-card {
-        padding: 1.5rem;
-        background: #f3f4f6;
-        border-radius: 6px;
+    .btn-lg {
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+    }
+    
+    .btn-load {
+        width: 100%;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+    
+    /* Spinner */
+    .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Alerts */
+    .alert {
+        padding: 1.25rem;
+        border-radius: 8px;
         margin-bottom: 1.5rem;
     }
     
-    .warning-card {
+    .alert-error {
+        background: #fee2e2;
+        border: 1px solid #fca5a5;
+        color: #991b1b;
+    }
+    
+    .alert-warning {
+        background: #fef3c7;
+        border: 1px solid #fcd34d;
+        color: #92400e;
+    }
+    
+    .alert-success {
+        background: #d1fae5;
+        border: 1px solid #6ee7b7;
+        color: #065f46;
+    }
+    
+    .alert-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .alert-message {
+        margin: 0;
+        font-weight: 500;
+    }
+    
+    .help-text {
+        margin: 0;
+        font-size: 0.875rem;
+        opacity: 0.9;
+    }
+    
+    .success-text {
+        color: #059669;
+    }
+    
+    /* Accordion */
+    .accordion-trigger {
+        width: 100%;
+        padding: 1rem 1.5rem;
+        background: #f9fafb;
+        border: none;
+        border-bottom: 1px solid #e5e7eb;
+        text-align: left;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .accordion-trigger:hover {
+        background: #f3f4f6;
+    }
+    
+    .settings-content {
+        padding: 1.5rem;
+    }
+    
+    /* Test Mode Banner */
+    .test-mode-banner {
         background: #fef3c7;
         border: 2px solid #f59e0b;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .test-mode-toggle {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+    
+    .test-mode-toggle input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        cursor: pointer;
+    }
+    
+    .toggle-label {
+        font-size: 1.05rem;
+    }
+    
+    /* Form Groups */
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #374151;
+    }
+    
+    .form-group h3 {
+        margin: 0 0 0.75rem 0;
+        font-size: 1.1rem;
+        color: #111827;
+    }
+    
+    textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 1rem;
+        resize: vertical;
+    }
+    
+    textarea:focus {
+        outline: none;
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    
+    .code-textarea {
+        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+        font-size: 0.875rem;
+    }
+    
+    /* Avatar Grid */
+    .avatar-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+    }
+    
+    .avatar-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        background: white;
+    }
+    
+    .avatar-card:hover {
+        border-color: #2563eb;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+    }
+    
+    .avatar-card.selected {
+        border-color: #2563eb;
+        background: #eff6ff;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+    }
+    
+    .avatar-card img {
+        width: 100%;
+        height: auto;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .avatar-card p {
+        margin: 0;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: #374151;
+    }
+    
+    .voice-select {
+        width: 100%;
+    }
+    
+    /* Summary Card */
+    .summary-card .card-header {
+        padding: 1.5rem;
+    }
+    
+    .refinement-panel {
+        background: #fef3c7;
+        border: 2px solid #f59e0b;
+        border-radius: 6px;
+        padding: 1.5rem;
+        margin: 0 1.5rem 1.5rem 1.5rem;
+    }
+    
+    .refinement-panel label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #78350f;
+    }
+    
+    .summary-display {
+        padding: 1.5rem;
+        background: #f9fafb;
+        margin: 0 1.5rem 1.5rem 1.5rem;
+        border-radius: 6px;
+        white-space: pre-wrap;
+        line-height: 1.7;
+        color: #111827;
+    }
+    
+    .summary-editor {
+        margin: 0 1.5rem 1.5rem 1.5rem;
+        min-height: 300px;
+        line-height: 1.7;
+    }
+    
+    /* Video Content */
+    .video-content {
+        padding: 1.5rem;
+    }
+    
+    .video-placeholder {
+        text-align: center;
+        padding: 3rem 1.5rem;
+        background: #f9fafb;
+        border-radius: 8px;
+    }
+    
+    .video-placeholder p {
+        margin: 0 0 1rem 0;
+        color: #6b7280;
+    }
+    
+    .video-player {
         text-align: center;
     }
     
-    .success-card {
-        background: #d1fae5;
-        border: 2px solid #10b981;
+    .video-player video {
+        width: 100%;
+        max-width: 800px;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     }
     
-    .status-message {
-        margin-bottom: 1rem;
+    .video-meta {
+        margin: 1rem 0;
+        font-size: 0.875rem;
+        color: #6b7280;
     }
     
-    .success {
-        color: #059669;
-        font-weight: 600;
-        font-size: 1.05em;
+    .loading-text {
+        color: #6b7280;
+        font-style: italic;
     }
     
-    .warning {
-        color: #d97706;
-        font-weight: 600;
-        font-size: 1.05em;
-    }
-    
-    .matchups {
-        margin-top: 2rem;
+    /* Matchups Grid */
+    .matchups-grid {
+        padding: 1.5rem;
+        display: grid;
+        gap: 1rem;
     }
     
     .matchup-card {
-        background: white;
+        background: #f9fafb;
         border: 1px solid #e5e7eb;
-        border-radius: 6px;
+        border-radius: 8px;
         padding: 1.5rem;
-        margin-bottom: 1rem;
     }
     
-    .matchup-title {
-        font-weight: 700;
+    .matchup-header {
+        display: flex;
+        gap: 0.75rem;
         margin-bottom: 1rem;
-        font-size: 1.1em;
+        flex-wrap: wrap;
+    }
+    
+    .matchup-number {
+        font-weight: 700;
+        color: #111827;
+    }
+    
+    .round-label {
+        font-weight: 600;
+        color: #2563eb;
     }
     
     .bracket-label {
-        font-size: 0.9em;
         color: #6b7280;
-        font-weight: 500;
-        margin-left: 0.5rem;
+        font-size: 0.875rem;
     }
     
-    .matchup-score {
+    .matchup-teams {
         display: flex;
         justify-content: space-around;
         align-items: center;
@@ -1119,12 +1485,13 @@
     .team-name {
         font-weight: 600;
         margin-bottom: 0.25rem;
+        color: #111827;
     }
     
     .manager-name {
-        font-size: 0.85em;
+        font-size: 0.875rem;
         color: #6b7280;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.75rem;
     }
     
     .score {
@@ -1140,137 +1507,39 @@
     .vs {
         font-weight: 700;
         color: #9ca3af;
-        font-size: 1.25em;
+        font-size: 1.25rem;
     }
     
-    .margin {
+    .matchup-margin {
         text-align: center;
-        margin-top: 0.75rem;
-        font-size: 0.9em;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #e5e7eb;
+        font-size: 0.875rem;
         color: #6b7280;
     }
     
-    .summary-output {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        padding: 1.5rem;
-        margin-top: 2rem;
-    }
-    
-    .summary-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .summary-text {
-        background: #f9fafb;
-        padding: 1.5rem;
-        border-radius: 4px;
-        white-space: pre-wrap;
-        line-height: 1.6;
-    }
-    
-    .summary-textarea {
-        width: 100%;
-        padding: 1rem;
-        border: 2px solid #e5e7eb;
-        border-radius: 4px;
-        font-family: inherit;
-        font-size: 1em;
-        line-height: 1.6;
-        resize: vertical;
-        min-height: 300px;
-    }
-    
-    .summary-textarea:focus {
-        outline: none;
-        border-color: #2563eb;
-    }
-    
-    .advanced-settings {
-        margin-bottom: 1.5rem;
-    }
-    
-    .settings-panel {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 4px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-    }
-    
-    .refinement-panel {
-        background: #fef3c7;
-        border: 2px solid #f59e0b;
-        border-radius: 4px;
-        padding: 1rem;
-        margin-bottom: 1rem;
-    }
-    
-    .video-section {
-        background: white;
-        border: 1px solid #e5e7eb;
-        border-radius: 6px;
-        padding: 1.5rem;
-        margin-top: 2rem;
-    }
-    
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 1rem;
-    }
-    
-    .video-player {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 1rem;
-        background: #f9fafb;
-        border-radius: 8px;
-    }
-
-    .avatar-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-        gap: 1rem;
-        margin-top: 0.5rem;
-    }
-
-    .avatar-card {
-        border: 2px solid #e5e7eb;
-        border-radius: 8px;
-        padding: 1rem;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s;
-    }
-
-    .avatar-card:hover {
-        border-color: #2563eb;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.2);
-    }
-
-    .avatar-card.selected {
-        border-color: #2563eb;
-        background: #eff6ff;
-        box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
-    }
-
-    .avatar-card img {
-        width: 100%;
-        height: auto;
-        border-radius: 4px;
-        margin-bottom: 0.5rem;
-    }
-
-    .avatar-card p {
-        margin: 0;
-        font-size: 0.9rem;
-        font-weight: 500;
+    /* Responsive */
+    @media (max-width: 768px) {
+        .page-container {
+            padding: 1rem;
+        }
+        
+        .controls-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .matchup-teams {
+            flex-direction: column;
+            gap: 1rem;
+        }
+        
+        .button-group {
+            flex-direction: column;
+        }
+        
+        .button-group .btn {
+            width: 100%;
+        }
     }
 </style>
