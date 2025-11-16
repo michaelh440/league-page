@@ -304,7 +304,7 @@ export async function load({ url }) {
     SELECT 
       mgr.manager_id,
       COALESCE(mgr.real_name, mgr.username) as manager_name,
-      COALESCE(mgr.real_name, mgr.username) as team_name,  -- Use real_name/username instead of team_alias
+      COALESCE(mgr.real_name, mgr.username) as team_name,
       mgr.logo_url as team_logo,
       SUM(pg.wins) as wins,
       SUM(pg.losses) as losses,

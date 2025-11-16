@@ -26,7 +26,7 @@ export async function load({ url }) {
     };
   }
 
-  // 1. HIGHEST SINGLE GAMES - Use weekly_scoring with proper team/manager joins
+  // 1. HIGHEST SINGLE GAMES - FIXED JOIN
   const highestGame = (await query(`
     SELECT 
       s.season_year as year,
@@ -35,7 +35,7 @@ export async function load({ url }) {
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       ws.team_score as score
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -46,7 +46,7 @@ export async function load({ url }) {
     LIMIT 5
   `, [managerId])).rows;
 
-  // 2. LOWEST SINGLE GAMES
+  // 2. LOWEST SINGLE GAMES - FIXED JOIN
   const lowestGame = (await query(`
     SELECT 
       s.season_year as year,
@@ -55,7 +55,7 @@ export async function load({ url }) {
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       ws.team_score as score
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -66,7 +66,7 @@ export async function load({ url }) {
     LIMIT 5
   `, [managerId])).rows;
 
-  // 3. HIGHEST SEASONS - Aggregate weekly_scoring by season
+  // 3. HIGHEST SEASONS - FIXED JOIN
   const highestSeason = (await query(`
     SELECT 
       s.season_year as year,
@@ -74,7 +74,7 @@ export async function load({ url }) {
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       SUM(ws.team_score) as total_points
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -87,7 +87,7 @@ export async function load({ url }) {
     LIMIT 5
   `, [managerId])).rows;
 
-  // 4. LOWEST SEASONS
+  // 4. LOWEST SEASONS - FIXED JOIN
   const lowestSeason = (await query(`
     SELECT 
       s.season_year as year,
@@ -95,7 +95,7 @@ export async function load({ url }) {
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       SUM(ws.team_score) as total_points
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -109,19 +109,19 @@ export async function load({ url }) {
     LIMIT 5
   `, [managerId])).rows;
 
-  // 5. BLOWOUTS - Match the structure from bio page exactly
+  // 5-7: blowout, nailbiter, and winPct queries remain the same
+  // (they already use manager_id correctly)
+  
   const blowout = (await query(`
     SELECT 
       s.season_year as year,
       m.season_id,
       m.week,
       $1 as team1_manager_id,
-      -- Get team name for this manager - prioritize manager_team_names
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
       ) as team1_name,
-      -- Get team logo for this manager  
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         mgr_self.logo_url
@@ -130,12 +130,10 @@ export async function load({ url }) {
         WHEN m.team1_id = $1 THEN m.team1_score
         ELSE m.team2_score 
       END as team1_score,
-      -- Opponent info
       CASE 
         WHEN m.team1_id = $1 THEN m2.manager_id
         ELSE m1.manager_id
       END as team2_manager_id,
-      -- Get opponent team name - also prioritize manager_team_names
       CASE 
         WHEN m.team1_id = $1 THEN 
           COALESCE(
@@ -171,19 +169,16 @@ export async function load({ url }) {
     LIMIT 5
   `, [managerId])).rows;
 
-  // 6. NAILBITERS - Match the structure from bio page exactly
   const nailbiter = (await query(`
     SELECT 
       s.season_year as year,
       m.season_id,
       m.week,
       $1 as team1_manager_id,
-      -- Get team name for this manager - prioritize manager_team_names
       COALESCE(
         (SELECT mtn.team_name FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         (SELECT t.team_name FROM teams t WHERE t.manager_id = $1 AND t.season_id = s.season_id LIMIT 1)
       ) as team1_name,
-      -- Get team logo for this manager  
       COALESCE(
         (SELECT mtn.logo_url FROM manager_team_names mtn WHERE mtn.manager_id = $1 AND mtn.season_year = s.season_year),
         mgr_self.logo_url
@@ -192,12 +187,10 @@ export async function load({ url }) {
         WHEN m.team1_id = $1 THEN m.team1_score
         ELSE m.team2_score 
       END as team1_score,
-      -- Opponent info
       CASE 
         WHEN m.team1_id = $1 THEN m2.manager_id
         ELSE m1.manager_id
       END as team2_manager_id,
-      -- Get opponent team name - also prioritize manager_team_names
       CASE 
         WHEN m.team1_id = $1 THEN 
           COALESCE(
@@ -233,7 +226,6 @@ export async function load({ url }) {
     LIMIT 5
   `, [managerId])).rows;
 
-  // 7. WIN PERCENTAGE - Calculate from matchups using manager_id directly
   const winPct = (await query(`
     WITH manager_games AS (
       SELECT 
@@ -259,7 +251,7 @@ export async function load({ url }) {
     SELECT 
       mgr.manager_id,
       COALESCE(mgr.real_name, mgr.username) as manager_name,
-      COALESCE(mgr.real_name, mgr.username) as team_name,  -- Use real_name/username instead of team_alias
+      COALESCE(mgr.real_name, mgr.username) as team_name,
       mgr.logo_url as team_logo,
       SUM(mg.wins) as wins,
       SUM(mg.losses) as losses,

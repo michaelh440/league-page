@@ -41,7 +41,7 @@ export async function load({ url }) {
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       ws.team_score as score
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -98,7 +98,7 @@ export async function load({ url }) {
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       ws.team_score as score
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -147,9 +147,9 @@ export async function load({ url }) {
       COALESCE(mtn.team_name, t.team_name) as team_name,
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       SUM(ws.team_score) as total_points,
-      SUM(ws.team_score) as points  -- Frontend expects 'points' field
+      SUM(ws.team_score) as points
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -169,9 +169,9 @@ export async function load({ url }) {
       COALESCE(mtn.team_name, t.team_name) as team_name,
       COALESCE(mtn.logo_url, m.logo_url) as team_logo,
       SUM(ws.team_score) as total_points,
-      SUM(ws.team_score) as points  -- Frontend expects 'points' field
+      SUM(ws.team_score) as points
     FROM weekly_scoring ws
-    JOIN teams t ON ws.team_id = t.team_id
+    JOIN teams t ON ws.team_id = t.manager_id AND ws.season_id = t.season_id
     JOIN managers m ON t.manager_id = m.manager_id
     JOIN seasons s ON ws.season_id = s.season_id
     LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id 
@@ -459,7 +459,7 @@ export async function load({ url }) {
     SELECT 
       m.manager_id,
       COALESCE(m.real_name, m.username) as manager_name,
-      COALESCE(m.real_name, m.username) as team_name,  -- Use real_name/username instead of team_alias
+      COALESCE(m.real_name, m.username) as team_name,
       m.logo_url as team_logo,
       COUNT(ag.result) as games_played,
       SUM(CASE WHEN ag.result = 1 THEN 1 ELSE 0 END) as wins,
