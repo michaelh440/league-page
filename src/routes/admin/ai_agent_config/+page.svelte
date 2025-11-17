@@ -6,6 +6,8 @@
     let selectedTemplateId = null;
     let currentTemplate = {
         name: '',
+        agent_name: '',
+        agent_photo: '',
         system_prompt: '',
         tone_preset: 'snarky',
         context_settings: {
@@ -18,7 +20,8 @@
         },
         temperature: 0.7,
         max_tokens: 2000,
-        length_preset: 'medium'
+        length_preset: 'medium',
+        additional_prompts: []
     };
     
     let isEditing = false;
@@ -28,14 +31,15 @@
     // Tone presets with descriptions
     const tonePresets = [
         { value: 'snarky', label: 'Snarky', description: 'Witty, sarcastic, and entertaining' },
-        { value: 'flirty', label: 'Flirty', description: 'Flirty, Sassy, Confident, Sarcastic, Sexy and Entertaining' },
-        { value: 'disgruntled', label: 'Disgruntled', description: 'Tired, Disgruntled, Distainful' },
-        { value: 'madden', label: 'Madden', description: 'John Madden like, professional, upbeat, funny, light hearted, confident, with consistent humor' },
         { value: 'professional', label: 'Professional', description: 'Formal analysis with statistics' },
         { value: 'humorous', label: 'Humorous', description: 'Funny and lighthearted' },
         { value: 'dramatic', label: 'Dramatic', description: 'Epic storytelling style' },
         { value: 'analytical', label: 'Analytical', description: 'Data-driven deep dive' },
-        { value: 'trash_talk', label: 'Trash Talk', description: 'Roasting bad performances' }
+        { value: 'trash_talk', label: 'Trash Talk', description: 'Roasting bad performances' },
+        { value: 'blank', label: 'Blank', description: 'Empty Template To Start From Scratch' },
+        { value: 'flirty', label: 'Flirty', description: 'Flirty, Sassy, Confident, Sarcastic, Sexy and Entertaining' },
+        { value: 'disgruntled', label: 'Disgruntled', description: 'Tired, Disgruntled, Disdainful' },
+        { value: 'madden', label: 'Madden', description: 'John Madden like, professional, upbeat, funny, light hearted, confident, with consistent humor' }
     ];
     
     // Length presets
@@ -105,7 +109,41 @@ Don't hold back on:
 - Missed opportunities
 - Rivalry matchups
 
-Keep it entertaining and within the spirit of friendly competition.`
+Keep it entertaining and within the spirit of friendly competition.`,
+
+        blank: ``,
+
+        flirty: `You are a flirty, sassy fantasy football analyst who brings confidence, charm, and playful energy to your recaps. Your commentary should be entertaining, bold, and full of personality.
+
+Be flirty and sassy about:
+- Big performances that deserve praise
+- Managers who are "hot" (on winning streaks)
+- Close matchups with tension and drama
+- Playful teasing of bad decisions
+
+Keep it fun, confident, and always entertaining. Use charm and wit to make even losses sound interesting.`,
+
+        disgruntled: `You are a tired, disgruntled fantasy football analyst who has seen it all and is thoroughly unimpressed. Your recaps should drip with disdain and weary cynicism.
+
+Express your displeasure with:
+- Yet another predictable outcome
+- Managers making the same mistakes week after week
+- The general state of this league
+- Having to write another one of these recaps
+
+Your tone should convey exhaustion, disappointment, and barely concealed contempt. You're getting paid to do this, so you'll do it, but you won't pretend to be happy about it.`,
+
+        madden: `You are John Madden calling a fantasy football game! Your recaps should be upbeat, professional, funny, and full of that signature Madden enthusiasm and folksy wisdom.
+
+Channel Madden's style with:
+- Enthusiastic play-by-play energy: "BOOM! Now that's what I'm talking about!"
+- Simple, clear explanations that anyone can understand
+- Genuine excitement for great plays
+- Light-hearted humor and fun observations
+- Folksy sayings and memorable catchphrases
+- Professional analysis mixed with personality
+
+Remember: If you're excited watching, people watching you will be excited! Keep it fun, keep it clear, and keep that Madden energy going!`
     };
     
     onMount(() => {
@@ -173,6 +211,8 @@ Keep it entertaining and within the spirit of friendly competition.`
     function createNewTemplate() {
         currentTemplate = {
             name: 'New Template',
+            agent_name: '',
+            agent_photo: '',
             system_prompt: defaultPrompts.snarky,
             tone_preset: 'snarky',
             context_settings: {
@@ -185,7 +225,8 @@ Keep it entertaining and within the spirit of friendly competition.`
             },
             temperature: 0.7,
             max_tokens: 2000,
-            length_preset: 'medium'
+            length_preset: 'medium',
+            additional_prompts: []
         };
         selectedTemplateId = null;
         isEditing = true;
@@ -303,6 +344,59 @@ Keep it entertaining and within the spirit of friendly competition.`
             message = { text: '', type: '' };
         }, 3000);
     }
+    
+    // Add new additional prompt
+    let newPromptText = '';
+    function addAdditionalPrompt() {
+        if (!newPromptText.trim()) {
+            showMessage('Please enter prompt text', 'error');
+            return;
+        }
+        
+        if (!currentTemplate.additional_prompts) {
+            currentTemplate.additional_prompts = [];
+        }
+        
+        currentTemplate.additional_prompts = [
+            ...currentTemplate.additional_prompts,
+            {
+                id: Date.now(),
+                text: newPromptText,
+                created_at: new Date().toISOString()
+            }
+        ];
+        
+        newPromptText = '';
+        console.log('➕ Added additional prompt');
+    }
+    
+    // Remove additional prompt
+    function removeAdditionalPrompt(promptId) {
+        currentTemplate.additional_prompts = currentTemplate.additional_prompts.filter(p => p.id !== promptId);
+        console.log('🗑️ Removed additional prompt:', promptId);
+    }
+    
+    // Edit additional prompt
+    let editingPromptId = null;
+    function startEditPrompt(prompt) {
+        editingPromptId = prompt.id;
+    }
+    
+    function savePromptEdit(prompt) {
+        editingPromptId = null;
+        console.log('💾 Saved prompt edit');
+    }
+    
+    function cancelPromptEdit() {
+        editingPromptId = null;
+        // Reload template to reset any changes
+        if (selectedTemplateId) {
+            const originalTemplate = templates.find(t => t.id === selectedTemplateId);
+            if (originalTemplate) {
+                currentTemplate = { ...originalTemplate };
+            }
+        }
+    }
 </script>
 
 <div class="container">
@@ -331,6 +425,12 @@ Keep it entertaining and within the spirit of friendly competition.`
                         class="template-card {selectedTemplateId === template.id ? 'active' : ''}"
                         on:click={() => loadTemplate(template)}
                     >
+                        {#if template.agent_photo}
+                            <div class="template-photo">
+                                <img src={template.agent_photo} alt={template.agent_name || 'Agent'} />
+                            </div>
+                        {/if}
+                        
                         <div class="template-info">
                             <div class="template-name">
                                 {template.name}
@@ -338,6 +438,9 @@ Keep it entertaining and within the spirit of friendly competition.`
                                     <span class="badge">Default</span>
                                 {/if}
                             </div>
+                            {#if template.agent_name}
+                                <div class="agent-name-display">🤖 {template.agent_name}</div>
+                            {/if}
                             <div class="template-meta">
                                 <span class="tone-badge {template.tone_preset}">
                                     {tonePresets.find(p => p.value === template.tone_preset)?.label || template.tone_preset}
@@ -346,6 +449,11 @@ Keep it entertaining and within the spirit of friendly competition.`
                                     {template.length_preset}
                                 </span>
                             </div>
+                            {#if template.additional_prompts && template.additional_prompts.length > 0}
+                                <div class="prompts-count">
+                                    📝 {template.additional_prompts.length} additional prompt{template.additional_prompts.length !== 1 ? 's' : ''}
+                                </div>
+                            {/if}
                         </div>
                         
                         <div class="template-actions">
@@ -401,6 +509,42 @@ Keep it entertaining and within the spirit of friendly competition.`
                 </div>
                 
                 <div class="editor-content">
+                    <!-- Agent Identity -->
+                    <div class="section">
+                        <h3>👤 Agent Identity</h3>
+                        <div class="agent-identity-grid">
+                            <div class="form-group">
+                                <label for="agent_name">Agent Name</label>
+                                <input 
+                                    type="text" 
+                                    id="agent_name"
+                                    bind:value={currentTemplate.agent_name}
+                                    placeholder="e.g., Sarah the Snarky Analyst"
+                                    class="text-input"
+                                />
+                                <p class="help-text-small">Give your AI agent a personality name</p>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="agent_photo">Agent Photo URL</label>
+                                <input 
+                                    type="text" 
+                                    id="agent_photo"
+                                    bind:value={currentTemplate.agent_photo}
+                                    placeholder="https://example.com/avatar.jpg"
+                                    class="text-input"
+                                />
+                                <p class="help-text-small">URL to an avatar/photo for this agent</p>
+                            </div>
+                        </div>
+                        
+                        {#if currentTemplate.agent_photo}
+                            <div class="photo-preview">
+                                <img src={currentTemplate.agent_photo} alt={currentTemplate.agent_name || 'Agent'} />
+                            </div>
+                        {/if}
+                    </div>
+                    
                     <!-- Tone Preset -->
                     <div class="section">
                         <h3>🎭 Tone & Style</h3>
@@ -507,6 +651,64 @@ Keep it entertaining and within the spirit of friendly competition.`
                         </div>
                         <div class="tokens-display">
                             Max Tokens: <strong>{currentTemplate.max_tokens}</strong>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Prompts -->
+                    <div class="section">
+                        <h3>📝 Additional Prompts</h3>
+                        <p class="help-text">Build up a library of additional instructions that will be included with the system prompt.</p>
+                        
+                        <div class="additional-prompts-list">
+                            {#if currentTemplate.additional_prompts && currentTemplate.additional_prompts.length > 0}
+                                {#each currentTemplate.additional_prompts as prompt}
+                                    <div class="prompt-item">
+                                        {#if editingPromptId === prompt.id}
+                                            <textarea 
+                                                bind:value={prompt.text}
+                                                rows="3"
+                                                class="prompt-edit-textarea"
+                                            />
+                                            <div class="prompt-actions">
+                                                <button on:click={() => savePromptEdit(prompt)} class="btn-icon-small save">
+                                                    ✅ Save
+                                                </button>
+                                                <button on:click={cancelPromptEdit} class="btn-icon-small cancel">
+                                                    ❌ Cancel
+                                                </button>
+                                            </div>
+                                        {:else}
+                                            <div class="prompt-text">{prompt.text}</div>
+                                            <div class="prompt-meta">
+                                                Added: {new Date(prompt.created_at).toLocaleDateString()}
+                                            </div>
+                                            <div class="prompt-actions">
+                                                <button on:click={() => startEditPrompt(prompt)} class="btn-icon-small">
+                                                    ✏️ Edit
+                                                </button>
+                                                <button on:click={() => removeAdditionalPrompt(prompt.id)} class="btn-icon-small delete">
+                                                    🗑️ Delete
+                                                </button>
+                                            </div>
+                                        {/if}
+                                    </div>
+                                {/each}
+                            {:else}
+                                <div class="empty-prompts">
+                                    No additional prompts yet. Add instructions that will enhance your AI's responses over time.
+                                </div>
+                            {/if}
+                        </div>
+                        
+                        <div class="add-prompt-form">
+                            <textarea 
+                                bind:value={newPromptText}
+                                placeholder="Enter additional instructions or context for the AI agent..."
+                                rows="4"
+                            />
+                            <button on:click={addAdditionalPrompt} class="btn-secondary">
+                                ➕ Add Additional Prompt
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -627,6 +829,32 @@ Keep it entertaining and within the spirit of friendly competition.`
     .template-card.active {
         border-color: #007bff;
         background: #e7f3ff;
+    }
+    
+    .template-photo {
+        margin-bottom: 0.75rem;
+        text-align: center;
+    }
+    
+    .template-photo img {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e9ecef;
+    }
+    
+    .agent-name-display {
+        font-size: 0.75rem;
+        color: #007bff;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    
+    .prompts-count {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
     }
     
     .template-info {
@@ -800,6 +1028,56 @@ Keep it entertaining and within the spirit of friendly competition.`
         margin: 0 0 1rem 0;
     }
     
+    .help-text-small {
+        color: #6c757d;
+        font-size: 0.75rem;
+        margin: 0.25rem 0 0 0;
+    }
+    
+    /* Agent Identity */
+    .agent-identity-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .form-group label {
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #1a1a1a;
+    }
+    
+    .text-input {
+        padding: 0.75rem;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        font-size: 0.875rem;
+    }
+    
+    .text-input:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+    
+    .photo-preview {
+        margin-top: 1rem;
+        text-align: center;
+    }
+    
+    .photo-preview img {
+        max-width: 150px;
+        max-height: 150px;
+        border-radius: 8px;
+        border: 2px solid #e9ecef;
+        object-fit: cover;
+    }
+    
     textarea {
         width: 100%;
         padding: 1rem;
@@ -969,6 +1247,127 @@ Keep it entertaining and within the spirit of friendly competition.`
         text-align: center;
         color: #6c757d;
         font-size: 0.875rem;
+    }
+    
+    /* Additional Prompts */
+    .additional-prompts-list {
+        margin-bottom: 1.5rem;
+    }
+    
+    .prompt-item {
+        background: #f8f9fa;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .prompt-text {
+        margin-bottom: 0.5rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+    }
+    
+    .prompt-meta {
+        font-size: 0.75rem;
+        color: #6c757d;
+        margin-bottom: 0.5rem;
+    }
+    
+    .prompt-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .btn-icon-small {
+        padding: 0.375rem 0.75rem;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+        font-size: 0.75rem;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    
+    .btn-icon-small:hover {
+        background: #f8f9fa;
+    }
+    
+    .btn-icon-small.delete:hover {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    
+    .btn-icon-small.save {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    
+    .btn-icon-small.save:hover {
+        background: #c3e6cb;
+    }
+    
+    .btn-icon-small.cancel {
+        background: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+    
+    .btn-icon-small.cancel:hover {
+        background: #f5c6cb;
+    }
+    
+    .prompt-edit-textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #007bff;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 0.875rem;
+        resize: vertical;
+        margin-bottom: 0.5rem;
+    }
+    
+    .prompt-edit-textarea:focus {
+        outline: none;
+        border-color: #0056b3;
+    }
+    
+    .empty-prompts {
+        text-align: center;
+        padding: 2rem;
+        color: #6c757d;
+        font-style: italic;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    
+    .add-prompt-form {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+    
+    .add-prompt-form textarea {
+        width: 100%;
+        padding: 1rem;
+        border: 2px solid #e9ecef;
+        border-radius: 6px;
+        font-family: inherit;
+        font-size: 0.875rem;
+        resize: vertical;
+    }
+    
+    .add-prompt-form textarea:focus {
+        outline: none;
+        border-color: #007bff;
+    }
+    
+    .add-prompt-form button {
+        align-self: flex-start;
     }
     
     /* Empty Editor */

@@ -10,23 +10,29 @@ export async function PUT({ params, request }) {
             UPDATE ai_templates
             SET 
                 name = $1,
-                system_prompt = $2,
-                tone_preset = $3,
-                context_settings = $4,
-                temperature = $5,
-                max_tokens = $6,
-                length_preset = $7,
+                agent_name = $2,
+                agent_photo = $3,
+                system_prompt = $4,
+                tone_preset = $5,
+                context_settings = $6,
+                temperature = $7,
+                max_tokens = $8,
+                length_preset = $9,
+                additional_prompts = $10,
                 updated_at = NOW()
-            WHERE id = $8
+            WHERE id = $11
             RETURNING *
         `, [
             template.name,
+            template.agent_name || '',
+            template.agent_photo || '',
             template.system_prompt,
             template.tone_preset,
             JSON.stringify(template.context_settings),
             template.temperature,
             template.max_tokens,
             template.length_preset,
+            JSON.stringify(template.additional_prompts || []),
             id
         ]);
         

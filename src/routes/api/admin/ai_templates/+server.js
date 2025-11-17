@@ -7,12 +7,15 @@ export async function GET() {
             SELECT 
                 id,
                 name,
+                agent_name,
+                agent_photo,
                 system_prompt,
                 tone_preset,
                 context_settings,
                 temperature,
                 max_tokens,
                 length_preset,
+                additional_prompts,
                 is_default,
                 created_at,
                 updated_at
@@ -41,23 +44,29 @@ export async function POST({ request }) {
         const result = await query(`
             INSERT INTO ai_templates (
                 name,
+                agent_name,
+                agent_photo,
                 system_prompt,
                 tone_preset,
                 context_settings,
                 temperature,
                 max_tokens,
                 length_preset,
+                additional_prompts,
                 is_default
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
             RETURNING *
         `, [
             template.name,
+            template.agent_name || '',
+            template.agent_photo || '',
             template.system_prompt,
             template.tone_preset,
             JSON.stringify(template.context_settings),
             template.temperature,
             template.max_tokens,
             template.length_preset,
+            JSON.stringify(template.additional_prompts || []),
             template.is_default || false
         ]);
         
