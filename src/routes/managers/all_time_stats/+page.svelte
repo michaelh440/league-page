@@ -21,7 +21,7 @@
     //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
     //{ label: "Trophy Room", href: withMgr("/managers/trophy_room") },
-    { label: "Draft Room", href: withMgr("/managers/drafts") }
+    { label: "Draft Room", href: withMgr("/drafts/managers") }
   ];
 
   function onSelect(e) {

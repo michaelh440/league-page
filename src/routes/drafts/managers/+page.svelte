@@ -20,14 +20,14 @@
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },
     //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
-    { label: "Draft Room", href: withMgr("/managers/drafts"), active: true }
+    { label: "Draft Room", href: withMgr("/drafts/managers"), active: true }
     
   ];
 
   function handleManagerSelect(e) {
     const id = e.target.value;
     if (id) {
-      goto(`/managers/drafts?manager_id=${id}`);
+      goto(`/drafts/managers?manager_id=${id}`);
     }
   }
 
