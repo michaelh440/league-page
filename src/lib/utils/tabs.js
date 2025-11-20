@@ -109,7 +109,7 @@ export const tabs = [
       { icon: 'article', label: 'Standings', dest: '/current_season/standings' },
       { icon: 'sports', label: 'Weekly Matchups', dest: '/current_season/matchups' },
       { icon: 'bar_chart', label: 'Rosters', dest: '/current_season/rosters' },
-      { icon: 'history_edu', label: 'Draft Results', dest: '/current_season/drafts' },
+      { icon: 'history_edu', label: 'Draft Results', dest: '/drafts/current_season/results' },
       { icon: 'compare_arrows', label: 'Transactions', dest: '/current_season/transactions' },
       //{ icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' }
       //{ icon: 'emoji_events', label: 'Trophy Room', dest: '/league/trophy_room' },
@@ -144,7 +144,7 @@ export const tabs = [
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/league/rivalries' },
       //{ icon: 'emoji_events', label: 'Streaks', dest: '/league/streaks' },
       //{ icon: 'history_edu', label: 'Trophy Room', dest: '/league/trophy_room' },
-      { icon: 'history_edu', label: 'Draft Room', dest: '/league/drafts' }
+      { icon: 'history_edu', label: 'Draft Room', dest: '/drafts/previous_seasons' }
     ]
   },
   { icon: 'timeline', label: 'Previous Seasons', dest: '/previous_years', key: 'current' },
@@ -176,7 +176,7 @@ export const tabs = [
       { icon: 'sports', label: 'Manager Playoff Stats', dest: '/managers/playoff_stats' },
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/managers/rivalries' },
       //{ icon: 'emoji_events', label: 'Manager Trophy Room', dest: '/managers/trophy_room' },
-      { icon: 'history_edu', label: 'Manager Draft Room', dest: '/managers/drafts' }
+      { icon: 'history_edu', label: 'Manager Draft Room', dest: 'drafts/managers' }
     ]
   },
   { icon: 'videocam', label: 'Video', dest: '/video', key: 'video' }
