@@ -16,7 +16,7 @@ export async function load({ fetch }) {
 
 
 
-// src/routes/managers/drafts/+page.server.js
+// src/routes/drafts/managers/+page.server.js
 
 import { query } from '$lib/db';
 

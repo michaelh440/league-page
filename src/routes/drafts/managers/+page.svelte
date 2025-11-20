@@ -2,18 +2,32 @@
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   
   export let data;
+  
+  // WORKAROUND: Force correct URL if we got redirected to wrong location
+  onMount(() => {
+    const currentPath = $page.url.pathname;
+    if (currentPath === '/managers/drafts') {
+      const managerId = $page.url.searchParams.get('manager_id');
+      const correctUrl = managerId 
+        ? `/drafts/managers?manager_id=${managerId}`
+        : '/drafts/managers';
+      console.warn('Redirected from wrong path, correcting to:', correctUrl);
+      goto(correctUrl, { replaceState: true });
+    }
+  });
   
   // Get manager_id from query string
   $: managerId = $page.url.searchParams.get("manager_id");
   $: selectedManager = data.managers?.find(m => m.manager_id == managerId);
 
-  // Navigation items for manager section
-  const withMgr = (path) =>
+  // Navigation items for manager section - make reactive
+  $: withMgr = (path) =>
     managerId ? `${path}?manager_id=${managerId}` : path;
 
-  const navItems = [
+  $: navItems = [
     { label: "Manager Bio", href: withMgr("/managers/bio") },
     { label: "All Time Scoring", href: withMgr("/managers/all_time_stats") },
     { label: "Regular Season Scoring", href: withMgr("/managers/reg_season_stats") },
@@ -21,13 +35,18 @@
     //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
     { label: "Draft Room", href: withMgr("/drafts/managers"), active: true }
-    
   ];
 
   function handleManagerSelect(e) {
     const id = e.target.value;
     if (id) {
-      goto(`/drafts/managers?manager_id=${id}`);
+      // Use explicit path to avoid any redirects
+      const targetUrl = `/drafts/managers?manager_id=${id}`;
+      console.log('Selecting manager, navigating to:', targetUrl);
+      
+      // Try using window.location as a workaround if goto is being intercepted
+      // goto(targetUrl);
+      window.location.href = targetUrl;
     }
   }
 
