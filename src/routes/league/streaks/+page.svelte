@@ -12,7 +12,7 @@
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries"},
     //{ label: "Trophy Room", href: "/league/trophy_room" },
-    { label: "Draft Room", href: "/league/drafts" }  
+    { label: "Draft Room", href: "/drafts/previous_seasons" }  
   ];
 
   function formatStreakPeriod(start_season, start_week, end_season, end_week) {

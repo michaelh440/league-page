@@ -12,7 +12,7 @@
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
     //{ label: "Trophy Room", href: "/league/trophy_room" },
-    { label: "Draft Room", href: "/league/drafts", active: true }
+    { label: "Draft Room", href: "/drafts/previous_seasons", active: true }
   ];
 
   // Process draft data into grid format
@@ -55,7 +55,8 @@
   function onSeasonChange(e) {
     const season = e.target.value;
     if (season) {
-      window.location.href = `/league/drafts?season=${season}`;
+      //window.location.href = `/league/drafts?season=${season}`;
+      window.location.href = `/drafts/previous_seasons?season=${season}`;
     }
   }
 </script>
