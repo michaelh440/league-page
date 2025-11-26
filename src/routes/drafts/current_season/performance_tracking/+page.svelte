@@ -1,20 +1,37 @@
 <script>
 	export let data;
-	const { draftData, performanceData, leagueTeamManagersData, playersData } = data;
+	
+	// Destructure with defaults
+	$: draftData = data?.draftData || null;
+	$: performanceData = data?.performanceData || {};
+	$: performanceByName = data?.performanceByName || {};
+	$: leagueTeamManagersData = data?.leagueTeamManagersData || [];
+	$: playersData = data?.playersData || [];
 
 	// Process draft picks with performance data
-	$: enrichedPicks = draftData?.draft_picks?.map(pick => {
+	$: enrichedPicks = (draftData?.draft_picks || []).map(pick => {
+		// Find manager info
 		const manager = leagueTeamManagersData.find(m => m.manager_id === pick.manager_id);
-		const player = playersData.find(p => p.player_id === pick.player_id);
-		const performance = performanceData?.[pick.player_id] || { total_points: 0, games_played: 0 };
+		
+		// Get performance - try by player_id first, then by name
+		const performance = pick._performance || 
+			performanceData[pick.player_id] || 
+			performanceByName[pick.player_name?.toLowerCase()] ||
+			{ total_points: 0, games_played: 0 };
 		
 		return {
 			...pick,
 			manager,
-			player,
+			// Player info is already in the pick from draft_picks_with_details view
+			player: {
+				player_id: pick.player_id,
+				player_name: pick.player_name,
+				position: pick.position,
+				nfl_team: pick.player_nfl_team
+			},
 			performance
 		};
-	}) || [];
+	});
 
 	// Get top scorer from a specific round
 	function getTopScorerFromRound(picks, roundNumber) {
@@ -28,7 +45,7 @@
 		});
 	}
 
-	// Get top scorer from rounds 1-3
+	// Get top scorer from a range of rounds
 	function getTopScorerFromRounds(picks, startRound, endRound) {
 		const roundPicks = picks.filter(p => 
 			p.round_number >= startRound && p.round_number <= endRound
@@ -70,8 +87,13 @@
 			rank: index + 1
 		}));
 
-	// Helper function to get position color
-	function getPositionColor(position) {
+	// Helper function to get position color - use database values if available
+	function getPositionColor(pick) {
+		if (pick?.background_color && pick?.color_hex) {
+			return { bg: pick.background_color, text: pick.color_hex };
+		}
+		
+		const position = pick?.player?.position || pick?.position;
 		const colors = {
 			'QB': { bg: '#dc2626', text: '#ffffff' },
 			'RB': { bg: '#16a34a', text: '#ffffff' },
@@ -85,7 +107,20 @@
 
 	// Format points
 	function formatPoints(points) {
-		return points?.toFixed(1) || '0.0';
+		if (points === null || points === undefined) return '0.0';
+		return Number(points).toFixed(1);
+	}
+
+	// Format date
+	function formatDate(dateString) {
+		if (!dateString) return 'Date not set';
+		try {
+			const date = new Date(dateString);
+			if (isNaN(date.getTime())) return 'Date not set';
+			return date.toLocaleDateString();
+		} catch {
+			return 'Date not set';
+		}
 	}
 </script>
 
@@ -283,6 +318,18 @@
 		text-align: center;
 		padding: 3rem;
 		color: #6b7280;
+		background: #f9fafb;
+		border-radius: 8px;
+	}
+
+	.debug-info {
+		background: #fef3c7;
+		border: 1px solid #f59e0b;
+		border-radius: 8px;
+		padding: 1rem;
+		margin-bottom: 1rem;
+		font-family: monospace;
+		font-size: 0.8rem;
 	}
 
 	@media (max-width: 768px) {
@@ -310,14 +357,25 @@
 		<h1>Draft Performance Tracking</h1>
 		{#if draftData}
 			<div class="draft-info">
-				{draftData.draft_name} - {new Date(draftData.draft_datetime).toLocaleDateString()}
+				{draftData.draft_name || 'Season Draft'} - {formatDate(draftData.draft_datetime)}
 			</div>
+		{:else}
+			<div class="draft-info">No draft data loaded</div>
 		{/if}
 	</div>
+
+	{#if data?.error}
+		<div class="debug-info">
+			<strong>Error:</strong> {data.error}
+		</div>
+	{/if}
 
 	{#if !draftData || enrichedPicks.length === 0}
 		<div class="no-data">
 			<p>No draft data available for the current season.</p>
+			<p style="font-size: 0.85rem; margin-top: 1rem;">
+				Make sure there is an active season with a completed draft.
+			</p>
 		</div>
 	{:else}
 		<div class="charts-grid">
@@ -328,27 +386,27 @@
 					<div class="winner-highlight">
 						<div class="winner-trophy">🏆</div>
 						<div class="winner-details">
-							<div class="winner-player">{round1TopScorer.player?.player_name || 'Unknown'}</div>
+							<div class="winner-player">{round1TopScorer.player_name || 'Unknown'}</div>
 							<div class="winner-meta">
 								<span 
 									class="position-badge"
-									style="background-color: {getPositionColor(round1TopScorer.player?.position).bg}; color: {getPositionColor(round1TopScorer.player?.position).text};"
+									style="background-color: {getPositionColor(round1TopScorer).bg}; color: {getPositionColor(round1TopScorer).text};"
 								>
-									{round1TopScorer.player?.position || 'N/A'}
+									{round1TopScorer.position || 'N/A'}
 								</span>
-								<span>{round1TopScorer.player?.nfl_team || 'N/A'}</span>
+								<span>{round1TopScorer.player_nfl_team || 'N/A'}</span>
 							</div>
 							<div class="winner-manager">
-								Drafted by {round1TopScorer.manager?.manager_name || 'Unknown'} (Pick #{round1TopScorer.pick_number})
+								Drafted by {round1TopScorer.manager?.manager_name || round1TopScorer.manager_name || 'Unknown'} (Pick #{round1TopScorer.pick_number})
 							</div>
 							<div class="winner-stats">
 								<div class="stat-item">
 									<span class="stat-label">Points</span>
-									<span class="stat-value">{formatPoints(round1TopScorer.performance.total_points)}</span>
+									<span class="stat-value">{formatPoints(round1TopScorer.performance?.total_points)}</span>
 								</div>
 								<div class="stat-item">
 									<span class="stat-label">Games</span>
-									<span class="stat-value">{round1TopScorer.performance.games_played || 0}</span>
+									<span class="stat-value">{round1TopScorer.performance?.games_played || 0}</span>
 								</div>
 							</div>
 						</div>
@@ -360,16 +418,16 @@
 									{pick.rank}
 								</span>
 								<div class="player-info">
-									<div class="player-name">{pick.player?.player_name || 'Unknown'}</div>
+									<div class="player-name">{pick.player_name || 'Unknown'}</div>
 									<div class="player-meta">
-										<span>{pick.player?.position || 'N/A'}</span>
+										<span>{pick.position || 'N/A'}</span>
 										<span>•</span>
-										<span>{pick.manager?.manager_name || 'Unknown'}</span>
+										<span>{pick.manager?.manager_name || pick.manager_name || 'Unknown'}</span>
 										<span>•</span>
 										<span>Pick #{pick.pick_number}</span>
 									</div>
 								</div>
-								<div class="points-display">{formatPoints(pick.performance.total_points)} pts</div>
+								<div class="points-display">{formatPoints(pick.performance?.total_points)} pts</div>
 							</div>
 						{/each}
 					</div>
@@ -385,27 +443,27 @@
 					<div class="winner-highlight">
 						<div class="winner-trophy">🥈</div>
 						<div class="winner-details">
-							<div class="winner-player">{round2TopScorer.player?.player_name || 'Unknown'}</div>
+							<div class="winner-player">{round2TopScorer.player_name || 'Unknown'}</div>
 							<div class="winner-meta">
 								<span 
 									class="position-badge"
-									style="background-color: {getPositionColor(round2TopScorer.player?.position).bg}; color: {getPositionColor(round2TopScorer.player?.position).text};"
+									style="background-color: {getPositionColor(round2TopScorer).bg}; color: {getPositionColor(round2TopScorer).text};"
 								>
-									{round2TopScorer.player?.position || 'N/A'}
+									{round2TopScorer.position || 'N/A'}
 								</span>
-								<span>{round2TopScorer.player?.nfl_team || 'N/A'}</span>
+								<span>{round2TopScorer.player_nfl_team || 'N/A'}</span>
 							</div>
 							<div class="winner-manager">
-								Drafted by {round2TopScorer.manager?.manager_name || 'Unknown'} (Pick #{round2TopScorer.pick_number})
+								Drafted by {round2TopScorer.manager?.manager_name || round2TopScorer.manager_name || 'Unknown'} (Pick #{round2TopScorer.pick_number})
 							</div>
 							<div class="winner-stats">
 								<div class="stat-item">
 									<span class="stat-label">Points</span>
-									<span class="stat-value">{formatPoints(round2TopScorer.performance.total_points)}</span>
+									<span class="stat-value">{formatPoints(round2TopScorer.performance?.total_points)}</span>
 								</div>
 								<div class="stat-item">
 									<span class="stat-label">Games</span>
-									<span class="stat-value">{round2TopScorer.performance.games_played || 0}</span>
+									<span class="stat-value">{round2TopScorer.performance?.games_played || 0}</span>
 								</div>
 							</div>
 						</div>
@@ -417,16 +475,16 @@
 									{pick.rank}
 								</span>
 								<div class="player-info">
-									<div class="player-name">{pick.player?.player_name || 'Unknown'}</div>
+									<div class="player-name">{pick.player_name || 'Unknown'}</div>
 									<div class="player-meta">
-										<span>{pick.player?.position || 'N/A'}</span>
+										<span>{pick.position || 'N/A'}</span>
 										<span>•</span>
-										<span>{pick.manager?.manager_name || 'Unknown'}</span>
+										<span>{pick.manager?.manager_name || pick.manager_name || 'Unknown'}</span>
 										<span>•</span>
 										<span>Pick #{pick.pick_number}</span>
 									</div>
 								</div>
-								<div class="points-display">{formatPoints(pick.performance.total_points)} pts</div>
+								<div class="points-display">{formatPoints(pick.performance?.total_points)} pts</div>
 							</div>
 						{/each}
 					</div>
@@ -442,27 +500,27 @@
 					<div class="winner-highlight">
 						<div class="winner-trophy">🥉</div>
 						<div class="winner-details">
-							<div class="winner-player">{round3TopScorer.player?.player_name || 'Unknown'}</div>
+							<div class="winner-player">{round3TopScorer.player_name || 'Unknown'}</div>
 							<div class="winner-meta">
 								<span 
 									class="position-badge"
-									style="background-color: {getPositionColor(round3TopScorer.player?.position).bg}; color: {getPositionColor(round3TopScorer.player?.position).text};"
+									style="background-color: {getPositionColor(round3TopScorer).bg}; color: {getPositionColor(round3TopScorer).text};"
 								>
-									{round3TopScorer.player?.position || 'N/A'}
+									{round3TopScorer.position || 'N/A'}
 								</span>
-								<span>{round3TopScorer.player?.nfl_team || 'N/A'}</span>
+								<span>{round3TopScorer.player_nfl_team || 'N/A'}</span>
 							</div>
 							<div class="winner-manager">
-								Drafted by {round3TopScorer.manager?.manager_name || 'Unknown'} (Pick #{round3TopScorer.pick_number})
+								Drafted by {round3TopScorer.manager?.manager_name || round3TopScorer.manager_name || 'Unknown'} (Pick #{round3TopScorer.pick_number})
 							</div>
 							<div class="winner-stats">
 								<div class="stat-item">
 									<span class="stat-label">Points</span>
-									<span class="stat-value">{formatPoints(round3TopScorer.performance.total_points)}</span>
+									<span class="stat-value">{formatPoints(round3TopScorer.performance?.total_points)}</span>
 								</div>
 								<div class="stat-item">
 									<span class="stat-label">Games</span>
-									<span class="stat-value">{round3TopScorer.performance.games_played || 0}</span>
+									<span class="stat-value">{round3TopScorer.performance?.games_played || 0}</span>
 								</div>
 							</div>
 						</div>
@@ -474,16 +532,16 @@
 									{pick.rank}
 								</span>
 								<div class="player-info">
-									<div class="player-name">{pick.player?.player_name || 'Unknown'}</div>
+									<div class="player-name">{pick.player_name || 'Unknown'}</div>
 									<div class="player-meta">
-										<span>{pick.player?.position || 'N/A'}</span>
+										<span>{pick.position || 'N/A'}</span>
 										<span>•</span>
-										<span>{pick.manager?.manager_name || 'Unknown'}</span>
+										<span>{pick.manager?.manager_name || pick.manager_name || 'Unknown'}</span>
 										<span>•</span>
 										<span>Pick #{pick.pick_number}</span>
 									</div>
 								</div>
-								<div class="points-display">{formatPoints(pick.performance.total_points)} pts</div>
+								<div class="points-display">{formatPoints(pick.performance?.total_points)} pts</div>
 							</div>
 						{/each}
 					</div>
@@ -499,27 +557,27 @@
 					<div class="winner-highlight">
 						<div class="winner-trophy">👑</div>
 						<div class="winner-details">
-							<div class="winner-player">{rounds13TopScorer.player?.player_name || 'Unknown'}</div>
+							<div class="winner-player">{rounds13TopScorer.player_name || 'Unknown'}</div>
 							<div class="winner-meta">
 								<span 
 									class="position-badge"
-									style="background-color: {getPositionColor(rounds13TopScorer.player?.position).bg}; color: {getPositionColor(rounds13TopScorer.player?.position).text};"
+									style="background-color: {getPositionColor(rounds13TopScorer).bg}; color: {getPositionColor(rounds13TopScorer).text};"
 								>
-									{rounds13TopScorer.player?.position || 'N/A'}
+									{rounds13TopScorer.position || 'N/A'}
 								</span>
-								<span>{rounds13TopScorer.player?.nfl_team || 'N/A'}</span>
+								<span>{rounds13TopScorer.player_nfl_team || 'N/A'}</span>
 							</div>
 							<div class="winner-manager">
-								Drafted by {rounds13TopScorer.manager?.manager_name || 'Unknown'} in Round {rounds13TopScorer.round_number} (Pick #{rounds13TopScorer.pick_number})
+								Drafted by {rounds13TopScorer.manager?.manager_name || rounds13TopScorer.manager_name || 'Unknown'} in Round {rounds13TopScorer.round_number} (Pick #{rounds13TopScorer.pick_number})
 							</div>
 							<div class="winner-stats">
 								<div class="stat-item">
 									<span class="stat-label">Points</span>
-									<span class="stat-value">{formatPoints(rounds13TopScorer.performance.total_points)}</span>
+									<span class="stat-value">{formatPoints(rounds13TopScorer.performance?.total_points)}</span>
 								</div>
 								<div class="stat-item">
 									<span class="stat-label">Games</span>
-									<span class="stat-value">{rounds13TopScorer.performance.games_played || 0}</span>
+									<span class="stat-value">{rounds13TopScorer.performance?.games_played || 0}</span>
 								</div>
 							</div>
 						</div>
@@ -531,16 +589,16 @@
 									{pick.rank}
 								</span>
 								<div class="player-info">
-									<div class="player-name">{pick.player?.player_name || 'Unknown'}</div>
+									<div class="player-name">{pick.player_name || 'Unknown'}</div>
 									<div class="player-meta">
 										<span>Round {pick.round_number}</span>
 										<span>•</span>
-										<span>{pick.player?.position || 'N/A'}</span>
+										<span>{pick.position || 'N/A'}</span>
 										<span>•</span>
-										<span>{pick.manager?.manager_name || 'Unknown'}</span>
+										<span>{pick.manager?.manager_name || pick.manager_name || 'Unknown'}</span>
 									</div>
 								</div>
-								<div class="points-display">{formatPoints(pick.performance.total_points)} pts</div>
+								<div class="points-display">{formatPoints(pick.performance?.total_points)} pts</div>
 							</div>
 						{/each}
 					</div>
