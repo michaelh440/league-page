@@ -1,590 +1,668 @@
 <script>
-    import { Icon } from '@smui/tab';
-    import { goto } from '$app/navigation';
-    import { onMount } from 'svelte';
+  export let data;
+  
+  // Make these reactive so they update when navigating between years
+  $: season = data.season;
+  $: championship = data.championship;
+  $: consolation = data.consolation;
 
-    export let data;
-    const { season, weeks } = data;
-
-    const seasons = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
-
-    let active = null;
-
-    onMount(() => {
-        // Initialize component
-    });
-
-    function getWinner(score1, score2) {
-        const num1 = Number(score1);
-        const num2 = Number(score2);
-        
-        if (isNaN(num1) || isNaN(num2)) {
-            // Fallback to string comparison if conversion fails
-            return score1 > score2 ? 'home' : score2 > score1 ? 'away' : 'tied';
-        }
-        
-        return num1 > num2 ? 'home' : num2 > num1 ? 'away' : 'tied';
-    }
-
-    function expandClose(matchupId) {
-        active = active === matchupId ? null : matchupId;
-    }
-
-    // Get position badge color
-    function getPositionColor(position) {
-        const colors = {
-            'QB': '#ff0066',
-            'RB': '#00ceb8',
-            'WR': '#58a7ff',
-            'TE': '#ffae58',
-            'K': '#bd66ff',
-            'DEF': '#f5c842',
-            'FLEX': '#00ceb8'
-        };
-        return colors[position] || '#999';
-    }
+  const seasons = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024];
 </script>
 
 <div class="page-layout">
-    <!-- Sidebar -->
-    <aside class="sidebar">
-        {#each seasons as yr}
-            <a 
-                href="/seasons/{yr}" 
-                class="season-card"
-                class:active={season === yr}
-            >
-                {yr}
-            </a>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    {#each seasons as yr}
+      <a
+        href="/seasons/{yr}"
+        class="season-card {yr === season ? 'active' : ''}"
+      >
+        {yr}
+      </a>
+    {/each}
+  </aside>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <h3 style="text-align: center;">{season} Playoffs</h3>
+
+    <!-- Navigation -->
+    <nav class="season-nav">
+      <a href="/standings/{season}" class="season-btn">Reg Season Standings</a>
+      <a href="/seasons/{season}" class="season-btn">Reg Season Week View</a>
+      <a href="/seasons/{season}/playoffs" class="season-btn active"> Playoff Week View</a>
+    </nav>
+
+    <!-- Championship Bracket -->
+    <h3 class="bracket-title">Championship Bracket</h3>
+    <div class="bracket-grid">
+      <!-- Week 15 -->
+      <div>
+        <h4 class="week-title">Week 15</h4>
+        {#each championship.week15 as game}
+          <table class="matchups-table">
+            <thead>
+              <tr><th class="table-title" colspan="2">{game.label}</th></tr>
+              <tr>
+                <th>Team</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class:win={game.score1 > game.score2}>
+                  <div class="team-info">
+                    {#if game.team1_logo}
+                      <img src={game.team1_logo} alt="{game.team1}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team1}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score1 > game.score2}>{game.score1}</td>
+              </tr>
+              <tr>
+                <td class:win={game.score2 > game.score1}>
+                  <div class="team-info">
+                    {#if game.team2_logo}
+                      <img src={game.team2_logo} alt="{game.team2}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team2}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score2 > game.score1}>{game.score2}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="height:20px;"></div>
         {/each}
-    </aside>
+      </div>
 
-    <!-- Main Content -->
-    <main class="content">
-        <h3 style="text-align: center;">{season} Season</h3>
+      <!-- Week 16 -->
+      <div>
+        <h4 class="week-title">Week 16</h4>
+        {#each championship.week16 as game}
+          <table class="matchups-table">
+            <thead>
+              <tr><th class="table-title" colspan="2">{game.label}</th></tr>
+              <tr>
+                <th>Team</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class:win={game.score1 > game.score2}>
+                  <div class="team-info">
+                    {#if game.team1_logo}
+                      <img src={game.team1_logo} alt="{game.team1}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team1}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score1 > game.score2}>{game.score1}</td>
+              </tr>
+              <tr>
+                <td class:win={game.score2 > game.score1}>
+                  <div class="team-info">
+                    {#if game.team2_logo}
+                      <img src={game.team2_logo} alt="{game.team2}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team2}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score2 > game.score1}>{game.score2}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="height:20px;"></div>
+        {/each}
+      </div>
+    </div>
 
-        <nav class="season-nav">
-          <a href="/standings/{season}" class="season-btn">Reg Season Standings</a>
-          <a href="/seasons/{season}" class="season-btn active">Reg Season Week View</a>
-          <a href="/seasons/{season}/playoffs" class="season-btn"> Playoff Week View</a>
-        </nav>
+    <!-- Consolation Bracket -->
+    <h3 class="bracket-title">Consolation Bracket</h3>
+    <div class="bracket-grid">
+      <!-- Week 15 -->
+      <div>
+        <h4 class="week-title">Week 15</h4>
+        {#each consolation.week15 as game}
+          <table class="matchups-table">
+            <thead>
+              <tr><th class="table-title" colspan="2">{game.label}</th></tr>
+              <tr>
+                <th>Team</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class:win={game.score1 > game.score2}>
+                  <div class="team-info">
+                    {#if game.team1_logo}
+                      <img src={game.team1_logo} alt="{game.team1}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team1}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score1 > game.score2}>{game.score1}</td>
+              </tr>
+              <tr>
+                <td class:win={game.score2 > game.score1}>
+                  <div class="team-info">
+                    {#if game.team2_logo}
+                      <img src={game.team2_logo} alt="{game.team2}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team2}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score2 > game.score1}>{game.score2}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="height:20px;"></div>
+        {/each}
+      </div>
 
-        <!-- All weeks displayed vertically -->
-        <div class="season-container">
-            {#each weeks as week}
-                <div class="week-section">
-                    <h4>Week {week.week}</h4>
-                    <div class="matchups">
-                        {#each week.games as game, ix}
-                            {@const matchupId = `${week.week}-${ix}`}
-                            {@const winner = getWinner(game.score1, game.score2)}
-                            <div class="matchup">
-                                <div class="header" on:click={() => expandClose(matchupId)}>
-                                    <div class="opponent home {winner === 'home' ? 'homeGlow' : ''}">
-                                        {#if game.team1_logo}
-                                            <img class="avatar" src={game.team1_logo} alt="{game.team1}" />
-                                        {/if}
-                                        <div class="name">{game.team1}</div>
-                                        <div class="totalPoints totalPointsR">{game.score1}</div>
-                                    </div>
-                                    <img class="divider" src="/{winner}Divider.jpg" alt="divider" />
-                                    <div class="opponent away {winner === 'away' ? 'awayGlow' : ''}">
-                                        <div class="totalPoints totalPointsL">{game.score2}</div>
-                                        <div class="name">{game.team2}</div>
-                                        {#if game.team2_logo}
-                                            <img class="avatar" src={game.team2_logo} alt="{game.team2}" />
-                                        {/if}
-                                    </div>
-                                </div>
-
-                                <!-- Expandable roster content -->
-                                <div class="rosters" 
-                                     style:max-height={active === matchupId ? '600px' : '0'} 
-                                     style:border={active !== matchupId ? 'none' : ''}>
-                                    
-                                    {#if game.team1_roster && game.team2_roster}
-                                        <div class="roster-container">
-                                            <!-- Team 1 Roster -->
-                                            <div class="team-roster">
-                                                <h5>{game.team1}</h5>
-                                                {#each game.team1_roster as player}
-                                                    <div class="player-row {player.is_starter ? 'starter' : 'bench'}">
-                                                        <div class="position-badge" style="background-color: {getPositionColor(player.position)}">
-                                                            {player.lineup_slot}
-                                                        </div>
-                                                        <div class="player-info">
-                                                            <span class="player-name">{player.player_name}</span>
-                                                        </div>
-                                                    </div>
-                                                {/each}
-                                            </div>
-
-                                            <!-- Divider -->
-                                            <div class="roster-divider"></div>
-
-                                            <!-- Team 2 Roster -->
-                                            <div class="team-roster">
-                                                <h5>{game.team2}</h5>
-                                                {#each game.team2_roster as player}
-                                                    <div class="player-row {player.is_starter ? 'starter' : 'bench'}">
-                                                        <div class="position-badge" style="background-color: {getPositionColor(player.position)}">
-                                                            {player.lineup_slot}
-                                                        </div>
-                                                        <div class="player-info">
-                                                            <span class="player-name">{player.player_name}</span>
-                                                        </div>
-                                                    </div>
-                                                {/each}
-                                            </div>
-                                        </div>
-                                    {:else}
-                                        <div class="placeholder-content">
-                                            <p>No roster data available for this matchup</p>
-                                        </div>
-                                    {/if}
-                                    
-                                    <div class="close" on:click={() => expandClose(matchupId)}>Close Matchup</div>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
-            {/each}
-        </div>
-    </main>
+      <!-- Week 16 -->
+      <div>
+        <h4 class="week-title">Week 16</h4>
+        {#each consolation.week16 as game}
+          <table class="matchups-table">
+            <thead>
+              <tr><th class="table-title" colspan="2">{game.label}</th></tr>
+              <tr>
+                <th>Team</th>
+                <th>Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class:win={game.score1 > game.score2}>
+                  <div class="team-info">
+                    {#if game.team1_logo}
+                      <img src={game.team1_logo} alt="{game.team1}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team1}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score1 > game.score2}>{game.score1}</td>
+              </tr>
+              <tr>
+                <td class:win={game.score2 > game.score1}>
+                  <div class="team-info">
+                    {#if game.team2_logo}
+                      <img src={game.team2_logo} alt="{game.team2}" class="team-logo" />
+                    {/if}
+                    <span class="team-name">{game.team2}</span>
+                  </div>
+                </td>
+                <td class="score-cell" class:win={game.score2 > game.score1}>{game.score2}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="height:20px;"></div>
+        {/each}
+      </div>
+    </div>
+  </main>
 </div>
 
 <style>
-    /* Desktop Layout */
+  /* Desktop Layout */
+  .page-layout {
+    display: flex;
+    gap: 2rem;
+    min-height: 100vh;
+    padding: 0 1rem;
+  }
+
+  .sidebar {
+    flex: 0 0 12%;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-left: 0.5rem;
+    margin-top: 1rem;
+    position: sticky;
+    top: 1rem;
+    height: fit-content;
+  }
+
+  .season-card {
+    display: block;
+    padding: 0.8rem;
+    text-align: center;
+    font-weight: bold;
+    text-decoration: none;
+    color: white;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .season-card:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+  }
+
+  .season-card.active {
+    background: silver;
+    color: #222;
+  }
+
+  .main-content {
+    flex: 1;
+    max-width: 100%;
+  }
+
+  /* Navigation */
+  .season-nav {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1rem 0 2rem 0;
+  }
+
+  .season-btn {
+    display: inline-block;
+    text-decoration: none;
+    font-weight: bold;
+    color: white;
+    background: #007bff;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+  }
+
+  .season-btn:hover {
+    background: #0056b3;
+    transform: translateY(-2px);
+  }
+
+  .season-btn.active {
+    background: #004085;
+  }
+
+  /* Bracket Styling */
+  .bracket-title {
+    text-align: center;
+    margin: 2rem 0 1rem 0;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #004085;
+  }
+
+  .bracket-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-bottom: 3rem;
+  }
+
+  .week-title {
+    text-align: center;
+    margin-bottom: 1rem;
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #004085;
+  }
+
+  /* Tables */
+  .matchups-table {
+    border-collapse: collapse;
+    margin: 0 auto 1.5rem auto;
+    width: 100%;
+    max-width: 350px;
+    text-align: center;
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  .matchups-table th,
+  .matchups-table td {
+    border: 1px solid #dee2e6;
+    padding: 0.75rem 0.8rem;
+    color: #212529;
+  }
+
+  .matchups-table th {
+    background-color: #e9ecef;
+    color: #495057;
+    font-weight: 600;
+  }
+
+  .table-title {
+    text-align: center !important;
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.75rem;
+  }
+
+  .matchups-table td {
+    background: white;
+    color: #212529;
+  }
+
+  .matchups-table tbody tr:nth-child(odd) {
+    background: white;
+  }
+
+  .matchups-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+  }
+
+  .matchups-table tbody tr:hover {
+    background: #e3f2fd !important;
+  }
+
+  .win {
+    background-color: #d4edda !important;
+    font-weight: bold;
+    color: #212529 !important;
+  }
+
+  .team-info {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 0.5rem;
+  }
+
+  .team-logo {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e9ecef;
+    flex-shrink: 0;
+  }
+
+  .team-name {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 500;
+  }
+
+  .score-cell {
+    font-weight: 600;
+    font-size: 1.1em;
+    color: #004085;
+  }
+
+  h3 {
+    color: #004085;
+    margin: 1rem 0;
+  }
+
+  /* MOBILE RESPONSIVE STYLES */
+  @media screen and (max-width: 768px) {
     .page-layout {
-        display: flex;
-        gap: 2rem;
-        min-height: 100vh;
-        padding: 0 1rem;
+      flex-direction: column;
+      gap: 0;
+      padding: 0.5rem;
     }
 
+    /* Transform sidebar into horizontal scroll */
     .sidebar {
-        flex: 0 0 12%;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        margin-left: 0.5rem;
-        margin-top: 1rem;
-        position: sticky;
-        top: 1rem;
-        height: fit-content;
+      position: relative;
+      flex: none;
+      flex-direction: row;
+      width: 100%;
+      margin: 0 0 1rem 0;
+      padding: 0.75rem;
+      background: #f8f9fa;
+      border-radius: 8px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: thin;
+      scrollbar-color: #ccc transparent;
+    }
+
+    .sidebar::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .sidebar::-webkit-scrollbar-thumb {
+      background: #ccc;
+      border-radius: 2px;
     }
 
     .season-card {
-        display: block;
-        padding: 0.8rem;
-        text-align: center;
-        font-weight: bold;
-        text-decoration: none;
-        color: white;
-        background: linear-gradient(135deg, #007bff, #0056b3);
-        border-radius: 6px;
-        transition: all 0.2s ease;
+      flex: 0 0 auto;
+      padding: 0.6rem 1rem;
+      font-size: 0.9rem;
+      white-space: nowrap;
+      min-width: 65px;
+      text-align: center;
     }
 
-    .season-card:hover {
-        background: #0056b3;
-        transform: translateY(-2px);
-    }
-
-    .season-card.active {
-        background: silver;
-        color: #222;
-    }
-
-    .content {
-        flex: 1;
-        max-width: 100%;
-    }
-
-    /* Navigation */
-    .season-nav {
-        display: flex;
-        justify-content: center;
-        gap: 1rem;
-        margin: 1rem 0 2rem 0;
-    }
-
-    .season-btn {
-        display: inline-block;
-        text-decoration: none;
-        font-weight: bold;
-        color: white;
-        background: #007bff;
-        padding: 0.6rem 1.2rem;
-        border-radius: 6px;
-        transition: all 0.2s ease;
-    }
-
-    .season-btn:hover {
-        background: #0056b3;
-        transform: translateY(-2px);
-    }
-
-    .season-btn.active {
-        background: #004085;
-    }
-
-    /* Season container and week sections */
-    .season-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 2rem;
-        padding-bottom: 2rem;
-    }
-
-    .week-section {
-        width: 100%;
-        max-width: 800px;
-    }
-
-    h4 {
-        color: #004085;
-        margin: 1rem 0 0.5rem 0;
-        text-align: center;
-        font-size: 1.5em;
-    }
-
-    /* Matchups styling (from live matchups) */
-    .matchups {
-        margin: 2em 0;
-    }
-
-    .matchup {
-        width: 95%;
-        max-width: 600px;
-        margin: 10px auto;
-    }
-
-    .header {
-        display: flex;
-        justify-content: space-between;
-        position: relative;
-        border: 1px solid #bbb;
-        border-radius: 10px;
-        opacity: 0.8;
-        cursor: pointer;
-        transition: opacity 0.5s;
-        overflow: hidden;
-    }
-
-    .header:hover {
-        opacity: 1;
-    }
-
-    .opponent {
-        display: flex;
-        align-items: center;
-        width: 46%;
-        padding: 5px 2%;
-        top: 0;
-        z-index: 2;
-    }
-
-    .divider {
-        position: absolute;
-        z-index: 3;
-        transform: translateX(-50%);
-        top: 0;
-        left: 50%;
-        height: 100%;
-        width: 15px;
-    }
-
-    .home {
-        justify-content: flex-start;
-        left: 0;
-        text-align: left;
-        background-color: #485566;
-    }
-
-    .home.homeGlow {
-        box-shadow: 0 0 6px 4px #3279cf;
-        background-color: #00316b !important;
-    }
-
-    .away {
-        justify-content: flex-end;
-        right: 0;
-        text-align: right;
-        background-color: #8b6969;
-    }
-
-    .away.awayGlow {
-        box-shadow: 0 0 6px 4px #d15454;
-        background-color: #920505 !important;
-    }
-
-    .name {
-        margin: 0 5px;
-        font-size: 1em;
-        line-height: 1.1em;
-        flex-grow: 1;
-        word-break: break-word;
-        color: #fff;
-        font-style: italic;
-    }
-
-    .avatar {
-        vertical-align: middle;
-        border-radius: 50%;
-        height: 35px;
-        width: 35px;
-        margin: 0;
-        border: 0.25px solid #777;
-        background-color: #eee;
-    }
-
-    .totalPoints {
-        line-height: 1.1em;
-        color: #fff;
-        font-weight: 600;
-        font-size: 1.1em;
-    }
-
-    .totalPointsR {
-        margin-right: 0.1em;
-        text-align: right;
-    }
-
-    .totalPointsL {
-        margin-left: 0.1em;
-        text-align: left;
-    }
-
-    /* Expandable roster content */
-    .rosters {
-        position: relative;
-        background-color: #fff;
-        border-radius: 8px;
-        overflow-y: auto;
-        border-left: 1px solid #bbb;
-        border-right: 1px solid #bbb;
-        border-bottom: 1px solid #bbb;
-        transition: max-height 0.4s;
-    }
-
-    .roster-container {
-        display: flex;
-        gap: 1px;
-        background-color: #ddd;
-        padding: 0;
-    }
-
-    .team-roster {
-        flex: 1;
-        background-color: #fff;
-        padding: 0.5rem;
-    }
-
-    .team-roster h5 {
-        margin: 0 0 0.5rem 0;
-        padding: 0.5rem;
-        background-color: #f0f0f0;
-        text-align: center;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: #333;
-    }
-
-    .player-row {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.4rem 0.5rem;
-        margin-bottom: 2px;
-        border-radius: 4px;
-        background-color: #f8f8f8;
-    }
-
-    .player-row.starter {
-        background-color: #fff;
-        border-left: 3px solid #007bff;
-    }
-
-    .player-row.bench {
-        background-color: #f8f8f8;
-        opacity: 0.7;
-    }
-
-    .position-badge {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-width: 38px;
-        height: 38px;
-        border-radius: 6px;
-        color: white;
-        font-weight: bold;
-        font-size: 0.75rem;
-        text-align: center;
-        padding: 0 4px;
-    }
-
-    .player-info {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        min-width: 0;
-    }
-
-    .player-name {
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #333;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .roster-divider {
-        width: 2px;
-        background: linear-gradient(to bottom, #ddd, #999, #ddd);
-    }
-
-    .placeholder-content {
-        padding: 1rem;
-        text-align: center;
-        color: #666;
-    }
-
-    .close {
-        display: block;
-        width: 100%;
-        background-color: #eee;
-        text-align: center;
-        cursor: pointer;
-        z-index: 2;
-        font-size: 1.1em;
-        padding: 6px 0;
-        position: sticky;
-        bottom: 0;
-    }
-
-    .close:hover {
-        background-color: #ddd;
+    .main-content {
+      width: 100%;
     }
 
     h3 {
-        color: #004085;
-        margin: 1rem 0;
+      font-size: 1.4rem;
+      margin: 0.5rem 0 1rem 0;
+      text-align: center;
+      color: white !important;
     }
 
-    /* Mobile responsive */
-    @media screen and (max-width: 768px) {
-        .page-layout {
-            flex-direction: column;
-            gap: 0;
-            padding: 0.5rem;
-        }
-
-        .sidebar {
-            position: relative;
-            flex: none;
-            flex-direction: row;
-            width: 100%;
-            margin: 0 0 1rem 0;
-            padding: 0.75rem;
-            background: #f8f9fa;
-            border-radius: 8px;
-            overflow-x: auto;
-            overflow-y: hidden;
-            -webkit-overflow-scrolling: touch;
-            scrollbar-width: thin;
-            scrollbar-color: #ccc transparent;
-        }
-
-        .sidebar::-webkit-scrollbar {
-            height: 4px;
-        }
-
-        .sidebar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-
-        .sidebar::-webkit-scrollbar-thumb {
-            background: #ccc;
-            border-radius: 2px;
-        }
-
-        .season-card {
-            flex: 0 0 auto;
-            padding: 0.6rem 1rem;
-            font-size: 0.9rem;
-            white-space: nowrap;
-            min-width: 65px;
-            text-align: center;
-        }
-
-        .content {
-            width: 100%;
-        }
-
-        h3 {
-            font-size: 1.4rem;
-            margin: 0.5rem 0 1rem 0;
-            text-align: center;
-            color: white !important;
-        }
-
-        h4 {
-            font-size: 1.2rem;
-            margin: 0.5rem 0;
-            color: white !important;
-            font-weight: 600;
-        }
-
-        .name {
-            font-size: 0.8em;
-        }
-
-        .totalPoints {
-            font-size: 0.8em;
-        }
-
-        .roster-container {
-            flex-direction: column;
-        }
-
-        .roster-divider {
-            width: 100%;
-            height: 2px;
-        }
-
-        .player-name {
-            font-size: 0.75rem;
-        }
-
-        .position-badge {
-            min-width: 32px;
-            height: 32px;
-            font-size: 0.65rem;
-        }
+    .season-nav {
+      gap: 0.75rem;
+      margin: 0.5rem 0 1.5rem 0;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
-    @media (max-width: 500px) {
-        .name {
-            font-size: 0.7em;
-        }
-
-        .totalPoints {
-            font-size: 0.7em;
-        }
+    .season-btn {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      flex: 0 0 auto;
     }
 
-    @media (max-width: 410px) {
-        .name {
-            font-size: 0.5em;
-        }
-
-        .totalPoints {
-            font-size: 0.5em;
-        }
+    .bracket-title {
+      font-size: 1.3rem;
+      margin: 1.5rem 0 1rem 0;
+      color: white !important;
     }
+
+    .bracket-grid {
+      grid-template-columns: 1fr;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .week-title {
+      font-size: 1.2rem;
+      margin: 0.5rem 0 1rem 0;
+      color: white !important;
+    }
+
+    .matchups-table {
+      max-width: none;
+      width: 90%;
+      margin: 0 auto 1rem auto;
+      font-size: 0.85rem;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .matchups-table th,
+    .matchups-table td {
+      padding: 0.5rem 0.4rem;
+      font-size: 0.85rem;
+      color: #212529;
+      line-height: 1.4;
+    }
+
+    .matchups-table th {
+      font-size: 0.8rem;
+      font-weight: 700;
+      background: #e9ecef;
+      color: #495057;
+    }
+
+    .table-title {
+      font-size: 0.95rem;
+      padding: 0.75rem;
+      background: linear-gradient(135deg, #003366, #004080) !important;
+      color: white !important;
+    }
+
+    .matchups-table td {
+      background: white;
+      color: #212529;
+    }
+
+    .matchups-table tbody tr:nth-child(odd) {
+      background: white;
+    }
+    
+    .matchups-table tbody tr:nth-child(even) {
+      background: #f1f3f4;
+    }
+
+    .win {
+      background-color: #d4edda !important;
+      color: #212529 !important;
+      font-weight: 600;
+    }
+
+    .team-info {
+      gap: 0.3rem;
+      justify-content: flex-start;
+    }
+
+    .team-logo {
+      width: 20px;
+      height: 20px;
+    }
+
+    .team-name {
+      font-size: 0.8rem;
+      max-width: 120px;
+      font-weight: 500;
+      color: #212529;
+    }
+
+    .score-cell {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #007bff;
+    }
+  }
+
+  /* VERY SMALL SCREENS */
+  @media screen and (max-width: 480px) {
+    .page-layout {
+      padding: 0.25rem;
+    }
+
+    .sidebar {
+      padding: 0.5rem;
+    }
+
+    .season-card {
+      padding: 0.5rem 0.8rem;
+      font-size: 0.8rem;
+      min-width: 55px;
+    }
+
+    h3 {
+      font-size: 1.2rem;
+      color: white !important;
+    }
+
+    .season-btn {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.8rem;
+    }
+
+    .bracket-title {
+      font-size: 1.1rem;
+      color: white !important;
+    }
+
+    .week-title {
+      font-size: 1rem;
+      color: white !important;
+    }
+
+    .matchups-table {
+      width: 85%;
+      margin: 0 auto;
+      font-size: 0.75rem;
+    }
+
+    .matchups-table th,
+    .matchups-table td {
+      padding: 0.4rem 0.2rem;
+      font-size: 0.75rem;
+      color: #212529;
+    }
+
+    .matchups-table th {
+      background: #e9ecef;
+      color: #495057;
+      font-weight: 700;
+    }
+
+    .table-title {
+      font-size: 0.85rem;
+      padding: 0.5rem;
+      background: linear-gradient(135deg, #003366, #004080) !important;
+      color: white !important;
+    }
+
+    .team-logo {
+      width: 18px;
+      height: 18px;
+    }
+
+    .team-name {
+      font-size: 0.7rem;
+      max-width: 100px;
+      color: #212529;
+    }
+
+    .score-cell {
+      font-size: 0.9rem;
+      color: #007bff;
+      font-weight: 600;
+    }
+  }
+
+  /* TABLET STYLES */
+  @media screen and (max-width: 1024px) and (min-width: 769px) {
+    .sidebar {
+      flex: 0 0 10%;
+    }
+
+    .season-card {
+      padding: 0.6rem;
+      font-size: 0.9rem;
+    }
+
+    .bracket-grid {
+      gap: 1.5rem;
+    }
+
+    .matchups-table {
+      font-size: 0.9rem;
+    }
+
+    .matchups-table th,
+    .matchups-table td {
+      padding: 0.6rem 0.7rem;
+    }
+  }
 </style>
