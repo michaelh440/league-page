@@ -176,7 +176,7 @@ export const tabs = [
       { icon: 'sports', label: 'Manager Playoff Stats', dest: '/managers/playoff_stats' },
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/managers/rivalries' },
       //{ icon: 'emoji_events', label: 'Manager Trophy Room', dest: '/managers/trophy_room' },
-      { icon: 'history_edu', label: 'Manager Draft Room', dest: 'drafts/managers' }
+      { icon: 'history_edu', label: 'Manager Draft Room', dest: '/drafts/managers' }
     ]
   },
   { icon: 'videocam', label: 'Video', dest: '/video', key: 'video' }
