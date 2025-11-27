@@ -1,46 +1,129 @@
-// src/routes/seasons/2015/+page.server.js
 import { query } from '$lib/db';
+import { error } from '@sveltejs/kit';
 
-export async function load() {
+export async function load({ params }) {
+  const year = parseInt(params.year);
+  
+  // Validate year is a reasonable season year
+  if (isNaN(year) || year < 2015 || year > 2030) {
+    throw error(404, 'Season not found');
+  }
+
+  // Check if season exists
+  const seasonResult = await query(`
+    SELECT season_id FROM seasons WHERE season_year = $1
+  `, [year]);
+  
+  if (seasonResult.rows.length === 0) {
+    throw error(404, 'Season not found');
+  }
+  
+  const seasonId = seasonResult.rows[0].season_id;
+
   const result = await query(`
     SELECT 
       s.season_year,
       m.week,
-      t1.team_name AS team1,
+      m.team1_id,
+      mt1.team_name AS team1,
+      mt1.logo_url AS team1_logo,
       m.team1_score AS score1,
-      t2.team_name AS team2,
-      m.team2_score AS score2,
-      m.matchup_id
+      m.team2_id,
+      mt2.team_name AS team2,
+      mt2.logo_url AS team2_logo,
+      m.team2_score AS score2
     FROM matchups m
     JOIN seasons s ON m.season_id = s.season_id
-    JOIN teams t1 ON m.team1_id = t1.team_id
-    JOIN teams t2 ON m.team2_id = t2.team_id
-    WHERE s.season_year = 2015
+    JOIN manager_team_names mt1 
+      ON m.team1_id = mt1.manager_id 
+     AND s.season_year = mt1.season_year
+    JOIN manager_team_names mt2 
+      ON m.team2_id = mt2.manager_id 
+     AND s.season_year = mt2.season_year
+    WHERE s.season_year = $1
     ORDER BY m.week ASC, m.matchup_id ASC
-  `);
+  `, [year]);
 
-  console.log('Season 2015 query result:', result.rows);
-
-  // group results by week
-  const weeks = result.rows.reduce((acc, row) => {
-    let week = acc.find(w => w.week === row.week);
+  // Group rows by week and add roster data
+  const weeks = [];
+  
+  for (const row of result.rows) {
+    let week = weeks.find(w => w.week === row.week);
     if (!week) {
       week = { week: row.week, games: [] };
-      acc.push(week);
+      weeks.push(week);
     }
+
+    // Get team1 roster
+    const team1Roster = await query(`
+      SELECT 
+        player_name,
+        position,
+        lineup_slot,
+        is_starter,
+        yahoo_player_id
+      FROM weekly_roster
+      WHERE season_id = $1 
+        AND week = $2 
+        AND team_id = $3
+      ORDER BY 
+        CASE lineup_slot
+          WHEN 'QB' THEN 1
+          WHEN 'RB' THEN 2
+          WHEN 'WR' THEN 3
+          WHEN 'TE' THEN 4
+          WHEN 'FLEX' THEN 5
+          WHEN 'K' THEN 6
+          WHEN 'DEF' THEN 7
+          WHEN 'BN' THEN 8
+          WHEN 'IR' THEN 9
+          ELSE 10
+        END,
+        player_name
+    `, [seasonId, row.week, row.team1_id]);
+
+    // Get team2 roster
+    const team2Roster = await query(`
+      SELECT 
+        player_name,
+        position,
+        lineup_slot,
+        is_starter,
+        yahoo_player_id
+      FROM weekly_roster
+      WHERE season_id = $1 
+        AND week = $2 
+        AND team_id = $3
+      ORDER BY 
+        CASE lineup_slot
+          WHEN 'QB' THEN 1
+          WHEN 'RB' THEN 2
+          WHEN 'WR' THEN 3
+          WHEN 'TE' THEN 4
+          WHEN 'FLEX' THEN 5
+          WHEN 'K' THEN 6
+          WHEN 'DEF' THEN 7
+          WHEN 'BN' THEN 8
+          WHEN 'IR' THEN 9
+          ELSE 10
+        END,
+        player_name
+    `, [seasonId, row.week, row.team2_id]);
+
     week.games.push({
       team1: row.team1,
+      team1_logo: row.team1_logo,
       score1: row.score1,
       team2: row.team2,
-      score2: row.score2
+      team2_logo: row.team2_logo,
+      score2: row.score2,
+      team1_roster: team1Roster.rows,
+      team2_roster: team2Roster.rows
     });
-    return acc;
-  }, []);
-
-  console.log('Season 2015 weeks object:', weeks);
+  }
 
   return {
-    season: 2015,
+    season: year,
     weeks
   };
 }
