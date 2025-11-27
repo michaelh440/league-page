@@ -1,9 +1,13 @@
-// src/routes/seasons/2024/playoffs/+page.server.js
 import { query } from '$lib/db';
 import { error } from '@sveltejs/kit';
 
 export async function load({ params }) {
-  const year = params.year ? parseInt(params.year) : 2024;
+  const year = parseInt(params.year);
+  
+  // Validate year is a reasonable season year
+  if (isNaN(year) || year < 2015 || year > 2030) {
+    throw error(404, 'Season not found');
+  }
   
   try {
     // Pull playoff matchups with logos
@@ -56,10 +60,10 @@ export async function load({ params }) {
         label: row.round_name || 'Playoff Game',
         team1: row.team1,
         team1_logo: row.team1_logo,
-        score1: parseFloat(row.score1) || 0,  // Convert to number
+        score1: parseFloat(row.score1) || 0,
         team2: row.team2,
         team2_logo: row.team2_logo,
-        score2: parseFloat(row.score2) || 0   // Convert to number
+        score2: parseFloat(row.score2) || 0
       };
 
       if (isChamp) {
@@ -75,6 +79,10 @@ export async function load({ params }) {
     };
     
   } catch (err) {
+    // Re-throw SvelteKit errors as-is
+    if (err.status) {
+      throw err;
+    }
     console.error('Error loading playoff data:', err);
     throw error(500, `Failed to load playoff data for ${year}`);
   }
