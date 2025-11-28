@@ -15,7 +15,7 @@
     { label: "Regular Season Scoring", href: withMgr("/managers/reg_season_stats") },
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },
     { label: "Rivalries", href: withMgr("/managers/rivalries"), active: true },
-    { label: "Draft Room", href: withMgr("/managers/drafts") }
+    { label: "Draft Room", href: withMgr("/drafts/managers") }
   ];
 
   function onSelect(e) {

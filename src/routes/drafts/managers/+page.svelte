@@ -1,53 +1,73 @@
 <script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   
   export let data;
+  
+  // WORKAROUND: Force correct URL if we got redirected to wrong location
+  onMount(() => {
+    const currentPath = $page.url.pathname;
+    if (currentPath === '/managers/drafts') {
+      const managerId = $page.url.searchParams.get('manager_id');
+      const correctUrl = managerId 
+        ? `/drafts/managers?manager_id=${managerId}`
+        : '/drafts/managers';
+      console.warn('Redirected from wrong path, correcting to:', correctUrl);
+      window.location.href = correctUrl;
+    }
+  });
   
   // Get manager_id from query string
   $: managerId = $page.url.searchParams.get("manager_id");
   $: selectedManager = data.managers?.find(m => m.manager_id == managerId);
 
-  // Navigation items for manager section
-  const withMgr = (path) =>
+  // Navigation items for manager section - make reactive
+  $: withMgr = (path) =>
     managerId ? `${path}?manager_id=${managerId}` : path;
 
-  const navItems = [
+  $: navItems = [
     { label: "Manager Bio", href: withMgr("/managers/bio") },
     { label: "All Time Scoring", href: withMgr("/managers/all_time_stats") },
     { label: "Regular Season Scoring", href: withMgr("/managers/reg_season_stats") },
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },
-    //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
-    { label: "Draft Room", href: withMgr("/managers/drafts"), active: true }
-    
+    { label: "Draft Room", href: withMgr("/drafts/managers"), active: true }
   ];
 
   function handleManagerSelect(e) {
     const id = e.target.value;
     if (id) {
-      goto(`/managers/drafts?manager_id=${id}`);
+      const targetUrl = `/drafts/managers?manager_id=${id}`;
+      console.log('Selecting manager, navigating to:', targetUrl);
+      window.location.href = targetUrl;
     }
   }
 
   // Process draft data for the selected manager across all years
   $: draftHistory = processDraftHistory(data.draftPicks, managerId);
-  $: maxRounds = Math.max(...(data.draftPicks?.map(pick => pick.round_number) || [0]));
+  $: maxRounds = Math.max(...(data.draftPicks?.map(pick => pick.round_number) || [0]), 0);
   
   function processDraftHistory(picks, managerId) {
-    if (!picks || !managerId) return { seasons: [], rounds: [] };
+    if (!picks || picks.length === 0 || !managerId) return { seasons: [], rounds: [] };
     
-    // Get all picks for this manager
+    // Get all picks for this manager (they should already be filtered, but just in case)
     const managerPicks = picks.filter(pick => pick.manager_id == managerId);
+    
+    console.log('Manager picks:', managerPicks.length);
     
     // Get unique seasons and sort them
     const seasons = [...new Set(managerPicks.map(pick => pick.season_year))]
       .sort((a, b) => b - a); // Most recent first
     
+    console.log('Seasons found:', seasons);
+    
+    // Find max rounds across all picks
+    const maxRoundNum = Math.max(...managerPicks.map(p => p.round_number), 0);
+    
     // Create grid structure: rounds × seasons
     const rounds = [];
-    for (let round = 1; round <= maxRounds; round++) {
+    for (let round = 1; round <= maxRoundNum; round++) {
       const roundData = {
         round_number: round,
         picks: seasons.map(season => {
@@ -85,6 +105,12 @@
       </select>
     </div>
 
+    {#if data.error}
+      <div class="error-message">
+        <p>Error loading data: {data.error}</p>
+      </div>
+    {/if}
+
     {#if !managerId}
       <div class="no-selection">
         <div class="selection-prompt">
@@ -99,6 +125,7 @@
     {:else if draftHistory.seasons.length === 0}
       <div class="no-data">
         <p>No draft data available for {selectedManager.manager_name}.</p>
+        <p class="hint">Make sure draft picks have been imported for this manager.</p>
       </div>
     {:else}
       <!-- Manager Info and Legend -->
@@ -109,7 +136,7 @@
           {/if}
           <div class="manager-details">
             <h2>{selectedManager.manager_name}</h2>
-            <p>{draftHistory.seasons.length} Draft{draftHistory.seasons.length !== 1 ? 's' : ''} • {maxRounds} Rounds Each</p>
+            <p>{draftHistory.seasons.length} Draft{draftHistory.seasons.length !== 1 ? 's' : ''} • {draftHistory.rounds.length} Rounds</p>
           </div>
         </div>
         
@@ -147,11 +174,11 @@
                   {#if seasonPick.pick}
                     <div 
                       class="pick-content"
-                      style="background-color: {seasonPick.pick.background_color}; color: {seasonPick.pick.color_hex};"
+                      style="background-color: {seasonPick.pick.background_color || '#f8f9fa'}; color: {seasonPick.pick.color_hex || '#000000'};"
                     >
                       <div class="player-name">{seasonPick.pick.player_name}</div>
                       <div class="player-details">
-                        <span class="position">{seasonPick.pick.position}</span>
+                        <span class="position">{seasonPick.pick.position || 'N/A'}</span>
                         <span class="team">({seasonPick.pick.player_nfl_team})</span>
                       </div>
                       <div class="pick-number">#{seasonPick.pick.pick_number}</div>
@@ -161,6 +188,29 @@
                   {/if}
                 </div>
               {/each}
+            </div>
+          {/each}
+        </div>
+      </div>
+
+      <!-- Draft Summary Stats -->
+      <div class="draft-summary">
+        <h3>Draft Summary</h3>
+        <div class="summary-grid">
+          {#each draftHistory.seasons as season}
+            {@const seasonPicks = data.draftPicks.filter(p => p.season_year === season)}
+            <div class="season-summary">
+              <h4>{season}</h4>
+              <div class="position-breakdown">
+                {#each data.positionColors as pos}
+                  {@const count = seasonPicks.filter(p => p.position === pos.position).length}
+                  {#if count > 0}
+                    <span class="pos-count" style="background-color: {pos.background_color}; color: {pos.color_hex};">
+                      {pos.position}: {count}
+                    </span>
+                  {/if}
+                {/each}
+              </div>
             </div>
           {/each}
         </div>
@@ -217,6 +267,15 @@
     box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
   }
 
+  .error-message {
+    background: #fee2e2;
+    border: 1px solid #ef4444;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    color: #dc2626;
+  }
+
   .no-selection, .no-data {
     text-align: center;
     padding: 4rem 2rem;
@@ -235,6 +294,12 @@
     color: #9ca3af;
     font-size: 1.1rem;
     margin: 0;
+  }
+
+  .hint {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-top: 0.5rem;
   }
 
   .manager-info-section {
@@ -431,6 +496,55 @@
   .empty-pick {
     color: #ccc;
     font-size: 1.2rem;
+    font-weight: bold;
+  }
+
+  /* Draft Summary Section */
+  .draft-summary {
+    margin-top: 2rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .draft-summary h3 {
+    margin: 0 0 1rem 0;
+    color: #1f2937;
+    font-size: 1.2rem;
+    border-bottom: 2px solid #e5e7eb;
+    padding-bottom: 0.5rem;
+  }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+
+  .season-summary {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 1rem;
+  }
+
+  .season-summary h4 {
+    margin: 0 0 0.5rem 0;
+    color: #003366;
+    font-size: 1.1rem;
+  }
+
+  .position-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .pos-count {
+    padding: 0.2rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
     font-weight: bold;
   }
 

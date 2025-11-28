@@ -32,7 +32,7 @@
     { label: "Playoff Scoring", href: withMgr("/managers/playoff_stats") },
     //{ label: "Ranking", href: withMgr("/managers/ranking") },
     { label: "Rivalries", href: withMgr("/managers/rivalries") },
-    { label: "Draft Room", href: withMgr("/managers/drafts") }
+    { label: "Draft Room", href: withMgr("/drafts/managers") }
   ];
 
   function handleSelect(e) {
