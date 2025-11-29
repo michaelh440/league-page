@@ -2,7 +2,8 @@ import Nav from './Nav/index.svelte';
 import Footer from './Footer.svelte';
 import News from './News/index.svelte';
 import Resources from './Resources.svelte';
-import Awards from './Awards/Awards.svelte';
+//import Awards from './Awards/Awards.svelte'; - This was the old awards component
+import Awards from './Awards/ManagerAwards.svelte'; // Updated to use the new manager awards component
 import Rosters from './Rosters/Rosters.svelte';
 import Rivalry from './Rivalry/index.svelte';
 import Transactions from './Transactions/Transactions.svelte';
