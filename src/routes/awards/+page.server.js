@@ -14,20 +14,58 @@ export async function load() {
   // Initialize results object
   const results = {};
 
-  // Weekly High Score
+  // Weekly High Score - Aggregated by manager (winners only)
   if (enabledKeys.includes('weekly_high_score')) {
-    results.weeklyHighScore = (await query(`
-      SELECT * FROM vw_award_weekly_high_score 
-      ORDER BY score DESC 
+    results.weeklyHighScoreLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(score) as best_score,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'week', week,
+          'score', score,
+          'team_name', team_name
+        ) ORDER BY score DESC) as games
+      FROM vw_award_weekly_high_score 
+      WHERE weekly_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_score DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Weekly Low Score
+  // Weekly Low Score - Aggregated by manager (winners only)
   if (enabledKeys.includes('weekly_low_score')) {
-    results.weeklyLowScore = (await query(`
-      SELECT * FROM vw_award_weekly_low_score 
-      ORDER BY score ASC 
+    results.weeklyLowScoreLeaders = (await query(`
+      WITH weekly_lows AS (
+        SELECT 
+          season_id,
+          week,
+          MIN(score) as min_score
+        FROM vw_award_weekly_low_score
+        GROUP BY season_id, week
+      )
+      SELECT 
+        v.manager_id,
+        v.manager_name,
+        v.team_logo,
+        COUNT(*) as award_count,
+        MIN(v.score) as worst_score,
+        json_agg(json_build_object(
+          'season_year', v.season_year,
+          'week', v.week,
+          'score', v.score,
+          'team_name', v.team_name
+        ) ORDER BY v.score ASC) as games
+      FROM vw_award_weekly_low_score v
+      INNER JOIN weekly_lows wl ON v.season_id = wl.season_id 
+        AND v.week = wl.week 
+        AND v.score = wl.min_score
+      GROUP BY v.manager_id, v.manager_name, v.team_logo
+      ORDER BY award_count DESC, worst_score ASC
       LIMIT 10
     `)).rows;
   }

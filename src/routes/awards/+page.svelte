@@ -15,6 +15,11 @@
     { label: "Draft Room", href: "/drafts/previous_seasons" }
   ];
 
+  // Modal state
+  let showModal = false;
+  let modalTitle = '';
+  let modalGames = [];
+
   // Helper function to format scores to 2 decimal places
   function formatScore(score) {
     if (score === null || score === undefined) return '0.00';
@@ -25,7 +30,37 @@
   function isEnabled(key) {
     return data.enabledKeys?.includes(key);
   }
+
+  // Open modal with game details
+  function openGamesModal(managerName, games, awardType) {
+    modalTitle = `${managerName} - ${awardType}`;
+    modalGames = games || [];
+    showModal = true;
+  }
+
+  // Close modal
+  function closeModal() {
+    showModal = false;
+    modalGames = [];
+    modalTitle = '';
+  }
+
+  // Handle click outside modal
+  function handleModalClick(event) {
+    if (event.target.classList.contains('modal-overlay')) {
+      closeModal();
+    }
+  }
+
+  // Handle escape key
+  function handleKeydown(event) {
+    if (event.key === 'Escape' && showModal) {
+      closeModal();
+    }
+  }
 </script>
+
+<svelte:window on:keydown={handleKeydown} />
 
 <StatsLayout title="League Awards" {navItems}>
   <div class="awards-intro">
@@ -33,27 +68,34 @@
   </div>
 
   <div class="content-grid">
-    <!-- Weekly High Score -->
-    {#if isEnabled('weekly_high_score') && data.weeklyHighScore?.length}
+    <!-- Weekly High Score Leaders -->
+    {#if isEnabled('weekly_high_score') && data.weeklyHighScoreLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="4">🏆 Weekly High Score</th></tr>
-              <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">🏆 Weekly High Score Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Games</th></tr>
             </thead>
             <tbody>
-              {#each data.weeklyHighScore.slice(0, 10) as row, i}
+              {#each data.weeklyHighScoreLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="week-cell">{row.season_year || 'N/A'} Week {row.week || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.score)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openGamesModal(row.manager_name, row.games, 'Weekly High Scores')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
@@ -64,27 +106,34 @@
       </StatCard>
     {/if}
 
-    <!-- Weekly Low Score -->
-    {#if isEnabled('weekly_low_score') && data.weeklyLowScore?.length}
+    <!-- Weekly Low Score Leaders -->
+    {#if isEnabled('weekly_low_score') && data.weeklyLowScoreLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="4">💩 Weekly Low Score</th></tr>
-              <tr><th>#</th><th>Team</th><th>Week</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">💩 Weekly Low Score Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Games</th></tr>
             </thead>
             <tbody>
-              {#each data.weeklyLowScore.slice(0, 10) as row, i}
+              {#each data.weeklyLowScoreLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="week-cell">{row.season_year || 'N/A'} Week {row.week || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.score)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openGamesModal(row.manager_name, row.games, 'Weekly Low Scores')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
@@ -406,6 +455,44 @@
       </StatCard>
     {/if}
   </div>
+
+  <!-- Modal for viewing game details -->
+  {#if showModal}
+    <div class="modal-overlay" on:click={handleModalClick} role="dialog" aria-modal="true">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>{modalTitle}</h3>
+          <button class="modal-close" on:click={closeModal}>&times;</button>
+        </div>
+        <div class="modal-body">
+          {#if modalGames.length > 0}
+            <table class="modal-table">
+              <thead>
+                <tr>
+                  <th>Season</th>
+                  <th>Week</th>
+                  <th>Team</th>
+                  <th>Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each modalGames as game}
+                  <tr>
+                    <td>{game.season_year}</td>
+                    <td>Week {game.week}</td>
+                    <td>{game.team_name}</td>
+                    <td class="points-cell">{formatScore(game.score)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {:else}
+            <p class="no-games">No games found.</p>
+          {/if}
+        </div>
+      </div>
+    </div>
+  {/if}
 </StatsLayout>
 
 <style>
@@ -422,7 +509,6 @@
     margin-bottom: 2rem;
   }
   
-  /* Table wrapper for horizontal scroll */
   .table-wrapper {
     width: 100%;
     overflow-x: auto;
@@ -450,7 +536,7 @@
   
   .stats-table {
     width: 100%;
-    min-width: 500px;
+    min-width: 400px;
     border-collapse: collapse;
     font-size: 0.85rem;
     overflow: hidden;
@@ -533,6 +619,32 @@
     text-align: right;
   }
 
+  .count-cell {
+    font-weight: 700;
+    color: #28a745;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  .action-cell {
+    text-align: center;
+  }
+
+  .view-games-btn {
+    background: #003366;
+    color: white;
+    border: none;
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 0.2s ease;
+  }
+
+  .view-games-btn:hover {
+    background: #004080;
+  }
+
   .record-cell {
     font-weight: 500;
     color: #495057;
@@ -546,6 +658,99 @@
     color: #6c757d;
   }
 
+  /* Modal Styles */
+  .modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #003366, #004080);
+    color: white;
+  }
+
+  .modal-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .modal-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    opacity: 0.8;
+  }
+
+  .modal-close:hover {
+    opacity: 1;
+  }
+
+  .modal-body {
+    padding: 1rem;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  .modal-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .modal-table th,
+  .modal-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+  }
+
+  .modal-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+  }
+
+  .modal-table tbody tr:hover {
+    background: #f1f3f5;
+  }
+
+  .modal-table .points-cell {
+    text-align: right;
+  }
+
+  .no-games {
+    text-align: center;
+    color: #6c757d;
+    padding: 2rem;
+  }
+
   /* Mobile Styles */
   @media (max-width: 768px) {
     .content-grid {
@@ -555,74 +760,26 @@
       padding: 0 0.5rem;
     }
 
-    .table-wrapper {
-      border-radius: 8px;
-      scrollbar-width: thin;
-      scrollbar-color: #888 #f1f1f1;
-    }
-
     .stats-table {
-      min-width: 400px;
+      min-width: 350px;
       font-size: 0.8rem;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
     }
 
     .stats-table th,
     .stats-table td {
       padding: 0.6rem 0.4rem;
-      color: #212529;
-      line-height: 1.4;
     }
 
     .stats-table th:nth-child(1),
     .stats-table td:nth-child(1) {
       width: 35px;
       min-width: 35px;
-      max-width: 35px;
-      padding: 0.6rem 0.25rem;
-    }
-
-    .stats-table th:nth-child(2),
-    .stats-table td:nth-child(2) {
-      width: 140px;
-      min-width: 140px;
-      max-width: 140px;
-    }
-
-    .stats-table th:nth-child(3),
-    .stats-table td:nth-child(3) {
-      width: 90px;
-      min-width: 90px;
-    }
-
-    .stats-table th:nth-child(4),
-    .stats-table td:nth-child(4) {
-      width: 70px;
-      min-width: 70px;
-      text-align: right;
-      padding-right: 0.5rem;
-    }
-
-    .stats-table th {
-      font-size: 0.75rem;
-      background: #e9ecef;
-      color: #495057;
-      font-weight: 700;
-    }
-
-    .stats-table tbody tr:nth-child(odd) {
-      background: white;
-    }
-    
-    .stats-table tbody tr:nth-child(even) {
-      background: #f1f3f4;
+      text-align: center;
     }
 
     .table-title {
       font-size: 0.9rem;
       padding: 0.6rem;
-      background: linear-gradient(135deg, #003366, #004080) !important;
-      color: white !important;
     }
 
     .team-logo {
@@ -632,70 +789,48 @@
 
     .team-name {
       font-size: 0.75rem;
-      font-weight: 500;
-      color: #212529;
-      flex: 1;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
 
-    .team-cell {
-      gap: 0.3rem;
-      min-width: 140px;
-      max-width: 140px;
-    }
-
-    .week-cell,
-    .season-cell {
+    .view-games-btn {
+      padding: 0.25rem 0.5rem;
       font-size: 0.7rem;
-      color: #495057;
-      white-space: nowrap;
-    }
-  }
-
-  /* Tablet styles */
-  @media (max-width: 1024px) and (min-width: 769px) {
-    .content-grid {
-      gap: 1rem;
     }
 
-    .stats-table {
+    .modal-content {
+      max-height: 90vh;
+    }
+
+    .modal-header {
+      padding: 0.75rem 1rem;
+    }
+
+    .modal-header h3 {
+      font-size: 1rem;
+    }
+
+    .modal-body {
+      max-height: 70vh;
+    }
+
+    .modal-table {
       font-size: 0.8rem;
     }
 
-    .stats-table th,
-    .stats-table td {
-      padding: 0.6rem 0.4rem;
+    .modal-table th,
+    .modal-table td {
+      padding: 0.5rem;
     }
   }
 
-  /* Very small mobile screens */
   @media (max-width: 480px) {
     .stats-table {
-      min-width: 380px;
+      min-width: 320px;
       font-size: 0.7rem;
     }
 
     .stats-table th,
     .stats-table td {
       padding: 0.5rem 0.3rem;
-    }
-
-    .stats-table th:nth-child(1),
-    .stats-table td:nth-child(1) {
-      width: 30px;
-      min-width: 30px;
-      max-width: 30px;
-      padding: 0.5rem 0.2rem;
-    }
-
-    .stats-table th:nth-child(2),
-    .stats-table td:nth-child(2) {
-      width: 130px;
-      min-width: 130px;
-      max-width: 130px;
     }
 
     .team-logo {
@@ -708,9 +843,9 @@
       padding: 0.5rem;
     }
 
-    .team-cell {
-      min-width: 130px;
-      max-width: 130px;
+    .view-games-btn {
+      padding: 0.2rem 0.4rem;
+      font-size: 0.65rem;
     }
   }
 </style>
