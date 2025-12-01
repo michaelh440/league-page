@@ -177,7 +177,7 @@ export async function load() {
         manager_name,
         team_name,
         team_logo,
-        weeks_started
+        weeks_played
       FROM vw_award_season_qb_points 
       WHERE season_rank = 1
       ORDER BY season_year DESC
@@ -196,7 +196,7 @@ export async function load() {
         manager_name,
         team_name,
         team_logo,
-        weeks_started
+        weeks_played
       FROM vw_award_season_rb_points 
       WHERE season_rank = 1
       ORDER BY season_year DESC
@@ -215,7 +215,7 @@ export async function load() {
         manager_name,
         team_name,
         team_logo,
-        weeks_started
+        weeks_played
       FROM vw_award_season_wr_points 
       WHERE season_rank = 1
       ORDER BY season_year DESC
@@ -234,7 +234,7 @@ export async function load() {
         manager_name,
         team_name,
         team_logo,
-        weeks_started
+        weeks_played
       FROM vw_award_season_te_points 
       WHERE season_rank = 1
       ORDER BY season_year DESC
@@ -253,7 +253,7 @@ export async function load() {
         manager_name,
         team_name,
         team_logo,
-        weeks_started
+        weeks_played
       FROM vw_award_season_k_points 
       WHERE season_rank = 1
       ORDER BY season_year DESC
@@ -272,7 +272,7 @@ export async function load() {
         manager_name,
         team_name,
         team_logo,
-        weeks_started
+        weeks_played
       FROM vw_award_season_def_points 
       WHERE season_rank = 1
       ORDER BY season_year DESC
