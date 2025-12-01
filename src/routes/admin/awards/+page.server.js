@@ -1,57 +1,63 @@
 import { query } from '$lib/db';
-import { redirect } from '@sveltejs/kit';
+import { fail } from '@sveltejs/kit';
 
-export async function load({ locals }) {
-  // Check if user is admin
-  if (!locals.user || locals.user.role !== 'admin') {
-    throw redirect(302, '/login');
+export async function load() {
+  try {
+    // Get all award definitions with their enabled status
+    const awards = (await query(`
+      SELECT 
+        award_id,
+        award_key,
+        award_name,
+        award_description,
+        award_category,
+        is_enabled,
+        sort_order,
+        icon_emoji,
+        created_at,
+        updated_at
+      FROM award_definitions
+      ORDER BY sort_order, award_name
+    `)).rows;
+
+    // Group awards by category
+    const awardsByCategory = awards.reduce((acc, award) => {
+      if (!acc[award.award_category]) {
+        acc[award.award_category] = [];
+      }
+      acc[award.award_category].push(award);
+      return acc;
+    }, {});
+
+    return {
+      awards,
+      awardsByCategory,
+      categoryLabels: {
+        weekly: 'Weekly Awards',
+        seasonal: 'Seasonal Awards',
+        positional: 'Positional Awards',
+        career: 'Career Awards'
+      }
+    };
+  } catch (error) {
+    console.error('Error loading awards:', error);
+    return {
+      awards: [],
+      awardsByCategory: {},
+      categoryLabels: {
+        weekly: 'Weekly Awards',
+        seasonal: 'Seasonal Awards',
+        positional: 'Positional Awards',
+        career: 'Career Awards'
+      },
+      error: error.message
+    };
   }
-
-  // Get all award definitions with their enabled status
-  const awards = (await query(`
-    SELECT 
-      award_id,
-      award_key,
-      award_name,
-      award_description,
-      award_category,
-      is_enabled,
-      sort_order,
-      icon_emoji,
-      created_at,
-      updated_at
-    FROM award_definitions
-    ORDER BY sort_order, award_name
-  `)).rows;
-
-  // Group awards by category
-  const awardsByCategory = awards.reduce((acc, award) => {
-    if (!acc[award.award_category]) {
-      acc[award.award_category] = [];
-    }
-    acc[award.award_category].push(award);
-    return acc;
-  }, {});
-
-  return {
-    awards,
-    awardsByCategory,
-    categoryLabels: {
-      weekly: 'Weekly Awards',
-      seasonal: 'Seasonal Awards',
-      positional: 'Positional Awards',
-      career: 'Career Awards'
-    }
-  };
 }
 
 export const actions = {
   // Toggle a single award's enabled status
-  toggleAward: async ({ request, locals }) => {
-    if (!locals.user || locals.user.role !== 'admin') {
-      return { success: false, error: 'Unauthorized' };
-    }
-
+  toggleAward: async ({ request }) => {
     const formData = await request.formData();
     const awardId = formData.get('award_id');
     const isEnabled = formData.get('is_enabled') === 'true';
@@ -66,16 +72,12 @@ export const actions = {
       return { success: true };
     } catch (error) {
       console.error('Error toggling award:', error);
-      return { success: false, error: error.message };
+      return fail(500, { success: false, error: error.message });
     }
   },
 
   // Bulk enable/disable by category
-  bulkToggleCategory: async ({ request, locals }) => {
-    if (!locals.user || locals.user.role !== 'admin') {
-      return { success: false, error: 'Unauthorized' };
-    }
-
+  bulkToggleCategory: async ({ request }) => {
     const formData = await request.formData();
     const category = formData.get('category');
     const isEnabled = formData.get('is_enabled') === 'true';
@@ -90,16 +92,12 @@ export const actions = {
       return { success: true };
     } catch (error) {
       console.error('Error bulk toggling awards:', error);
-      return { success: false, error: error.message };
+      return fail(500, { success: false, error: error.message });
     }
   },
 
   // Update award details
-  updateAward: async ({ request, locals }) => {
-    if (!locals.user || locals.user.role !== 'admin') {
-      return { success: false, error: 'Unauthorized' };
-    }
-
+  updateAward: async ({ request }) => {
     const formData = await request.formData();
     const awardId = formData.get('award_id');
     const awardName = formData.get('award_name');
@@ -122,16 +120,12 @@ export const actions = {
       return { success: true };
     } catch (error) {
       console.error('Error updating award:', error);
-      return { success: false, error: error.message };
+      return fail(500, { success: false, error: error.message });
     }
   },
 
   // Add a new custom award
-  addAward: async ({ request, locals }) => {
-    if (!locals.user || locals.user.role !== 'admin') {
-      return { success: false, error: 'Unauthorized' };
-    }
-
+  addAward: async ({ request }) => {
     const formData = await request.formData();
     const awardKey = formData.get('award_key');
     const awardName = formData.get('award_name');
@@ -147,10 +141,10 @@ export const actions = {
         VALUES ($1, $2, $3, $4, $5, $6)
       `, [awardKey, awardName, awardDescription, awardCategory, iconEmoji, sortOrder]);
 
-      return { success: true };
+      return { success: true, message: 'Award created successfully' };
     } catch (error) {
       console.error('Error adding award:', error);
-      return { success: false, error: error.message };
+      return fail(500, { success: false, error: error.message });
     }
   }
 };
