@@ -18,7 +18,8 @@
   // Modal state
   let showModal = false;
   let modalTitle = '';
-  let modalGames = [];
+  let modalData = [];
+  let modalType = 'games'; // 'games', 'points', 'record', 'positional'
 
   // Helper function to format scores to 2 decimal places
   function formatScore(score) {
@@ -31,18 +32,28 @@
     return data.enabledKeys?.includes(key);
   }
 
-  // Open modal with game details
+  // Open modal with game details (weekly awards)
   function openGamesModal(managerName, games, awardType) {
     modalTitle = `${managerName} - ${awardType}`;
-    modalGames = games || [];
+    modalData = games || [];
+    modalType = 'games';
+    showModal = true;
+  }
+
+  // Open modal with season details (seasonal/positional awards)
+  function openSeasonsModal(managerName, seasons, awardType, type) {
+    modalTitle = `${managerName} - ${awardType}`;
+    modalData = seasons || [];
+    modalType = type;
     showModal = true;
   }
 
   // Close modal
   function closeModal() {
     showModal = false;
-    modalGames = [];
+    modalData = [];
     modalTitle = '';
+    modalType = 'games';
   }
 
   // Handle click outside modal
@@ -144,27 +155,34 @@
       </StatCard>
     {/if}
 
-    <!-- Season Most Points -->
-    {#if isEnabled('season_most_points') && data.seasonMostPoints?.length}
+    <!-- Season Most Points Leaders -->
+    {#if isEnabled('season_most_points') && data.seasonMostPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="4">👑 Season Most Points</th></tr>
-              <tr><th>#</th><th>Team</th><th>Season</th><th>Total Points</th></tr>
+              <tr><th class="table-title" colspan="4">👑 Season Most Points Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonMostPoints.slice(0, 10) as row, i}
+              {#each data.seasonMostPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Season Most Points', 'points')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
@@ -175,27 +193,34 @@
       </StatCard>
     {/if}
 
-    <!-- Season Least Points -->
-    {#if isEnabled('season_least_points') && data.seasonLeastPoints?.length}
+    <!-- Season Least Points Leaders -->
+    {#if isEnabled('season_least_points') && data.seasonLeastPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="4">📉 Season Least Points</th></tr>
-              <tr><th>#</th><th>Team</th><th>Season</th><th>Total Points</th></tr>
+              <tr><th class="table-title" colspan="4">📉 Season Least Points Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonLeastPoints.slice(0, 10) as row, i}
+              {#each data.seasonLeastPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Season Least Points', 'points')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
@@ -206,27 +231,34 @@
       </StatCard>
     {/if}
 
-    <!-- Season Most Wins -->
-    {#if isEnabled('season_most_wins') && data.seasonMostWins?.length}
+    <!-- Season Most Wins Leaders -->
+    {#if isEnabled('season_most_wins') && data.seasonMostWinsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="4">🥇 Most Wins in a Season</th></tr>
-              <tr><th>#</th><th>Team</th><th>Season</th><th>Record</th></tr>
+              <tr><th class="table-title" colspan="4">🥇 Most Wins Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonMostWins.slice(0, 10) as row, i}
+              {#each data.seasonMostWinsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="record-cell">{row.record || `${row.wins}-${row.losses}-${row.ties}`}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Most Wins in a Season', 'record')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
@@ -237,27 +269,34 @@
       </StatCard>
     {/if}
 
-    <!-- Season Least Wins -->
-    {#if isEnabled('season_least_wins') && data.seasonLeastWins?.length}
+    <!-- Season Least Wins Leaders -->
+    {#if isEnabled('season_least_wins') && data.seasonLeastWinsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="4">😬 Least Wins in a Season</th></tr>
-              <tr><th>#</th><th>Team</th><th>Season</th><th>Record</th></tr>
+              <tr><th class="table-title" colspan="4">😬 Least Wins Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonLeastWins.slice(0, 10) as row, i}
+              {#each data.seasonLeastWinsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown Team'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="record-cell">{row.record || `${row.wins}-${row.losses}-${row.ties}`}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Least Wins in a Season', 'record')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
                 <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
@@ -269,30 +308,36 @@
     {/if}
 
     <!-- Positional Awards Section -->
-    {#if isEnabled('season_qb_most_points') && data.seasonQbPoints?.length}
+    {#if isEnabled('season_qb_most_points') && data.seasonQbPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="5">🎯 Best QB Season</th></tr>
-              <tr><th>#</th><th>Manager</th><th>Player</th><th>Season</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">🎯 Best QB Season Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonQbPoints.slice(0, 10) as row, i}
+              {#each data.seasonQbPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="player-cell">{row.player_name || 'Unknown'}</td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Best QB Season', 'positional')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="text-center text-gray-600">No data available</td></tr>
+                <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
               {/each}
             </tbody>
           </table>
@@ -300,30 +345,36 @@
       </StatCard>
     {/if}
 
-    {#if isEnabled('season_rb_most_points') && data.seasonRbPoints?.length}
+    {#if isEnabled('season_rb_most_points') && data.seasonRbPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="5">🏃 Best RB Season</th></tr>
-              <tr><th>#</th><th>Manager</th><th>Player</th><th>Season</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">🏃 Best RB Season Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonRbPoints.slice(0, 10) as row, i}
+              {#each data.seasonRbPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="player-cell">{row.player_name || 'Unknown'}</td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Best RB Season', 'positional')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="text-center text-gray-600">No data available</td></tr>
+                <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
               {/each}
             </tbody>
           </table>
@@ -331,30 +382,36 @@
       </StatCard>
     {/if}
 
-    {#if isEnabled('season_wr_most_points') && data.seasonWrPoints?.length}
+    {#if isEnabled('season_wr_most_points') && data.seasonWrPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="5">✋ Best WR Season</th></tr>
-              <tr><th>#</th><th>Manager</th><th>Player</th><th>Season</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">✋ Best WR Season Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonWrPoints.slice(0, 10) as row, i}
+              {#each data.seasonWrPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="player-cell">{row.player_name || 'Unknown'}</td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Best WR Season', 'positional')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="text-center text-gray-600">No data available</td></tr>
+                <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
               {/each}
             </tbody>
           </table>
@@ -362,30 +419,36 @@
       </StatCard>
     {/if}
 
-    {#if isEnabled('season_te_most_points') && data.seasonTePoints?.length}
+    {#if isEnabled('season_te_most_points') && data.seasonTePointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="5">🤲 Best TE Season</th></tr>
-              <tr><th>#</th><th>Manager</th><th>Player</th><th>Season</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">🤲 Best TE Season Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonTePoints.slice(0, 10) as row, i}
+              {#each data.seasonTePointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="player-cell">{row.player_name || 'Unknown'}</td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Best TE Season', 'positional')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="text-center text-gray-600">No data available</td></tr>
+                <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
               {/each}
             </tbody>
           </table>
@@ -393,30 +456,36 @@
       </StatCard>
     {/if}
 
-    {#if isEnabled('season_k_most_points') && data.seasonKPoints?.length}
+    {#if isEnabled('season_k_most_points') && data.seasonKPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="5">🦶 Best K Season</th></tr>
-              <tr><th>#</th><th>Manager</th><th>Player</th><th>Season</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">🦶 Best K Season Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonKPoints.slice(0, 10) as row, i}
+              {#each data.seasonKPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="player-cell">{row.player_name || 'Unknown'}</td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Best K Season', 'positional')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="text-center text-gray-600">No data available</td></tr>
+                <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
               {/each}
             </tbody>
           </table>
@@ -424,30 +493,36 @@
       </StatCard>
     {/if}
 
-    {#if isEnabled('season_def_most_points') && data.seasonDefPoints?.length}
+    {#if isEnabled('season_def_most_points') && data.seasonDefPointsLeaders?.length}
       <StatCard size="lg">
         <div class="table-wrapper">
           <table class="stats-table">
             <thead>
-              <tr><th class="table-title" colspan="5">🛡️ Best DEF Season</th></tr>
-              <tr><th>#</th><th>Manager</th><th>Player</th><th>Season</th><th>Points</th></tr>
+              <tr><th class="table-title" colspan="4">🛡️ Best DEF Season Leaders</th></tr>
+              <tr><th>#</th><th>Manager</th><th>Wins</th><th>Seasons</th></tr>
             </thead>
             <tbody>
-              {#each data.seasonDefPoints.slice(0, 10) as row, i}
+              {#each data.seasonDefPointsLeaders.slice(0, 10) as row, i}
                 <tr>
                   <td>{i + 1}</td>
                   <td class="team-cell">
                     {#if row.team_logo}
-                      <img src={row.team_logo} alt={row.team_name || 'Team'} class="team-logo" />
+                      <img src={row.team_logo} alt={row.manager_name || 'Manager'} class="team-logo" />
                     {/if}
-                    <span class="team-name">{row.team_name || 'Unknown'}</span>
+                    <span class="team-name">{row.manager_name || 'Unknown'}</span>
                   </td>
-                  <td class="player-cell">{row.player_name || 'Unknown'}</td>
-                  <td class="season-cell">{row.season_year || 'N/A'}</td>
-                  <td class="points-cell">{formatScore(row.total_points)}</td>
+                  <td class="count-cell">{row.award_count}</td>
+                  <td class="action-cell">
+                    <button 
+                      class="view-games-btn"
+                      on:click={() => openSeasonsModal(row.manager_name, row.seasons, 'Best DEF Season', 'positional')}
+                    >
+                      View
+                    </button>
+                  </td>
                 </tr>
               {:else}
-                <tr><td colspan="5" class="text-center text-gray-600">No data available</td></tr>
+                <tr><td colspan="4" class="text-center text-gray-600">No data available</td></tr>
               {/each}
             </tbody>
           </table>
@@ -456,7 +531,7 @@
     {/if}
   </div>
 
-  <!-- Modal for viewing game details -->
+  <!-- Modal for viewing details -->
   {#if showModal}
     <div class="modal-overlay" on:click={handleModalClick} role="dialog" aria-modal="true">
       <div class="modal-content">
@@ -465,29 +540,94 @@
           <button class="modal-close" on:click={closeModal}>&times;</button>
         </div>
         <div class="modal-body">
-          {#if modalGames.length > 0}
-            <table class="modal-table">
-              <thead>
-                <tr>
-                  <th>Season</th>
-                  <th>Week</th>
-                  <th>Team</th>
-                  <th>Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each modalGames as game}
+          {#if modalData.length > 0}
+            {#if modalType === 'games'}
+              <!-- Weekly awards (games) -->
+              <table class="modal-table">
+                <thead>
                   <tr>
-                    <td>{game.season_year}</td>
-                    <td>Week {game.week}</td>
-                    <td>{game.team_name}</td>
-                    <td class="points-cell">{formatScore(game.score)}</td>
+                    <th>Season</th>
+                    <th>Week</th>
+                    <th>Team</th>
+                    <th>Points</th>
                   </tr>
-                {/each}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {#each modalData as item}
+                    <tr>
+                      <td>{item.season_year}</td>
+                      <td>Week {item.week}</td>
+                      <td>{item.team_name}</td>
+                      <td class="points-cell">{formatScore(item.score)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if modalType === 'points'}
+              <!-- Season points awards -->
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Season</th>
+                    <th>Team</th>
+                    <th>Total Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each modalData as item}
+                    <tr>
+                      <td>{item.season_year}</td>
+                      <td>{item.team_name}</td>
+                      <td class="points-cell">{formatScore(item.total_points)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if modalType === 'record'}
+              <!-- Season wins/losses awards -->
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Season</th>
+                    <th>Team</th>
+                    <th>Record</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each modalData as item}
+                    <tr>
+                      <td>{item.season_year}</td>
+                      <td>{item.team_name}</td>
+                      <td class="record-cell">{item.record}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {:else if modalType === 'positional'}
+              <!-- Positional awards -->
+              <table class="modal-table">
+                <thead>
+                  <tr>
+                    <th>Season</th>
+                    <th>Player</th>
+                    <th>Team</th>
+                    <th>Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each modalData as item}
+                    <tr>
+                      <td>{item.season_year}</td>
+                      <td class="player-cell">{item.player_name}</td>
+                      <td>{item.team_name}</td>
+                      <td class="points-cell">{formatScore(item.total_points)}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            {/if}
           {:else}
-            <p class="no-games">No games found.</p>
+            <p class="no-games">No data found.</p>
           {/if}
         </div>
       </div>

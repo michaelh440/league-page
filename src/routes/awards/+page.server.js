@@ -70,92 +70,242 @@ export async function load() {
     `)).rows;
   }
 
-  // Season Most Points
+  // Season Most Points - Aggregated by manager (1st place finishes)
   if (enabledKeys.includes('season_most_points')) {
-    results.seasonMostPoints = (await query(`
-      SELECT * FROM vw_award_season_most_points 
-      ORDER BY total_points DESC 
+    results.seasonMostPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_played', weeks_played
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_most_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Season Least Points
+  // Season Least Points - Aggregated by manager (1st place finishes)
   if (enabledKeys.includes('season_least_points')) {
-    results.seasonLeastPoints = (await query(`
-      SELECT * FROM vw_award_season_least_points 
-      ORDER BY total_points ASC 
+    results.seasonLeastPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MIN(total_points) as worst_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_played', weeks_played
+        ) ORDER BY total_points ASC) as seasons
+      FROM vw_award_season_least_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, worst_total ASC
       LIMIT 10
     `)).rows;
   }
 
-  // Season Most Wins
+  // Season Most Wins - Aggregated by manager (1st place finishes)
   if (enabledKeys.includes('season_most_wins')) {
-    results.seasonMostWins = (await query(`
-      SELECT * FROM vw_award_season_most_wins 
-      ORDER BY wins DESC, losses ASC 
+    results.seasonMostWinsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(wins) as best_wins,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'wins', wins,
+          'losses', losses,
+          'ties', ties,
+          'record', record,
+          'team_name', team_name
+        ) ORDER BY wins DESC) as seasons
+      FROM vw_award_season_most_wins 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_wins DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Season Least Wins
+  // Season Least Wins - Aggregated by manager (1st place finishes)
   if (enabledKeys.includes('season_least_wins')) {
-    results.seasonLeastWins = (await query(`
-      SELECT * FROM vw_award_season_least_wins 
-      ORDER BY wins ASC, losses DESC 
+    results.seasonLeastWinsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MIN(wins) as worst_wins,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'wins', wins,
+          'losses', losses,
+          'ties', ties,
+          'record', record,
+          'team_name', team_name
+        ) ORDER BY wins ASC) as seasons
+      FROM vw_award_season_least_wins 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, worst_wins ASC
       LIMIT 10
     `)).rows;
   }
 
-  // Positional Awards - QB
+  // Positional Awards - QB - Aggregated by manager
   if (enabledKeys.includes('season_qb_most_points')) {
-    results.seasonQbPoints = (await query(`
-      SELECT * FROM vw_award_season_qb_points 
-      ORDER BY total_points DESC 
+    results.seasonQbPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'player_name', player_name,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_started', weeks_started
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_qb_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Positional Awards - RB
+  // Positional Awards - RB - Aggregated by manager
   if (enabledKeys.includes('season_rb_most_points')) {
-    results.seasonRbPoints = (await query(`
-      SELECT * FROM vw_award_season_rb_points 
-      ORDER BY total_points DESC 
+    results.seasonRbPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'player_name', player_name,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_started', weeks_started
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_rb_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Positional Awards - WR
+  // Positional Awards - WR - Aggregated by manager
   if (enabledKeys.includes('season_wr_most_points')) {
-    results.seasonWrPoints = (await query(`
-      SELECT * FROM vw_award_season_wr_points 
-      ORDER BY total_points DESC 
+    results.seasonWrPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'player_name', player_name,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_started', weeks_started
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_wr_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Positional Awards - TE
+  // Positional Awards - TE - Aggregated by manager
   if (enabledKeys.includes('season_te_most_points')) {
-    results.seasonTePoints = (await query(`
-      SELECT * FROM vw_award_season_te_points 
-      ORDER BY total_points DESC 
+    results.seasonTePointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'player_name', player_name,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_started', weeks_started
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_te_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Positional Awards - K
+  // Positional Awards - K - Aggregated by manager
   if (enabledKeys.includes('season_k_most_points')) {
-    results.seasonKPoints = (await query(`
-      SELECT * FROM vw_award_season_k_points 
-      ORDER BY total_points DESC 
+    results.seasonKPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'player_name', player_name,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_started', weeks_started
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_k_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
 
-  // Positional Awards - DEF
+  // Positional Awards - DEF - Aggregated by manager
   if (enabledKeys.includes('season_def_most_points')) {
-    results.seasonDefPoints = (await query(`
-      SELECT * FROM vw_award_season_def_points 
-      ORDER BY total_points DESC 
+    results.seasonDefPointsLeaders = (await query(`
+      SELECT 
+        manager_id,
+        manager_name,
+        team_logo,
+        COUNT(*) as award_count,
+        MAX(total_points) as best_total,
+        json_agg(json_build_object(
+          'season_year', season_year,
+          'player_name', player_name,
+          'total_points', total_points,
+          'team_name', team_name,
+          'weeks_started', weeks_started
+        ) ORDER BY total_points DESC) as seasons
+      FROM vw_award_season_def_points 
+      WHERE season_rank = 1
+      GROUP BY manager_id, manager_name, team_logo
+      ORDER BY award_count DESC, best_total DESC
       LIMIT 10
     `)).rows;
   }
