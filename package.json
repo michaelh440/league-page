@@ -61,6 +61,7 @@
     "@neondatabase/serverless": "^1.0.2",
     "@vercel/analytics": "^1.4.1",
     "bcryptjs": "^3.0.2",
+    "chart.js": "^4.5.1",
     "contentful": "^10.6.7",
     "contentful-management": "^10.46.4",
     "cookie": "^0.7.2",

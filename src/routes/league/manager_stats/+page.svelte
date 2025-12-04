@@ -1,12 +1,15 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import StatCard from '$lib/components/StatCard.svelte';
-  import Chart from 'chart.js/auto';
 
   export let data;
+
+  // Chart.js loaded dynamically on client side only
+  let Chart = null;
 
   // Navigation items
   const navItems = [
@@ -87,7 +90,7 @@
 
   // Create/update Average Points Chart
   function updateAvgPointsChart() {
-    if (!avgPointsCanvas) return;
+    if (!avgPointsCanvas || !Chart) return;
     
     if (avgPointsChart) {
       avgPointsChart.destroy();
@@ -172,7 +175,7 @@
 
   // Create/update Average Margin Chart
   function updateAvgMarginChart() {
-    if (!avgMarginCanvas) return;
+    if (!avgMarginCanvas || !Chart) return;
     
     if (avgMarginChart) {
       avgMarginChart.destroy();
@@ -261,7 +264,7 @@
 
   // Create/update Weekly Margin Bar Chart
   function updateWeeklyMarginChart() {
-    if (!weeklyMarginCanvas) return;
+    if (!weeklyMarginCanvas || !Chart) return;
     
     if (weeklyMarginChart) {
       weeklyMarginChart.destroy();
@@ -399,15 +402,19 @@
   }
 
   // Reactive updates when selections change
-  $: if (selectedManagers && avgPointsCanvas) {
+  $: if (selectedManagers && avgPointsCanvas && Chart) {
     updateCharts();
   }
 
-  $: if (includePlayoffs !== undefined && avgPointsCanvas) {
+  $: if (includePlayoffs !== undefined && avgPointsCanvas && Chart) {
     updateCharts();
   }
 
-  onMount(() => {
+  onMount(async () => {
+    // Dynamically import Chart.js on client side only
+    const chartModule = await import('chart.js/auto');
+    Chart = chartModule.default;
+
     // Default to first 2 managers selected if available
     if (data.managers.length >= 2) {
       selectedManagers = [data.managers[0].manager_id, data.managers[1].manager_id];
