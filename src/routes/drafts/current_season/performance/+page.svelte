@@ -943,7 +943,7 @@
                                             class="player-avatar" 
                                             src={getPlayerImage(pick.playerId, pick.position)}
                                             alt={pick.playerName}
-                                            onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'"
+                                            on:error={(e) => e.currentTarget.src = 'https://sleepercdn.com/images/v2/icons/player_default.webp'}
                                         />
                                         <div class="player-info">
                                             <span class="player-name">{pick.playerName}</span>
@@ -960,7 +960,7 @@
                                             class="manager-avatar" 
                                             src={getManagerAvatar(pick.drafterRosterID)}
                                             alt="Manager"
-                                            onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'"
+                                            on:error={(e) => e.currentTarget.src = 'https://sleepercdn.com/images/v2/icons/player_default.webp'}
                                         />
                                         <span class="manager-name">{getManagerName(pick.drafterRosterID)}</span>
                                     </div>
@@ -1026,7 +1026,7 @@
                                                                 src={getManagerAvatar(rosterID)} 
                                                                 alt="" 
                                                                 style="width: 20px; height: 20px; border-radius: 50%;"
-                                                                onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'"
+                                                                on:error={(e) => e.currentTarget.src = 'https://sleepercdn.com/images/v2/icons/player_default.webp'}
                                                             />
                                                             <span style="font-size: 0.85em;">
                                                                 {getManagerName(rosterID)}: <strong>{formatPoints(pts)}</strong>
@@ -1083,7 +1083,7 @@
                                     src={getPlayerImage(pick.playerId, pick.position)}
                                     alt=""
                                     style="width: 40px; height: 40px;"
-                                    onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'"
+                                    on:error={(e) => e.currentTarget.src = 'https://sleepercdn.com/images/v2/icons/player_default.webp'}
                                 />
                                 <div class="value-player-info">
                                     <div class="value-player-name">{pick.playerName}</div>
@@ -1114,7 +1114,7 @@
                                     src={getPlayerImage(pick.playerId, pick.position)}
                                     alt=""
                                     style="width: 40px; height: 40px;"
-                                    onerror="this.src='https://sleepercdn.com/images/v2/icons/player_default.webp'"
+                                    on:error={(e) => e.currentTarget.src = 'https://sleepercdn.com/images/v2/icons/player_default.webp'}
                                 />
                                 <div class="value-player-info">
                                     <div class="value-player-name">{pick.playerName}</div>
