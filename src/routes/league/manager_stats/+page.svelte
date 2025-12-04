@@ -401,13 +401,52 @@
     }
   }
 
-  // Reactive updates when selections change
-  $: if (selectedManagers && avgPointsCanvas && Chart) {
-    updateCharts();
+  // Track the current season to detect changes
+  let currentSeasonId = data.selectedSeasonId;
+  let chartReady = false;
+  
+  // Reactive: when season changes, update the season tracker and refresh charts
+  $: if (data.selectedSeasonId !== currentSeasonId) {
+    currentSeasonId = data.selectedSeasonId;
+    selectedSeason = data.selectedSeasonId;
+    
+    // Validate that selected managers exist in new season
+    const validManagerIds = data.managers.map(m => m.manager_id);
+    const validSelected = selectedManagers.filter(id => validManagerIds.includes(id));
+    
+    // If no valid managers remain, default to first 2
+    if (validSelected.length === 0) {
+      if (data.managers.length >= 2) {
+        selectedManagers = [data.managers[0].manager_id, data.managers[1].manager_id];
+      } else if (data.managers.length === 1) {
+        selectedManagers = [data.managers[0].manager_id];
+      } else {
+        selectedManagers = [];
+      }
+    } else if (validSelected.length !== selectedManagers.length) {
+      // Some managers weren't in this season, use only valid ones
+      selectedManagers = validSelected;
+    }
+    
+    // Force chart update with new data
+    if (chartReady && Chart) {
+      setTimeout(updateCharts, 50);
+    }
   }
 
-  $: if (includePlayoffs !== undefined && avgPointsCanvas && Chart) {
-    updateCharts();
+  // Reactive: update charts whenever these dependencies change
+  $: {
+    // Dependencies: selectedManagers array contents, includePlayoffs, and data
+    const deps = [
+      selectedManagers.join(','),
+      includePlayoffs,
+      data.avgPointsData?.length,
+      data.selectedSeasonId
+    ];
+    
+    if (chartReady && Chart && avgPointsCanvas) {
+      updateCharts();
+    }
   }
 
   onMount(async () => {
@@ -424,7 +463,8 @@
     
     document.addEventListener('click', handleClickOutside);
     
-    // Small delay to ensure canvases are rendered
+    // Mark charts as ready and do initial render
+    chartReady = true;
     setTimeout(updateCharts, 100);
   });
 
