@@ -1,12 +1,12 @@
 import { getPreviousDrafts, getLeagueTeamManagers, loadPlayers, getLeagueData, getNflState, leagueID } from '$lib/utils/helper';
 import { waitForAll } from '$lib/utils/helperFunctions/multiPromise';
 
-export async function load({ fetch }) {
+export async function load() {
     // Get draft data, team managers, players, league data, and NFL state
     const [previousDraftsData, leagueTeamManagersData, playersData, leagueData, nflState] = await waitForAll(
         getPreviousDrafts(),
         getLeagueTeamManagers(),
-        loadPlayers(fetch),
+        loadPlayers(),
         getLeagueData(),
         getNflState()
     );
@@ -117,7 +117,7 @@ export async function load({ fetch }) {
     }
 
     // Fetch ADP data (using Sleeper's search_rank as proxy)
-    const adpData = await fetchADPData(year, fetch);
+    const adpData = await fetchADPData(year);
 
     // Now process draft picks and attach points with ownership breakdown
     const draftPickStats = [];
@@ -406,7 +406,7 @@ function calculateChartData(draftPickStats, draftOrder, currentWeek) {
     };
 }
 
-async function fetchADPData(year, fetch) {
+async function fetchADPData(year) {
     try {
         const playersRes = await fetch('https://api.sleeper.app/v1/players/nfl');
         if (!playersRes.ok) return {};
