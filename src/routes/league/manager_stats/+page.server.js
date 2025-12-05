@@ -46,12 +46,20 @@ export async function load({ url }) {
   );
   const weeklyMarginsData = weeklyMarginsResult.rows;
 
+  // Get season standings
+  const standingsResult = await query(
+    `SELECT * FROM vw_manager_season_standings WHERE season_id = $1`,
+    [selectedSeasonId]
+  );
+  const standingsData = standingsResult.rows;
+
   return {
     seasons,
     selectedSeasonId,
     managers,
     avgPointsData,
     avgMarginData,
-    weeklyMarginsData
+    weeklyMarginsData,
+    standingsData
   };
 }

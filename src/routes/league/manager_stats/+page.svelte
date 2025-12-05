@@ -5,8 +5,12 @@
   import { page } from '$app/stores';
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import StatCard from '$lib/components/StatCard.svelte';
+  import PowerRankings from '$lib/PowerRankings/index.svelte';
 
   export let data;
+
+  // Destructure standings data
+  const { standingsData } = data;
 
   // Chart.js loaded dynamically on client side only
   let Chart = null;
@@ -570,6 +574,62 @@
 
   <!-- Charts Grid -->
   <div class="charts-grid">
+    <!-- Season Standings Table -->
+    <StatCard size="full">
+      <div class="table-wrapper">
+        <table class="stats-table">
+          <thead>
+            <tr><th class="table-title" colspan="9">Season Standings</th></tr>
+            <tr>
+              <th>#</th>
+              <th>Team</th>
+              <th>W</th>
+              <th>L</th>
+              <th>T</th>
+              <th>PF</th>
+              <th>PA</th>
+              <th class="hide-mobile">Avg</th>
+              <th>Streak</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each standingsData || [] as standing, i}
+              <tr>
+                <td class="rank-cell">{i + 1}</td>
+                <td class="team-cell">
+                  {#if standing.team_logo}
+                    <img src={standing.team_logo} alt="" class="team-logo" />
+                  {/if}
+                  <span class="team-name">{standing.team_name || standing.manager_name}</span>
+                </td>
+                <td class="stat-cell wins">{standing.wins}</td>
+                <td class="stat-cell losses">{standing.losses}</td>
+                <td class="stat-cell">{standing.ties}</td>
+                <td class="stat-cell">{standing.fpts}</td>
+                <td class="stat-cell">{standing.fpts_against}</td>
+                <td class="stat-cell hide-mobile">{standing.avg_pts}</td>
+                <td class="stat-cell streak">
+                  <span class="streak-badge {standing.streak?.startsWith('W') ? 'streak-win' : standing.streak?.startsWith('L') ? 'streak-loss' : ''}">
+                    {standing.streak || '-'}
+                  </span>
+                </td>
+              </tr>
+            {:else}
+              <tr><td colspan="9" class="text-center text-gray-600">No standings data available</td></tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </StatCard>
+
+    <!-- Power Rankings -->
+    <StatCard size="full">
+      <div class="power-rankings-wrapper">
+        <div class="section-title">Power Rankings</div>
+        <PowerRankings />
+      </div>
+    </StatCard>
+
     <!-- Running Average Points Chart -->
     <StatCard size="full">
       <div class="chart-container">
@@ -803,6 +863,143 @@
     font-style: italic;
   }
 
+  /* Standings Table Styles */
+  .table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+  }
+
+  .stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background: white;
+  }
+
+  .stats-table th,
+  .stats-table td {
+    border: 1px solid #dee2e6;
+    padding: 0.6rem 0.5rem;
+    color: #212529;
+  }
+
+  .stats-table th {
+    text-align: center;
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+    font-size: 0.8rem;
+  }
+
+  .stats-table td {
+    text-align: left;
+    background: white;
+  }
+
+  .stats-table tbody tr:nth-child(even) {
+    background: #f8f9fa;
+  }
+
+  .stats-table tbody tr:hover {
+    background: #e3f2fd !important;
+  }
+
+  .table-title {
+    text-align: center !important;
+    background: linear-gradient(135deg, #003366, #004080) !important;
+    color: white !important;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.75rem;
+  }
+
+  .rank-cell {
+    text-align: center;
+    font-weight: bold;
+    width: 40px;
+  }
+
+  .team-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .team-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #e9ecef;
+    flex-shrink: 0;
+  }
+
+  .team-name {
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .stat-cell {
+    text-align: center;
+  }
+
+  .stat-cell.wins {
+    color: #28a745;
+    font-weight: 600;
+  }
+
+  .stat-cell.losses {
+    color: #dc3545;
+    font-weight: 600;
+  }
+
+  .streak-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .streak-win {
+    background: #d4edda;
+    color: #155724;
+  }
+
+  .streak-loss {
+    background: #f8d7da;
+    color: #721c24;
+  }
+
+  .text-center {
+    text-align: center;
+  }
+
+  .text-gray-600 {
+    color: #6c757d;
+  }
+
+  /* Power Rankings Section */
+  .power-rankings-wrapper {
+    padding: 0.5rem;
+  }
+
+  .section-title {
+    text-align: center;
+    background: linear-gradient(135deg, #003366, #004080);
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    padding: 0.75rem;
+    border-radius: 8px 8px 0 0;
+    margin: -0.5rem -0.5rem 1rem -0.5rem;
+  }
+
   /* Mobile Styles */
   @media (max-width: 768px) {
     .controls-section {
@@ -835,6 +1032,24 @@
     .manager-tag {
       font-size: 0.75rem;
       padding: 0.25rem 0.5rem;
+    }
+
+    .hide-mobile {
+      display: none;
+    }
+
+    .stats-table {
+      font-size: 0.75rem;
+    }
+
+    .stats-table th,
+    .stats-table td {
+      padding: 0.5rem 0.3rem;
+    }
+
+    .team-logo {
+      width: 22px;
+      height: 22px;
     }
   }
 
