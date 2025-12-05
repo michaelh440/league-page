@@ -46,26 +46,41 @@ export async function load({ url }) {
   );
   const weeklyMarginsData = weeklyMarginsResult.rows;
 
-  // Get season standings
-  const standingsResult = await query(
-    `SELECT * FROM vw_manager_season_standings WHERE season_id = $1`,
-    [selectedSeasonId]
-  );
-  const standingsData = standingsResult.rows;
+  // Get season standings (with fallback)
+  let standingsData = [];
+  try {
+    const standingsResult = await query(
+      `SELECT * FROM vw_manager_season_standings WHERE season_id = $1`,
+      [selectedSeasonId]
+    );
+    standingsData = standingsResult.rows;
+  } catch (e) {
+    console.error('Error fetching standings:', e.message);
+  }
 
-  // Get weekly standings rank for line chart
-  const standingsRankResult = await query(
-    `SELECT * FROM vw_manager_weekly_standings_rank WHERE season_id = $1`,
-    [selectedSeasonId]
-  );
-  const standingsRankData = standingsRankResult.rows;
+  // Get weekly standings rank for line chart (with fallback)
+  let standingsRankData = [];
+  try {
+    const standingsRankResult = await query(
+      `SELECT * FROM vw_manager_weekly_standings_rank WHERE season_id = $1`,
+      [selectedSeasonId]
+    );
+    standingsRankData = standingsRankResult.rows;
+  } catch (e) {
+    console.error('Error fetching standings rank:', e.message);
+  }
 
-  // Get weekly power rankings for line chart
-  const powerRankResult = await query(
-    `SELECT * FROM vw_manager_weekly_power_rank WHERE season_id = $1`,
-    [selectedSeasonId]
-  );
-  const powerRankData = powerRankResult.rows;
+  // Get weekly power rankings for line chart (with fallback)
+  let powerRankData = [];
+  try {
+    const powerRankResult = await query(
+      `SELECT * FROM vw_manager_weekly_power_rank WHERE season_id = $1`,
+      [selectedSeasonId]
+    );
+    powerRankData = powerRankResult.rows;
+  } catch (e) {
+    console.error('Error fetching power rank:', e.message);
+  }
 
   return {
     seasons,

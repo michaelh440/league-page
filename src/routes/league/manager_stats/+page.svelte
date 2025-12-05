@@ -8,8 +8,8 @@
 
   export let data;
 
-  // Destructure all data
-  const { standingsData, standingsRankData, powerRankData } = data;
+  // Destructure standings data for the table
+  $: standingsData = data.standingsData || [];
 
   // Chart.js loaded dynamically on client side only
   let Chart = null;
@@ -382,16 +382,21 @@
     }
 
     // Get all data for selected managers
-    const allManagerData = standingsRankData.filter(row => 
+    const rankData = data.standingsRankData || [];
+    const allManagerData = rankData.filter(row => 
       selectedManagers.includes(row.manager_id)
     );
+    
+    if (allManagerData.length === 0) {
+      return;
+    }
     
     // Build labels from weeks
     const weeks = [...new Set(allManagerData.map(r => r.week))].sort((a, b) => a - b);
     const labels = weeks.map(w => `W${w}`);
     
     const datasets = selectedManagers.map(managerId => {
-      const managerData = standingsRankData.filter(row => row.manager_id === managerId);
+      const managerData = rankData.filter(row => row.manager_id === managerId);
       const managerInfo = data.managers.find(m => m.manager_id === managerId);
       const color = getManagerColor(managerId);
       
@@ -477,16 +482,21 @@
     }
 
     // Get all data for selected managers
-    const allManagerData = powerRankData.filter(row => 
+    const rankData = data.powerRankData || [];
+    const allManagerData = rankData.filter(row => 
       selectedManagers.includes(row.manager_id)
     );
+    
+    if (allManagerData.length === 0) {
+      return;
+    }
     
     // Build labels from weeks
     const weeks = [...new Set(allManagerData.map(r => r.week))].sort((a, b) => a - b);
     const labels = weeks.map(w => `W${w}`);
     
     const datasets = selectedManagers.map(managerId => {
-      const managerData = powerRankData.filter(row => row.manager_id === managerId);
+      const managerData = rankData.filter(row => row.manager_id === managerId);
       const managerInfo = data.managers.find(m => m.manager_id === managerId);
       const color = getManagerColor(managerId);
       
