@@ -5,12 +5,11 @@
   import { page } from '$app/stores';
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import StatCard from '$lib/components/StatCard.svelte';
-  import PowerRankings from '$lib/PowerRankings/index.svelte';
 
   export let data;
 
-  // Destructure standings data
-  const { standingsData } = data;
+  // Destructure all data
+  const { standingsData, standingsRankData, powerRankData } = data;
 
   // Chart.js loaded dynamically on client side only
   let Chart = null;
@@ -37,11 +36,15 @@
   let avgPointsChart = null;
   let avgMarginChart = null;
   let weeklyMarginChart = null;
+  let standingsRankChart = null;
+  let powerRankChart = null;
 
   // Chart canvas references
   let avgPointsCanvas;
   let avgMarginCanvas;
   let weeklyMarginCanvas;
+  let standingsRankCanvas;
+  let powerRankCanvas;
 
   // Predefined colors for managers (up to 12)
   const managerColors = [
@@ -366,11 +369,203 @@
     });
   }
 
+  // Create/update Standings Rank Chart
+  function updateStandingsRankChart() {
+    if (!standingsRankCanvas || !Chart) return;
+    
+    if (standingsRankChart) {
+      standingsRankChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    // Get all data for selected managers
+    const allManagerData = standingsRankData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    // Build labels from weeks
+    const weeks = [...new Set(allManagerData.map(r => r.week))].sort((a, b) => a - b);
+    const labels = weeks.map(w => `W${w}`);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = standingsRankData.filter(row => row.manager_id === managerId);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = weeks.map(week => {
+        const row = managerData.find(r => r.week === week);
+        return row ? row.standings_rank : null;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: false,
+        spanGaps: true
+      };
+    });
+
+    standingsRankChart = new Chart(standingsRankCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Standings Position by Week',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const rank = context.parsed.y;
+                if (rank === null) return 'N/A';
+                const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+                return `${context.dataset.label}: ${rank}${suffix}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            reverse: true, // 1st place at top
+            min: 1,
+            title: {
+              display: true,
+              text: 'Position'
+            },
+            ticks: {
+              stepSize: 1,
+              callback: (value) => {
+                const suffix = value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th';
+                return `${value}${suffix}`;
+              }
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Create/update Power Rank Chart
+  function updatePowerRankChart() {
+    if (!powerRankCanvas || !Chart) return;
+    
+    if (powerRankChart) {
+      powerRankChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    // Get all data for selected managers
+    const allManagerData = powerRankData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    // Build labels from weeks
+    const weeks = [...new Set(allManagerData.map(r => r.week))].sort((a, b) => a - b);
+    const labels = weeks.map(w => `W${w}`);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = powerRankData.filter(row => row.manager_id === managerId);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = weeks.map(week => {
+        const row = managerData.find(r => r.week === week);
+        return row ? row.power_rank : null;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: false,
+        spanGaps: true
+      };
+    });
+
+    powerRankChart = new Chart(powerRankCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Power Rankings by Week',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const rank = context.parsed.y;
+                if (rank === null) return 'N/A';
+                const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+                return `${context.dataset.label}: ${rank}${suffix}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            reverse: true, // 1st place at top
+            min: 1,
+            title: {
+              display: true,
+              text: 'Power Rank'
+            },
+            ticks: {
+              stepSize: 1,
+              callback: (value) => {
+                const suffix = value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th';
+                return `${value}${suffix}`;
+              }
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
   // Update all charts
   function updateCharts() {
     updateAvgPointsChart();
     updateAvgMarginChart();
     updateWeeklyMarginChart();
+    updateStandingsRankChart();
+    updatePowerRankChart();
   }
 
   // Handle season change
@@ -479,6 +674,8 @@
     if (avgPointsChart) avgPointsChart.destroy();
     if (avgMarginChart) avgMarginChart.destroy();
     if (weeklyMarginChart) weeklyMarginChart.destroy();
+    if (standingsRankChart) standingsRankChart.destroy();
+    if (powerRankChart) powerRankChart.destroy();
   });
 </script>
 
@@ -622,11 +819,25 @@
       </div>
     </StatCard>
 
-    <!-- Power Rankings -->
+    <!-- Standings Position Chart -->
     <StatCard size="full">
-      <div class="power-rankings-wrapper">
-        <div class="section-title">Power Rankings</div>
-        <PowerRankings />
+      <div class="chart-container">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view standings history</div>
+        {:else}
+          <canvas bind:this={standingsRankCanvas}></canvas>
+        {/if}
+      </div>
+    </StatCard>
+
+    <!-- Power Rankings Chart -->
+    <StatCard size="full">
+      <div class="chart-container">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view power rankings history</div>
+        {:else}
+          <canvas bind:this={powerRankCanvas}></canvas>
+        {/if}
       </div>
     </StatCard>
 
@@ -982,22 +1193,6 @@
 
   .text-gray-600 {
     color: #6c757d;
-  }
-
-  /* Power Rankings Section */
-  .power-rankings-wrapper {
-    padding: 0.5rem;
-  }
-
-  .section-title {
-    text-align: center;
-    background: linear-gradient(135deg, #003366, #004080);
-    color: white;
-    font-size: 1rem;
-    font-weight: bold;
-    padding: 0.75rem;
-    border-radius: 8px 8px 0 0;
-    margin: -0.5rem -0.5rem 1rem -0.5rem;
   }
 
   /* Mobile Styles */

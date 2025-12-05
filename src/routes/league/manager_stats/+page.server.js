@@ -53,6 +53,20 @@ export async function load({ url }) {
   );
   const standingsData = standingsResult.rows;
 
+  // Get weekly standings rank for line chart
+  const standingsRankResult = await query(
+    `SELECT * FROM vw_manager_weekly_standings_rank WHERE season_id = $1`,
+    [selectedSeasonId]
+  );
+  const standingsRankData = standingsRankResult.rows;
+
+  // Get weekly power rankings for line chart
+  const powerRankResult = await query(
+    `SELECT * FROM vw_manager_weekly_power_rank WHERE season_id = $1`,
+    [selectedSeasonId]
+  );
+  const powerRankData = powerRankResult.rows;
+
   return {
     seasons,
     selectedSeasonId,
@@ -60,6 +74,8 @@ export async function load({ url }) {
     avgPointsData,
     avgMarginData,
     weeklyMarginsData,
-    standingsData
+    standingsData,
+    standingsRankData,
+    powerRankData
   };
 }
