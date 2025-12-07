@@ -50,102 +50,134 @@ export async function load({ url, fetch }) {
     }
     
     // Get running average points data
-  const avgPointsResult = await query(
-    `SELECT * FROM vw_manager_running_avg_points WHERE season_id = $1`,
-    [selectedSeasonId]
-  );
-  const avgPointsData = avgPointsResult.rows;
-  
-  // Get running average margin data
-  const avgMarginResult = await query(
-    `SELECT * FROM vw_manager_running_avg_margin WHERE season_id = $1`,
-    [selectedSeasonId]
-  );
-  const avgMarginData = avgMarginResult.rows;
-  
-  // Get weekly margins for bar chart
-  const weeklyMarginsResult = await query(
-    `SELECT * FROM vw_manager_weekly_margins WHERE season_id = $1`,
-    [selectedSeasonId]
-  );
-  const weeklyMarginsData = weeklyMarginsResult.rows;
-
-  // Get weekly standings rank for line chart (with fallback)
-  let standingsRankData = [];
-  try {
-    const standingsRankResult = await query(
-      `SELECT * FROM vw_manager_weekly_standings_rank WHERE season_id = $1`,
-      [selectedSeasonId]
-    );
-    standingsRankData = standingsRankResult.rows;
-  } catch (e) {
-    console.error('Error fetching standings rank:', e.message);
-  }
-
-  // Get weekly power rankings for line chart (with fallback)
-  let powerRankData = [];
-  try {
-    const powerRankResult = await query(
-      `SELECT * FROM vw_manager_weekly_power_rank WHERE season_id = $1`,
-      [selectedSeasonId]
-    );
-    powerRankData = powerRankResult.rows;
-  } catch (e) {
-    console.error('Error fetching power rank:', e.message);
-  }
-
-  // If no data from DB and this is the active season, fetch from Sleeper API
-  if ((standingsRankData.length === 0 || powerRankData.length === 0) && isActiveSeason) {
+    let avgPointsData = [];
     try {
-      const [nflState, leagueData, leagueTeamManagers, rostersData] = await Promise.all([
-        getNflState(),
-        getLeagueData(),
-        getLeagueTeamManagers(),
-        getLeagueRosters()
-      ]);
-
-      // If managers list is empty, build it from Sleeper data
-      if (managers.length === 0 && leagueTeamManagers) {
-        managers = buildManagersFromSleeper(leagueTeamManagers, rostersData);
-      }
-
-      // Determine current week
-      let currentWeek = 0;
-      if (nflState.season_type === 'regular') {
-        currentWeek = nflState.display_week > 1 ? nflState.display_week - 1 : 0;
-      } else if (nflState.season_type === 'post') {
-        currentWeek = leagueData.settings?.playoff_week_start 
-          ? leagueData.settings.playoff_week_start - 1 
-          : 14;
-      }
-
-      if (currentWeek > 0 && managers.length > 0) {
-        // Fetch all matchups from Sleeper
-        const matchupPromises = [];
-        for (let week = 1; week <= currentWeek; week++) {
-          matchupPromises.push(
-            fetch(`https://api.sleeper.app/v1/league/${leagueID}/matchups/${week}`)
-              .then(res => res.ok ? res.json() : [])
-              .then(matchups => ({ week, matchups }))
-              .catch(() => ({ week, matchups: [] }))
-          );
-        }
-        const weeklyMatchups = await Promise.all(matchupPromises);
-
-        // Build standings and power rank data from Sleeper matchups
-        const sleeperData = buildRankingsFromSleeper(weeklyMatchups, managers, selectedSeasonId, teamMapping);
-        
-        if (standingsRankData.length === 0) {
-          standingsRankData = sleeperData.standingsRankData;
-        }
-        if (powerRankData.length === 0) {
-          powerRankData = sleeperData.powerRankData;
-        }
-      }
+      const avgPointsResult = await query(
+        `SELECT * FROM vw_manager_running_avg_points WHERE season_id = $1`,
+        [selectedSeasonId]
+      );
+      avgPointsData = avgPointsResult.rows;
     } catch (e) {
-      console.error('Error fetching from Sleeper API:', e.message);
+      console.error('Error fetching avg points:', e.message);
     }
-  }
+  
+    // Get running average margin data
+    let avgMarginData = [];
+    try {
+      const avgMarginResult = await query(
+        `SELECT * FROM vw_manager_running_avg_margin WHERE season_id = $1`,
+        [selectedSeasonId]
+      );
+      avgMarginData = avgMarginResult.rows;
+    } catch (e) {
+      console.error('Error fetching avg margin:', e.message);
+    }
+  
+    // Get weekly margins for bar chart
+    let weeklyMarginsData = [];
+    try {
+      const weeklyMarginsResult = await query(
+        `SELECT * FROM vw_manager_weekly_margins WHERE season_id = $1`,
+        [selectedSeasonId]
+      );
+      weeklyMarginsData = weeklyMarginsResult.rows;
+    } catch (e) {
+      console.error('Error fetching weekly margins:', e.message);
+    }
+
+    // Get weekly standings rank for line chart (with fallback)
+    let standingsRankData = [];
+    try {
+      const standingsRankResult = await query(
+        `SELECT * FROM vw_manager_weekly_standings_rank WHERE season_id = $1`,
+        [selectedSeasonId]
+      );
+      standingsRankData = standingsRankResult.rows;
+    } catch (e) {
+      console.error('Error fetching standings rank:', e.message);
+    }
+
+    // Get weekly power rankings for line chart (with fallback)
+    let powerRankData = [];
+    try {
+      const powerRankResult = await query(
+        `SELECT * FROM vw_manager_weekly_power_rank WHERE season_id = $1`,
+        [selectedSeasonId]
+      );
+      powerRankData = powerRankResult.rows;
+    } catch (e) {
+      console.error('Error fetching power rank:', e.message);
+    }
+
+    // Check if any data is missing - if so and active season, fetch from Sleeper API
+    const needsSleeperData = isActiveSeason && (
+      avgPointsData.length === 0 ||
+      avgMarginData.length === 0 ||
+      weeklyMarginsData.length === 0 ||
+      standingsRankData.length === 0 ||
+      powerRankData.length === 0
+    );
+
+    if (needsSleeperData) {
+      try {
+        const [nflState, leagueData, leagueTeamManagers, rostersData] = await Promise.all([
+          getNflState(),
+          getLeagueData(),
+          getLeagueTeamManagers(),
+          getLeagueRosters()
+        ]);
+
+        // If managers list is empty, build it from Sleeper data
+        if (managers.length === 0 && leagueTeamManagers) {
+          managers = buildManagersFromSleeper(leagueTeamManagers, rostersData);
+        }
+
+        // Determine current week
+        let currentWeek = 0;
+        if (nflState.season_type === 'regular') {
+          currentWeek = nflState.display_week > 1 ? nflState.display_week - 1 : 0;
+        } else if (nflState.season_type === 'post') {
+          currentWeek = leagueData.settings?.playoff_week_start 
+            ? leagueData.settings.playoff_week_start - 1 
+            : 14;
+        }
+
+        if (currentWeek > 0 && managers.length > 0) {
+          // Fetch all matchups from Sleeper
+          const matchupPromises = [];
+          for (let week = 1; week <= currentWeek; week++) {
+            matchupPromises.push(
+              fetch(`https://api.sleeper.app/v1/league/${leagueID}/matchups/${week}`)
+                .then(res => res.ok ? res.json() : [])
+                .then(matchups => ({ week, matchups }))
+                .catch(() => ({ week, matchups: [] }))
+            );
+          }
+          const weeklyMatchups = await Promise.all(matchupPromises);
+
+          // Build all chart data from Sleeper matchups
+          const sleeperData = buildAllDataFromSleeper(weeklyMatchups, managers, selectedSeasonId, teamMapping);
+          
+          if (avgPointsData.length === 0) {
+            avgPointsData = sleeperData.avgPointsData;
+          }
+          if (avgMarginData.length === 0) {
+            avgMarginData = sleeperData.avgMarginData;
+          }
+          if (weeklyMarginsData.length === 0) {
+            weeklyMarginsData = sleeperData.weeklyMarginsData;
+          }
+          if (standingsRankData.length === 0) {
+            standingsRankData = sleeperData.standingsRankData;
+          }
+          if (powerRankData.length === 0) {
+            powerRankData = sleeperData.powerRankData;
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching from Sleeper API:', e.message);
+      }
+    }
 
     return {
       seasons,
@@ -196,8 +228,8 @@ function buildManagersFromSleeper(leagueTeamManagers, rostersData) {
   return managers;
 }
 
-// Build standings and power rankings from Sleeper matchup data
-function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId, teamMapping) {
+// Build all chart data from Sleeper matchup data
+function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping) {
   // Track cumulative stats per manager (keyed by internal manager_id)
   const managerStats = {};
   
@@ -215,12 +247,17 @@ function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId, teamMappin
       team_name: manager.team_name,
       team_logo: manager.team_logo,
       weeklyPoints: [],
+      weeklyMargins: [],
       cumulativeWins: 0,
       cumulativeLosses: 0,
-      cumulativePoints: 0
+      cumulativePoints: 0,
+      cumulativeMargin: 0
     };
   }
 
+  const avgPointsData = [];
+  const avgMarginData = [];
+  const weeklyMarginsData = [];
   const standingsRankData = [];
   const powerRankData = [];
 
@@ -238,7 +275,7 @@ function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId, teamMappin
       matchupGroups[m.matchup_id].push(m);
     }
 
-    // Process each matchup to determine wins/losses
+    // Process each matchup to determine wins/losses and margins
     for (const matchupId in matchupGroups) {
       const teams = matchupGroups[matchupId];
       if (teams.length !== 2) continue;
@@ -255,20 +292,104 @@ function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId, teamMappin
 
       const points1 = team1.points || 0;
       const points2 = team2.points || 0;
+      const margin1 = points1 - points2;
+      const margin2 = points2 - points1;
 
-      // Update cumulative stats
+      // Update cumulative stats for team 1
       managerStats[managerId1].cumulativePoints += points1;
-      managerStats[managerId2].cumulativePoints += points2;
+      managerStats[managerId1].cumulativeMargin += margin1;
       managerStats[managerId1].weeklyPoints.push(points1);
-      managerStats[managerId2].weeklyPoints.push(points2);
+      managerStats[managerId1].weeklyMargins.push({ week, margin: margin1, points: points1, against: points2 });
 
+      // Update cumulative stats for team 2
+      managerStats[managerId2].cumulativePoints += points2;
+      managerStats[managerId2].cumulativeMargin += margin2;
+      managerStats[managerId2].weeklyPoints.push(points2);
+      managerStats[managerId2].weeklyMargins.push({ week, margin: margin2, points: points2, against: points1 });
+
+      // Determine win/loss
+      let result1, result2;
       if (points1 > points2) {
         managerStats[managerId1].cumulativeWins++;
         managerStats[managerId2].cumulativeLosses++;
+        result1 = 'W';
+        result2 = 'L';
       } else if (points2 > points1) {
         managerStats[managerId2].cumulativeWins++;
         managerStats[managerId1].cumulativeLosses++;
+        result1 = 'L';
+        result2 = 'W';
+      } else {
+        result1 = 'T';
+        result2 = 'T';
       }
+
+      // Add weekly margins data
+      const m1 = managerStats[managerId1];
+      const m2 = managerStats[managerId2];
+      
+      weeklyMarginsData.push({
+        season_id: seasonId,
+        week,
+        game_type: 'regular',
+        manager_id: managerId1,
+        manager_name: m1.manager_name,
+        team_name: m1.team_name,
+        team_logo: m1.team_logo,
+        points_scored: Math.round(points1 * 100) / 100,
+        points_against: Math.round(points2 * 100) / 100,
+        margin: Math.round(margin1 * 100) / 100,
+        result: result1
+      });
+
+      weeklyMarginsData.push({
+        season_id: seasonId,
+        week,
+        game_type: 'regular',
+        manager_id: managerId2,
+        manager_name: m2.manager_name,
+        team_name: m2.team_name,
+        team_logo: m2.team_logo,
+        points_scored: Math.round(points2 * 100) / 100,
+        points_against: Math.round(points1 * 100) / 100,
+        margin: Math.round(margin2 * 100) / 100,
+        result: result2
+      });
+    }
+
+    // Calculate running averages and rankings for this week
+    for (const m of Object.values(managerStats)) {
+      if (m.weeklyPoints.length === 0) continue;
+      
+      const gamesPlayed = m.weeklyPoints.length;
+      const runningAvgPoints = m.cumulativePoints / gamesPlayed;
+      const runningAvgMargin = m.cumulativeMargin / gamesPlayed;
+
+      // Add running average points data
+      avgPointsData.push({
+        season_id: seasonId,
+        week,
+        game_type: 'regular',
+        manager_id: m.manager_id,
+        manager_name: m.manager_name,
+        team_name: m.team_name,
+        team_logo: m.team_logo,
+        running_avg_points_reg: Math.round(runningAvgPoints * 100) / 100,
+        running_avg_points_all: Math.round(runningAvgPoints * 100) / 100
+      });
+
+      // Add running average margin data
+      avgMarginData.push({
+        season_id: seasonId,
+        week,
+        game_type: 'regular',
+        manager_id: m.manager_id,
+        manager_name: m.manager_name,
+        team_name: m.team_name,
+        team_logo: m.team_logo,
+        running_avg_margin_reg: Math.round(runningAvgMargin * 100) / 100,
+        running_avg_margin_all: Math.round(runningAvgMargin * 100) / 100
+      });
     }
 
     // Calculate standings rank for this week
@@ -335,5 +456,11 @@ function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId, teamMappin
     });
   }
 
-  return { standingsRankData, powerRankData };
+  return { 
+    avgPointsData, 
+    avgMarginData, 
+    weeklyMarginsData, 
+    standingsRankData, 
+    powerRankData 
+  };
 }
