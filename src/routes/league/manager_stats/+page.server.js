@@ -2,51 +2,54 @@ import { query } from '$lib/db';
 import { leagueID, getLeagueData, getNflState, getLeagueTeamManagers, getLeagueRosters } from '$lib/utils/helper';
 
 export async function load({ url, fetch }) {
-  // Get season from query param, default to active season
-  const seasonParam = url.searchParams.get('season');
-  
-  // Get available seasons for dropdown
-  const seasonsResult = await query(`SELECT * FROM vw_available_seasons`);
-  const seasons = seasonsResult.rows;
-  
-  // Determine which season to use
-  let selectedSeasonId;
-  if (seasonParam) {
-    selectedSeasonId = parseInt(seasonParam);
-  } else {
-    // Find active season or most recent
-    const activeSeason = seasons.find(s => s.is_active);
-    selectedSeasonId = activeSeason ? activeSeason.season_id : seasons[0]?.season_id;
-  }
+  try {
+    // Get season from query param, default to active season
+    const seasonParam = url.searchParams.get('season');
+    
+    // Get available seasons for dropdown
+    const seasonsResult = await query(`SELECT * FROM vw_available_seasons`);
+    const seasons = seasonsResult.rows;
+    
+    // Determine which season to use
+    let selectedSeasonId;
+    if (seasonParam) {
+      selectedSeasonId = parseInt(seasonParam);
+    } else {
+      // Find active season or most recent
+      const activeSeason = seasons.find(s => s.is_active);
+      selectedSeasonId = activeSeason ? activeSeason.season_id : seasons[0]?.season_id;
+    }
 
-  const selectedSeason = seasons.find(s => s.season_id === selectedSeasonId);
-  const isActiveSeason = selectedSeason?.is_active || false;
-  
-  // Get managers for this season from DB
-  const managersResult = await query(
-    `SELECT * FROM vw_manager_season_list WHERE season_id = $1 ORDER BY manager_name`,
-    [selectedSeasonId]
-  );
-  let managers = managersResult.rows;
+    const selectedSeason = seasons.find(s => s.season_id === selectedSeasonId);
+    const isActiveSeason = selectedSeason?.is_active || false;
+    
+    // Get managers for this season from DB
+    const managersResult = await query(
+      `SELECT * FROM vw_manager_season_list WHERE season_id = $1 ORDER BY manager_name`,
+      [selectedSeasonId]
+    );
+    let managers = managersResult.rows;
 
-  // Get team mapping (platform_team_id -> manager_id) for Sleeper API data
-  const teamMappingResult = await query(
-    `SELECT t.team_id, t.manager_id, t.platform_team_id, m.name as manager_name
-     FROM teams t
-     JOIN managers m ON t.manager_id = m.manager_id
-     WHERE t.season_id = $1 AND t.platform_team_id IS NOT NULL`,
-    [selectedSeasonId]
-  );
-  const teamMapping = {};
-  for (const row of teamMappingResult.rows) {
-    // Map Sleeper roster_id (platform_team_id) to internal manager_id
-    teamMapping[row.platform_team_id] = {
-      manager_id: row.manager_id,
-      manager_name: row.manager_name
-    };
-  }
-  
-  // Get running average points data
+    // Get team mapping (platform_team_id -> manager_id) for Sleeper API data
+    let teamMapping = {};
+    try {
+      const teamMappingResult = await query(
+        `SELECT team_id, manager_id, platform_team_id
+         FROM teams
+         WHERE season_id = $1 AND platform_team_id IS NOT NULL`,
+        [selectedSeasonId]
+      );
+      for (const row of teamMappingResult.rows) {
+        // Map Sleeper roster_id (platform_team_id) to internal manager_id
+        teamMapping[row.platform_team_id] = {
+          manager_id: row.manager_id
+        };
+      }
+    } catch (e) {
+      console.error('Error fetching team mapping:', e.message);
+    }
+    
+    // Get running average points data
   const avgPointsResult = await query(
     `SELECT * FROM vw_manager_running_avg_points WHERE season_id = $1`,
     [selectedSeasonId]
@@ -144,16 +147,30 @@ export async function load({ url, fetch }) {
     }
   }
 
-  return {
-    seasons,
-    selectedSeasonId,
-    managers,
-    avgPointsData,
-    avgMarginData,
-    weeklyMarginsData,
-    standingsRankData,
-    powerRankData
-  };
+    return {
+      seasons,
+      selectedSeasonId,
+      managers,
+      avgPointsData,
+      avgMarginData,
+      weeklyMarginsData,
+      standingsRankData,
+      powerRankData
+    };
+  } catch (error) {
+    console.error('Manager stats load error:', error);
+    // Return empty data on error so page still renders
+    return {
+      seasons: [],
+      selectedSeasonId: null,
+      managers: [],
+      avgPointsData: [],
+      avgMarginData: [],
+      weeklyMarginsData: [],
+      standingsRankData: [],
+      powerRankData: []
+    };
+  }
 }
 
 // Build managers list from Sleeper data
