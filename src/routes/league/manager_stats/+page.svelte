@@ -695,6 +695,7 @@
 </script>
 
 <StatsLayout title="Manager Stats" {navItems}>
+  <div class="page-content">
   <!-- Controls Section -->
   <div class="controls-section">
     <!-- Season Selector -->
@@ -1109,9 +1110,14 @@
       </div>
     </div>
   {/if}
+  </div>
 </StatsLayout>
 
 <style>
+  .page-content {
+    padding-right: 1.5rem;
+  }
+
   .controls-section {
     display: flex;
     flex-wrap: wrap;
@@ -1311,6 +1317,10 @@
 
   /* Mobile Styles */
   @media (max-width: 768px) {
+    .page-content {
+      padding-right: 1rem;
+    }
+
     .controls-section {
       flex-direction: column;
       gap: 1rem;
