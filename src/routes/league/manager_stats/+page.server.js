@@ -46,18 +46,6 @@ export async function load({ url }) {
   );
   const weeklyMarginsData = weeklyMarginsResult.rows;
 
-  // Get season standings (with fallback)
-  let standingsData = [];
-  try {
-    const standingsResult = await query(
-      `SELECT * FROM vw_manager_season_standings WHERE season_id = $1`,
-      [selectedSeasonId]
-    );
-    standingsData = standingsResult.rows;
-  } catch (e) {
-    console.error('Error fetching standings:', e.message);
-  }
-
   // Get weekly standings rank for line chart (with fallback)
   let standingsRankData = [];
   try {
@@ -89,7 +77,6 @@ export async function load({ url }) {
     avgPointsData,
     avgMarginData,
     weeklyMarginsData,
-    standingsData,
     standingsRankData,
     powerRankData
   };
