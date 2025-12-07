@@ -841,6 +841,274 @@
       </div>
     </StatCard>
   </div>
+
+  <!-- Season Stats Tables -->
+  {#if data.seasonStats}
+    <div class="stats-tables-section">
+      <h2 class="section-title">Season Statistics</h2>
+      
+      <div class="stats-tables-grid">
+        <!-- Highest Single-Week Scores -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🔥 Highest Single-Week Scores</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Score</th>
+                <th>Week</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.highScores.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-green">{row.score}</td>
+                  <td class="num-col">W{row.week}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Lowest Single-Week Scores -->
+        <div class="stats-table-card">
+          <h3 class="table-header">📉 Lowest Single-Week Scores</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Score</th>
+                <th>Week</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.lowScores.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-red">{row.score}</td>
+                  <td class="num-col">W{row.week}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Average Points Per Week -->
+        <div class="stats-table-card">
+          <h3 class="table-header">📊 Average Points Per Week</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Avg</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.avgPoints as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col">{row.avg_points}</td>
+                  <td class="num-col">{row.total_points}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Most Consistent (Lowest Std Dev) -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🎯 Most Consistent</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Std Dev</th>
+                <th>Avg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.consistency.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-green">{row.std_dev}</td>
+                  <td class="num-col">{row.avg_points}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Most Boom-or-Bust (Highest Std Dev) -->
+        <div class="stats-table-card">
+          <h3 class="table-header">💥 Most Boom-or-Bust</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Std Dev</th>
+                <th>High/Low</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.boomBust.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-orange">{row.std_dev}</td>
+                  <td class="num-col">{row.high}/{row.low}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Luckiest Teams -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🍀 Luckiest Teams</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Luck</th>
+                <th>W-L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.luck.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-green">+{row.luck_factor}</td>
+                  <td class="num-col">{row.wins}-{row.losses}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Unluckiest Teams -->
+        <div class="stats-table-card">
+          <h3 class="table-header">😢 Unluckiest Teams</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Luck</th>
+                <th>W-L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.luck.slice(-5).reverse() as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-red">{row.luck_factor}</td>
+                  <td class="num-col">{row.wins}-{row.losses}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Points Left on Bench -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🪑 Points Left on Bench</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Total</th>
+                <th>Avg/Wk</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.benchPoints.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col">{row.total_bench_points}</td>
+                  <td class="num-col">{row.avg_bench_points}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Biggest Rivalries -->
+        <div class="stats-table-card wide">
+          <h3 class="table-header">⚔️ Biggest Rivalries</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Matchup</th>
+                <th>Games</th>
+                <th>Record</th>
+                <th>Avg Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.rivalries.slice(0, 5) as row}
+                <tr>
+                  <td class="rivalry-col">
+                    <span class="rivalry-team">
+                      {#if row.manager1_logo}<img src={row.manager1_logo} alt="" class="table-logo" />{/if}
+                      {row.manager1_name}
+                    </span>
+                    <span class="vs">vs</span>
+                    <span class="rivalry-team">
+                      {#if row.manager2_logo}<img src={row.manager2_logo} alt="" class="table-logo" />{/if}
+                      {row.manager2_name}
+                    </span>
+                  </td>
+                  <td class="num-col">{row.games}</td>
+                  <td class="num-col">{row.manager1_wins}-{row.manager2_wins}{row.ties > 0 ? `-${row.ties}` : ''}</td>
+                  <td class="num-col">{row.avg_combined_score}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {/if}
 </StatsLayout>
 
 <style>
@@ -1084,6 +1352,163 @@
 
     .chart-container {
       height: 320px;
+    }
+  }
+
+  /* Season Stats Tables */
+  .stats-tables-section {
+    margin-top: 2rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #003366;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #003366;
+  }
+
+  .stats-tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .stats-table-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  .stats-table-card.wide {
+    grid-column: span 2;
+  }
+
+  .table-header {
+    background: linear-gradient(135deg, #003366, #004080);
+    color: white;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .mini-table th {
+    background: #f8f9fa;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .mini-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+  }
+
+  .mini-table tbody tr:hover {
+    background: #f8f9fa;
+  }
+
+  .mini-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .rank-col {
+    width: 35px;
+    text-align: center;
+    font-weight: 600;
+    color: #6c757d;
+  }
+
+  .manager-col {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .num-col {
+    text-align: right;
+    font-weight: 500;
+  }
+
+  .table-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .highlight-green {
+    color: #28a745;
+    font-weight: 600;
+  }
+
+  .highlight-red {
+    color: #dc3545;
+    font-weight: 600;
+  }
+
+  .highlight-orange {
+    color: #fd7e14;
+    font-weight: 600;
+  }
+
+  .rivalry-col {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .rivalry-team {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .vs {
+    color: #6c757d;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .stats-tables-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stats-table-card.wide {
+      grid-column: span 1;
+    }
+
+    .mini-table {
+      font-size: 0.8rem;
+    }
+
+    .mini-table th,
+    .mini-table td {
+      padding: 0.5rem;
+    }
+
+    .table-logo {
+      width: 20px;
+      height: 20px;
+    }
+
+    .rivalry-col {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>

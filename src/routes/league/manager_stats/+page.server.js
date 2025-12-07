@@ -109,6 +109,9 @@ export async function load({ url, fetch }) {
       console.error('Error fetching power rank:', e.message);
     }
 
+    // Initialize season stats (will be populated from Sleeper if needed)
+    let seasonStats = null;
+
     // Check if any data is missing - if so and active season, fetch from Sleeper API
     const needsSleeperData = isActiveSeason && (
       avgPointsData.length === 0 ||
@@ -173,6 +176,9 @@ export async function load({ url, fetch }) {
           if (powerRankData.length === 0) {
             powerRankData = sleeperData.powerRankData;
           }
+          
+          // Get additional stats from Sleeper data
+          seasonStats = sleeperData.seasonStats;
         }
       } catch (e) {
         console.error('Error fetching from Sleeper API:', e.message);
@@ -187,7 +193,8 @@ export async function load({ url, fetch }) {
       avgMarginData,
       weeklyMarginsData,
       standingsRankData,
-      powerRankData
+      powerRankData,
+      seasonStats
     };
   } catch (error) {
     console.error('Manager stats load error:', error);
@@ -200,7 +207,8 @@ export async function load({ url, fetch }) {
       avgMarginData: [],
       weeklyMarginsData: [],
       standingsRankData: [],
-      powerRankData: []
+      powerRankData: [],
+      seasonStats: null
     };
   }
 }
@@ -246,12 +254,13 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
       manager_name: manager.manager_name,
       team_name: manager.team_name,
       team_logo: manager.team_logo,
-      weeklyPoints: [],
-      weeklyMargins: [],
+      weeklyScores: [], // {week, points, against, margin, result, benchPoints, optimalPoints}
       cumulativeWins: 0,
       cumulativeLosses: 0,
       cumulativePoints: 0,
-      cumulativeMargin: 0
+      cumulativeMargin: 0,
+      cumulativeBenchPoints: 0,
+      headToHead: {} // {opponentId: {wins, losses, pointsFor, pointsAgainst}}
     };
   }
 
@@ -260,6 +269,9 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
   const weeklyMarginsData = [];
   const standingsRankData = [];
   const powerRankData = [];
+
+  // Track all weekly scores for luck calculation
+  const allWeeklyScores = []; // {week, managerId, points}
 
   // Process each week
   for (const { week, matchups } of weeklyMatchups.sort((a, b) => a.week - b.week)) {
@@ -274,6 +286,9 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
       }
       matchupGroups[m.matchup_id].push(m);
     }
+
+    // Collect all scores this week for luck calculation
+    const weekScores = [];
 
     // Process each matchup to determine wins/losses and margins
     for (const matchupId in matchupGroups) {
@@ -295,17 +310,18 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
       const margin1 = points1 - points2;
       const margin2 = points2 - points1;
 
-      // Update cumulative stats for team 1
-      managerStats[managerId1].cumulativePoints += points1;
-      managerStats[managerId1].cumulativeMargin += margin1;
-      managerStats[managerId1].weeklyPoints.push(points1);
-      managerStats[managerId1].weeklyMargins.push({ week, margin: margin1, points: points1, against: points2 });
-
-      // Update cumulative stats for team 2
-      managerStats[managerId2].cumulativePoints += points2;
-      managerStats[managerId2].cumulativeMargin += margin2;
-      managerStats[managerId2].weeklyPoints.push(points2);
-      managerStats[managerId2].weeklyMargins.push({ week, margin: margin2, points: points2, against: points1 });
+      // Calculate bench points (total player points - starter points)
+      let benchPoints1 = 0;
+      let benchPoints2 = 0;
+      
+      if (team1.players_points && team1.starters) {
+        const totalPoints1 = Object.values(team1.players_points).reduce((sum, p) => sum + (p || 0), 0);
+        benchPoints1 = totalPoints1 - points1;
+      }
+      if (team2.players_points && team2.starters) {
+        const totalPoints2 = Object.values(team2.players_points).reduce((sum, p) => sum + (p || 0), 0);
+        benchPoints2 = totalPoints2 - points2;
+      }
 
       // Determine win/loss
       let result1, result2;
@@ -323,6 +339,50 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
         result1 = 'T';
         result2 = 'T';
       }
+
+      // Update cumulative stats for team 1
+      managerStats[managerId1].cumulativePoints += points1;
+      managerStats[managerId1].cumulativeMargin += margin1;
+      managerStats[managerId1].cumulativeBenchPoints += benchPoints1;
+      managerStats[managerId1].weeklyScores.push({
+        week, points: points1, against: points2, margin: margin1, result: result1, benchPoints: benchPoints1
+      });
+
+      // Update cumulative stats for team 2
+      managerStats[managerId2].cumulativePoints += points2;
+      managerStats[managerId2].cumulativeMargin += margin2;
+      managerStats[managerId2].cumulativeBenchPoints += benchPoints2;
+      managerStats[managerId2].weeklyScores.push({
+        week, points: points2, against: points1, margin: margin2, result: result2, benchPoints: benchPoints2
+      });
+
+      // Track head-to-head
+      if (!managerStats[managerId1].headToHead[managerId2]) {
+        managerStats[managerId1].headToHead[managerId2] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 };
+      }
+      if (!managerStats[managerId2].headToHead[managerId1]) {
+        managerStats[managerId2].headToHead[managerId1] = { wins: 0, losses: 0, ties: 0, pointsFor: 0, pointsAgainst: 0 };
+      }
+      
+      managerStats[managerId1].headToHead[managerId2].pointsFor += points1;
+      managerStats[managerId1].headToHead[managerId2].pointsAgainst += points2;
+      managerStats[managerId2].headToHead[managerId1].pointsFor += points2;
+      managerStats[managerId2].headToHead[managerId1].pointsAgainst += points1;
+      
+      if (result1 === 'W') {
+        managerStats[managerId1].headToHead[managerId2].wins++;
+        managerStats[managerId2].headToHead[managerId1].losses++;
+      } else if (result1 === 'L') {
+        managerStats[managerId1].headToHead[managerId2].losses++;
+        managerStats[managerId2].headToHead[managerId1].wins++;
+      } else {
+        managerStats[managerId1].headToHead[managerId2].ties++;
+        managerStats[managerId2].headToHead[managerId1].ties++;
+      }
+
+      // Collect week scores for luck calculation
+      weekScores.push({ managerId: managerId1, points: points1 });
+      weekScores.push({ managerId: managerId2, points: points2 });
 
       // Add weekly margins data
       const m1 = managerStats[managerId1];
@@ -357,11 +417,14 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
       });
     }
 
+    // Store week scores for luck calculation
+    allWeeklyScores.push({ week, scores: weekScores });
+
     // Calculate running averages and rankings for this week
     for (const m of Object.values(managerStats)) {
-      if (m.weeklyPoints.length === 0) continue;
+      if (m.weeklyScores.length === 0) continue;
       
-      const gamesPlayed = m.weeklyPoints.length;
+      const gamesPlayed = m.weeklyScores.length;
       const runningAvgPoints = m.cumulativePoints / gamesPlayed;
       const runningAvgMargin = m.cumulativeMargin / gamesPlayed;
 
@@ -394,7 +457,7 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
 
     // Calculate standings rank for this week
     const weekStandings = Object.values(managerStats)
-      .filter(m => m.weeklyPoints.length > 0)
+      .filter(m => m.weeklyScores.length > 0)
       .map(m => ({
         season_id: seasonId,
         week,
@@ -421,13 +484,13 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
 
     // Calculate power rank for this week
     const weekPower = Object.values(managerStats)
-      .filter(m => m.weeklyPoints.length > 0)
+      .filter(m => m.weeklyScores.length > 0)
       .map(m => {
-        const gamesPlayed = m.weeklyPoints.length;
+        const gamesPlayed = m.weeklyScores.length;
         const seasonAvg = m.cumulativePoints / gamesPlayed;
         
         // Rolling 3-game average
-        const last3 = m.weeklyPoints.slice(-3);
+        const last3 = m.weeklyScores.slice(-3).map(s => s.points);
         const rolling3Avg = last3.reduce((sum, p) => sum + p, 0) / last3.length;
         
         // Power score: 60% recent, 40% season
@@ -456,11 +519,186 @@ function buildAllDataFromSleeper(weeklyMatchups, managers, seasonId, teamMapping
     });
   }
 
+  // Calculate season stats
+  const seasonStats = calculateSeasonStats(managerStats, allWeeklyScores, managers);
+
   return { 
     avgPointsData, 
     avgMarginData, 
     weeklyMarginsData, 
     standingsRankData, 
-    powerRankData 
+    powerRankData,
+    seasonStats
   };
+}
+
+// Calculate all season summary stats
+function calculateSeasonStats(managerStats, allWeeklyScores, managers) {
+  const stats = {
+    highScores: [],      // Highest single-week scores
+    lowScores: [],       // Lowest single-week scores
+    consistency: [],     // Most consistent (lowest std dev)
+    boomBust: [],        // Most boom-or-bust (highest std dev)
+    avgPoints: [],       // Average points per week
+    luck: [],            // Luckiest teams
+    benchPoints: [],     // Most points left on bench
+    rivalries: []        // Biggest rivalries
+  };
+
+  // Process each manager's stats
+  for (const m of Object.values(managerStats)) {
+    if (m.weeklyScores.length === 0) continue;
+
+    const scores = m.weeklyScores.map(s => s.points);
+    const gamesPlayed = scores.length;
+    const totalPoints = scores.reduce((sum, p) => sum + p, 0);
+    const avgPoints = totalPoints / gamesPlayed;
+    
+    // Calculate standard deviation
+    const variance = scores.reduce((sum, p) => sum + Math.pow(p - avgPoints, 2), 0) / gamesPlayed;
+    const stdDev = Math.sqrt(variance);
+
+    // Find high and low scores
+    const highScore = Math.max(...scores);
+    const lowScore = Math.min(...scores);
+    const highWeek = m.weeklyScores.find(s => s.points === highScore)?.week;
+    const lowWeek = m.weeklyScores.find(s => s.points === lowScore)?.week;
+
+    // Add to high/low scores
+    stats.highScores.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      score: Math.round(highScore * 100) / 100,
+      week: highWeek
+    });
+
+    stats.lowScores.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      score: Math.round(lowScore * 100) / 100,
+      week: lowWeek
+    });
+
+    // Consistency stats
+    stats.consistency.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      std_dev: Math.round(stdDev * 100) / 100,
+      avg_points: Math.round(avgPoints * 100) / 100,
+      high: Math.round(highScore * 100) / 100,
+      low: Math.round(lowScore * 100) / 100
+    });
+
+    // Boom-bust is same data, just sorted differently
+    stats.boomBust.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      std_dev: Math.round(stdDev * 100) / 100,
+      avg_points: Math.round(avgPoints * 100) / 100,
+      high: Math.round(highScore * 100) / 100,
+      low: Math.round(lowScore * 100) / 100
+    });
+
+    // Average points
+    stats.avgPoints.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      avg_points: Math.round(avgPoints * 100) / 100,
+      total_points: Math.round(totalPoints * 100) / 100,
+      games_played: gamesPlayed
+    });
+
+    // Bench points
+    stats.benchPoints.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      total_bench_points: Math.round(m.cumulativeBenchPoints * 100) / 100,
+      avg_bench_points: Math.round((m.cumulativeBenchPoints / gamesPlayed) * 100) / 100,
+      games_played: gamesPlayed
+    });
+
+    // Calculate expected wins for luck calculation
+    let expectedWins = 0;
+    for (const weekData of allWeeklyScores) {
+      const myScore = weekData.scores.find(s => s.managerId === m.manager_id);
+      if (!myScore) continue;
+      
+      // Count how many teams this manager would have beaten this week
+      const otherScores = weekData.scores.filter(s => s.managerId !== m.manager_id);
+      const winsThisWeek = otherScores.filter(s => myScore.points > s.points).length;
+      expectedWins += winsThisWeek / otherScores.length;
+    }
+
+    const actualWins = m.cumulativeWins;
+    const luckFactor = actualWins - expectedWins;
+
+    stats.luck.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      actual_wins: actualWins,
+      expected_wins: Math.round(expectedWins * 100) / 100,
+      luck_factor: Math.round(luckFactor * 100) / 100,
+      wins: m.cumulativeWins,
+      losses: m.cumulativeLosses
+    });
+  }
+
+  // Build rivalries from head-to-head records
+  const rivalryPairs = {};
+  for (const m of Object.values(managerStats)) {
+    for (const [oppId, h2h] of Object.entries(m.headToHead)) {
+      const pairKey = [m.manager_id, parseInt(oppId)].sort().join('-');
+      if (!rivalryPairs[pairKey]) {
+        const opponent = managerStats[oppId];
+        rivalryPairs[pairKey] = {
+          manager1_id: m.manager_id,
+          manager1_name: m.manager_name,
+          manager1_logo: m.team_logo,
+          manager2_id: parseInt(oppId),
+          manager2_name: opponent?.manager_name || 'Unknown',
+          manager2_logo: opponent?.team_logo || null,
+          games: h2h.wins + h2h.losses + h2h.ties,
+          manager1_wins: h2h.wins,
+          manager2_wins: h2h.losses,
+          ties: h2h.ties,
+          total_points: h2h.pointsFor + h2h.pointsAgainst,
+          avg_combined_score: 0
+        };
+      }
+    }
+  }
+
+  // Calculate average combined score and determine "biggest" rivalries
+  for (const rivalry of Object.values(rivalryPairs)) {
+    if (rivalry.games > 0) {
+      rivalry.avg_combined_score = Math.round((rivalry.total_points / rivalry.games) * 100) / 100;
+    }
+    stats.rivalries.push(rivalry);
+  }
+
+  // Sort all stats
+  stats.highScores.sort((a, b) => b.score - a.score);
+  stats.lowScores.sort((a, b) => a.score - b.score);
+  stats.consistency.sort((a, b) => a.std_dev - b.std_dev); // Lower is more consistent
+  stats.boomBust.sort((a, b) => b.std_dev - a.std_dev); // Higher is more boom-bust
+  stats.avgPoints.sort((a, b) => b.avg_points - a.avg_points);
+  stats.luck.sort((a, b) => b.luck_factor - a.luck_factor); // Higher is luckier
+  stats.benchPoints.sort((a, b) => b.total_bench_points - a.total_bench_points);
+  stats.rivalries.sort((a, b) => b.games - a.games || b.avg_combined_score - a.avg_combined_score);
+
+  return stats;
 }
