@@ -28,6 +28,23 @@ export async function load({ url, fetch }) {
     [selectedSeasonId]
   );
   let managers = managersResult.rows;
+
+  // Get team mapping (platform_team_id -> manager_id) for Sleeper API data
+  const teamMappingResult = await query(
+    `SELECT t.team_id, t.manager_id, t.platform_team_id, m.name as manager_name
+     FROM teams t
+     JOIN managers m ON t.manager_id = m.manager_id
+     WHERE t.season_id = $1 AND t.platform_team_id IS NOT NULL`,
+    [selectedSeasonId]
+  );
+  const teamMapping = {};
+  for (const row of teamMappingResult.rows) {
+    // Map Sleeper roster_id (platform_team_id) to internal manager_id
+    teamMapping[row.platform_team_id] = {
+      manager_id: row.manager_id,
+      manager_name: row.manager_name
+    };
+  }
   
   // Get running average points data
   const avgPointsResult = await query(
@@ -113,7 +130,7 @@ export async function load({ url, fetch }) {
         const weeklyMatchups = await Promise.all(matchupPromises);
 
         // Build standings and power rank data from Sleeper matchups
-        const sleeperData = buildRankingsFromSleeper(weeklyMatchups, managers, selectedSeasonId);
+        const sleeperData = buildRankingsFromSleeper(weeklyMatchups, managers, selectedSeasonId, teamMapping);
         
         if (standingsRankData.length === 0) {
           standingsRankData = sleeperData.standingsRankData;
@@ -163,11 +180,17 @@ function buildManagersFromSleeper(leagueTeamManagers, rostersData) {
 }
 
 // Build standings and power rankings from Sleeper matchup data
-function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId) {
-  // Track cumulative stats per manager (keyed by roster_id)
+function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId, teamMapping) {
+  // Track cumulative stats per manager (keyed by internal manager_id)
   const managerStats = {};
   
-  // Initialize all managers
+  // Create reverse lookup: Sleeper roster_id -> internal manager_id
+  const rosterToManager = {};
+  for (const [platformId, mapping] of Object.entries(teamMapping)) {
+    rosterToManager[parseInt(platformId)] = mapping.manager_id;
+  }
+  
+  // Initialize all managers from DB
   for (const manager of managers) {
     managerStats[manager.manager_id] = {
       manager_id: manager.manager_id,
@@ -204,26 +227,30 @@ function buildRankingsFromSleeper(weeklyMatchups, managers, seasonId) {
       if (teams.length !== 2) continue;
 
       const [team1, team2] = teams;
-      const rosterId1 = team1.roster_id;
-      const rosterId2 = team2.roster_id;
       
-      if (!managerStats[rosterId1] || !managerStats[rosterId2]) continue;
+      // Map Sleeper roster_id to internal manager_id
+      const managerId1 = rosterToManager[team1.roster_id];
+      const managerId2 = rosterToManager[team2.roster_id];
+      
+      // Skip if we can't find the manager mapping
+      if (!managerId1 || !managerId2) continue;
+      if (!managerStats[managerId1] || !managerStats[managerId2]) continue;
 
       const points1 = team1.points || 0;
       const points2 = team2.points || 0;
 
       // Update cumulative stats
-      managerStats[rosterId1].cumulativePoints += points1;
-      managerStats[rosterId2].cumulativePoints += points2;
-      managerStats[rosterId1].weeklyPoints.push(points1);
-      managerStats[rosterId2].weeklyPoints.push(points2);
+      managerStats[managerId1].cumulativePoints += points1;
+      managerStats[managerId2].cumulativePoints += points2;
+      managerStats[managerId1].weeklyPoints.push(points1);
+      managerStats[managerId2].weeklyPoints.push(points2);
 
       if (points1 > points2) {
-        managerStats[rosterId1].cumulativeWins++;
-        managerStats[rosterId2].cumulativeLosses++;
+        managerStats[managerId1].cumulativeWins++;
+        managerStats[managerId2].cumulativeLosses++;
       } else if (points2 > points1) {
-        managerStats[rosterId2].cumulativeWins++;
-        managerStats[rosterId1].cumulativeLosses++;
+        managerStats[managerId2].cumulativeWins++;
+        managerStats[managerId1].cumulativeLosses++;
       }
     }
 
