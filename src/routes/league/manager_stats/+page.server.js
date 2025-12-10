@@ -140,14 +140,19 @@ export async function load({ url, fetch }) {
           managers = buildManagersFromSleeper(leagueTeamManagers, rostersData);
         }
 
-        // Determine current week
+        // Determine current week using same logic as elsewhere
+        const regularSeasonLength = leagueData.settings?.playoff_week_start 
+          ? leagueData.settings.playoff_week_start - 1 
+          : 14;
+        
         let currentWeek = 0;
         if (nflState.season_type === 'regular') {
-          currentWeek = nflState.display_week > 1 ? nflState.display_week - 1 : 0;
+          // Cap at end of regular season
+          currentWeek = nflState.display_week > regularSeasonLength 
+            ? regularSeasonLength + 1 
+            : nflState.display_week;
         } else if (nflState.season_type === 'post') {
-          currentWeek = leagueData.settings?.playoff_week_start 
-            ? leagueData.settings.playoff_week_start - 1 
-            : 14;
+          currentWeek = regularSeasonLength + 1;
         }
 
         if (currentWeek > 0 && managers.length > 0) {
