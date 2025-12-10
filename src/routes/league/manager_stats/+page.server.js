@@ -236,11 +236,23 @@ function buildManagersFromSleeper(leagueTeamManagers, rostersData) {
       // Find the roster to get owner_id
       const roster = rosters.find(r => r.roster_id === teamData.visRoster);
       
+      // Format avatar URL - Sleeper avatars are stored as IDs and need full URL
+      let avatarUrl = null;
+      if (teamData.visAvatar) {
+        // If it's already a full URL, use it directly
+        if (teamData.visAvatar.startsWith('http')) {
+          avatarUrl = teamData.visAvatar;
+        } else {
+          // Convert Sleeper avatar ID to full URL
+          avatarUrl = `https://sleepercdn.com/avatars/${teamData.visAvatar}`;
+        }
+      }
+      
       managers.push({
         manager_id: teamData.visRoster, // Use roster_id as manager_id
         manager_name: teamData.visName || `Team ${teamData.visRoster}`,
         team_name: teamData.visName || `Team ${teamData.visRoster}`,
-        team_logo: teamData.visAvatar || null
+        team_logo: avatarUrl
       });
     }
   }
