@@ -757,11 +757,12 @@ function calculateSeasonStatsShared(managerStats, allWeeklyScores, hasBenchData)
     const variance = scores.reduce((sum, p) => sum + Math.pow(p - avgPoints, 2), 0) / gamesPlayed;
     const stdDev = Math.sqrt(variance);
 
-    // Find high and low scores
+    // Find high and low scores (filter out 0s for low score - unplayed weeks)
     const highScore = Math.max(...scores);
-    const lowScore = Math.min(...scores);
+    const playedScores = scores.filter(s => s > 0);
+    const lowScore = playedScores.length > 0 ? Math.min(...playedScores) : 0;
     const highWeek = m.weeklyScores.find(s => s.points === highScore)?.week;
-    const lowWeek = m.weeklyScores.find(s => s.points === lowScore)?.week;
+    const lowWeek = m.weeklyScores.find(s => s.points === lowScore && s.points > 0)?.week;
 
     // Add to high/low scores
     stats.highScores.push({
@@ -773,14 +774,17 @@ function calculateSeasonStatsShared(managerStats, allWeeklyScores, hasBenchData)
       week: highWeek
     });
 
-    stats.lowScores.push({
-      manager_id: m.manager_id,
-      manager_name: m.manager_name,
-      team_name: m.team_name,
-      team_logo: m.team_logo,
-      score: Math.round(lowScore * 100) / 100,
-      week: lowWeek
-    });
+    // Only add to low scores if there's a valid played game
+    if (lowScore > 0) {
+      stats.lowScores.push({
+        manager_id: m.manager_id,
+        manager_name: m.manager_name,
+        team_name: m.team_name,
+        team_logo: m.team_logo,
+        score: Math.round(lowScore * 100) / 100,
+        week: lowWeek
+      });
+    }
 
     // Consistency stats
     stats.consistency.push({
