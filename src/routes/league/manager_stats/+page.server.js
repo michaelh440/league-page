@@ -34,13 +34,21 @@ export async function load({ url, fetch }) {
     let managerAvatars = {};
     try {
       const avatarsResult = await query(
-        `SELECT manager_id, username, COALESCE(logo_url, platform_logo_url) AS avatar
+        `SELECT manager_id, username, logo_url, platform_logo_url
          FROM managers`
       );
       for (const row of avatarsResult.rows) {
+        // Determine avatar URL - prefer logo_url, fall back to platform_logo_url
+        let avatar = row.logo_url || row.platform_logo_url || null;
+        
+        // If avatar exists but isn't a full URL, prepend Sleeper CDN
+        if (avatar && !avatar.startsWith('http')) {
+          avatar = `https://sleepercdn.com/avatars/${avatar}`;
+        }
+        
         managerAvatars[row.manager_id] = {
           manager_name: row.username,
-          avatar: row.avatar
+          avatar: avatar
         };
       }
       
