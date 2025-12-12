@@ -30,6 +30,30 @@ export async function load({ url, fetch }) {
     );
     let managers = managersResult.rows;
 
+    // Get manager avatars directly from managers table (as fallback for any season)
+    let managerAvatars = {};
+    try {
+      const avatarsResult = await query(
+        `SELECT manager_id, username, COALESCE(logo_url, platform_logo_url) AS avatar
+         FROM managers`
+      );
+      for (const row of avatarsResult.rows) {
+        managerAvatars[row.manager_id] = {
+          manager_name: row.username,
+          avatar: row.avatar
+        };
+      }
+      
+      // Fill in missing avatars for managers
+      for (const manager of managers) {
+        if (!manager.team_logo && managerAvatars[manager.manager_id]?.avatar) {
+          manager.team_logo = managerAvatars[manager.manager_id].avatar;
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching manager avatars:', e.message);
+    }
+
     // Get team mapping (platform_team_id -> manager_id) for Sleeper API data
     let teamMapping = {};
     try {
@@ -138,6 +162,18 @@ export async function load({ url, fetch }) {
         // If managers list is empty, build it from Sleeper data
         if (managers.length === 0 && leagueTeamManagers) {
           managers = buildManagersFromSleeper(leagueTeamManagers, rostersData);
+          
+          // Apply avatars from PostgreSQL managers table using teamMapping
+          for (const manager of managers) {
+            // manager.manager_id is Sleeper roster_id, map to internal manager_id
+            const mapping = teamMapping[manager.manager_id];
+            const internalManagerId = mapping?.manager_id || manager.manager_id;
+            
+            if (managerAvatars[internalManagerId]) {
+              manager.team_logo = managerAvatars[internalManagerId].avatar || manager.team_logo;
+              manager.manager_name = managerAvatars[internalManagerId].manager_name || manager.manager_name;
+            }
+          }
         }
 
         // Determine current week using same logic as elsewhere
