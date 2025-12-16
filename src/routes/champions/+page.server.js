@@ -4,7 +4,7 @@ import { query } from '$lib/db';
 
 export async function load() {
   try {
-    // Get all champions with manager details joined - EXCLUDING DISPUTED CHAMPIONSHIPS
+    // Get all champions with manager details joined - INCLUDING DISPUTED (with flag)
     const champions = (await query(`
       SELECT 
         hr.season_year,
@@ -16,6 +16,7 @@ export async function load() {
         m.real_name,
         m.logo_url,
         m.team_alias,
+        COALESCE(s.disputed_championship, false) as disputed_championship,
         -- Championship count excludes disputed
         (
           SELECT COUNT(*) 
@@ -33,7 +34,6 @@ export async function load() {
       JOIN managers m ON hr.manager_id = m.manager_id
       JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
-        AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
       ORDER BY hr.season_year DESC, hr.manager_id
     `)).rows;
 
