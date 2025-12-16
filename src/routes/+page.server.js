@@ -11,6 +11,7 @@ export async function load() {
 
 	// ==========================================
 	// CHAMPIONS DATA FROM DATABASE
+	// (Excluding disputed championships)
 	// ==========================================
 	let champions = [];
 	let managersByCountRaw = [];
@@ -18,6 +19,7 @@ export async function load() {
 	try {
 		console.log('Attempting to load championship data...');
 		
+		// Get champions, excluding disputed championships
 		champions = (await query(`
 			SELECT 
 				hr.season_year,
@@ -29,12 +31,15 @@ export async function load() {
 				m.logo_url
 			FROM public.historical_rankings hr
 			JOIN public.managers m ON hr.manager_id = m.manager_id
+			JOIN public.seasons s ON hr.season_year = s.season_year
 			WHERE hr.final_rank = 1
+			  AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
 			ORDER BY hr.season_year DESC
 		`)).rows;
 		
 		console.log('Champions loaded successfully:', champions.length, 'records');
 
+		// Get managers by championship count, excluding disputed championships
 		managersByCountRaw = (await query(`
 			SELECT 
 				hr.manager_id,
@@ -45,7 +50,9 @@ export async function load() {
 				ARRAY_AGG(hr.season_year ORDER BY hr.season_year DESC) as championship_years
 			FROM public.historical_rankings hr
 			JOIN public.managers m ON hr.manager_id = m.manager_id
+			JOIN public.seasons s ON hr.season_year = s.season_year
 			WHERE hr.final_rank = 1
+			  AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
 			GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url
 			ORDER BY championship_count DESC, MIN(hr.season_year) ASC
 		`)).rows;

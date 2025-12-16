@@ -51,7 +51,7 @@ export async function load() {
     LIMIT 10
   `)).rows;
 
-  // Championships (final_rank = 1)
+  // Championships (final_rank = 1) - EXCLUDING DISPUTED CHAMPIONSHIPS
   const championships = (await query(`
     SELECT 
       m.username as manager_name,
@@ -60,7 +60,9 @@ export async function load() {
       array_agg(hr.season_year ORDER BY hr.season_year) as championship_years
     FROM historical_rankings hr
     JOIN managers m ON hr.manager_id = m.manager_id
+    JOIN seasons s ON hr.season_year = s.season_year
     WHERE hr.final_rank = 1
+      AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
     GROUP BY hr.manager_id, m.username, m.logo_url
     ORDER BY championships DESC
   `)).rows;
