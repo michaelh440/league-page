@@ -110,6 +110,7 @@
 			</div>
 			<div class="card-actions">
 				<a href="/admin/seasons">Manage Seasons</a>
+				<a href="/admin/disputed_championship">Disputed Championships</a>
 			</div>
 		</div>
 

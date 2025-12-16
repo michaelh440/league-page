@@ -141,8 +141,9 @@ export const tabs = [
       { icon: 'bar_chart', label: 'All Time League Stats', dest: '/league/all_time_stats' },
       { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' },
       { icon: 'sports', label: 'Playoff Stats', dest: '/league/playoff_stats' },
+      { icon: 'emoji_events', label: 'Streaks', dest: '/league/streaks' },
       { icon: 'compare_arrows', label: 'Matchups/Rivalries', dest: '/league/rivalries' },
-      //{ icon: 'emoji_events', label: 'Streaks', dest: '/league/streaks' },
+      { icon: 'person', label: 'Ranking', dest: '/league/ranking' },
       //{ icon: 'history_edu', label: 'Trophy Room', dest: '/league/trophy_room' },
       { icon: 'history_edu', label: 'Draft Room', dest: '/drafts/previous_seasons' }
     ]

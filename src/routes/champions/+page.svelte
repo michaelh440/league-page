@@ -486,7 +486,6 @@
   }
 </style-->
 
-
 <script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
   import StatCard from '$lib/components/StatCard.svelte';
@@ -494,6 +493,9 @@
   
   export let data;
   const { champions, stats, managersByCount } = data;
+
+  // Check if there are any disputed championships
+  $: hasDisputed = champions?.some(c => c.disputed_championship);
 
   // Navigation items for the stats section
   const navItems = [
@@ -567,7 +569,10 @@
           {#each managersByCount as manager}
             <div 
               class="champion-card"
-              onclick={() => handleManagerClick(manager.manager_id)}
+              on:click={() => handleManagerClick(manager.manager_id)}
+              on:keypress={(e) => e.key === 'Enter' && handleManagerClick(manager.manager_id)}
+              role="button"
+              tabindex="0"
             >
               <div class="champion-avatar-container">
                 <img 
@@ -581,10 +586,10 @@
                 {#each manager.championship_years as year}
                   <span 
                     class="year-badge"
-                    onclick={(e) => {
-                      e.stopPropagation();
-                      handleChampionshipClick({ season_year: year });
-                    }}
+                    on:click|stopPropagation={() => handleChampionshipClick({ season_year: year })}
+                    on:keypress|stopPropagation={(e) => e.key === 'Enter' && handleChampionshipClick({ season_year: year })}
+                    role="button"
+                    tabindex="0"
                   >
                     {year}
                   </span>
@@ -609,43 +614,58 @@
           {#each champions as champion}
             <tr 
               class="clickable-row"
-              onclick={() => handleChampionshipClick(champion)}
+              class:disputed-row={champion.disputed_championship}
+              on:click={() => handleChampionshipClick(champion)}
+              on:keypress={(e) => e.key === 'Enter' && handleChampionshipClick(champion)}
+              role="button"
+              tabindex="0"
             >
               <td class="year-cell">{champion.season_year}</td>
               <td class="team-cell">
-                <img src="{champion.avatar_url || '/default-avatar.png'}" alt="{champion.manager_name}" class="team-logo" />
-                {champion.manager_name}
+                {#if champion.disputed_championship}
+                  <span class="disputed-badge">⚠️ Disputed</span>
+                {:else}
+                  <img src="{champion.avatar_url || '/default-avatar.png'}" alt="{champion.manager_name}" class="team-logo" />
+                  {champion.manager_name}
+                {/if}
               </td>
-              <td>#{champion.regular_season_rank || 'N/A'}</td>
-              <td class="status-cell">{champion.playoff_status || 'N/A'}</td>
-              <td>{champion.total_seasons}</td>
+              <td>{#if champion.disputed_championship}—{:else}#{champion.regular_season_rank || 'N/A'}{/if}</td>
+              <td class="status-cell">{#if champion.disputed_championship}—{:else}{champion.playoff_status || 'N/A'}{/if}</td>
+              <td>{#if champion.disputed_championship}—{:else}{champion.total_seasons}{/if}</td>
             </tr>
           {:else}
             <tr><td colspan="5" class="text-center text-gray-600">No championship data available</td></tr>
           {/each}
         </tbody>
       </table>
+      {#if hasDisputed}
+        <div class="disputed-footnote">
+          ⚠️ Disputed championships are not counted in official records
+        </div>
+      {/if}
     </StatCard>
 
-    <!-- Current Champion Spotlight -->
+    <!-- Current Champion Spotlight (only show if not disputed) -->
     {#if champions.length > 0}
-      {@const currentChampion = champions[0]}
-      <StatCard size="lg">
-        <div class="current-champion-display">
-          <h3 class="current-champ-title">{currentChampion.season_year} Champion</h3>
-          <div class="champ-info">
-            <img src="{currentChampion.avatar_url || '/default-avatar.png'}" alt="{currentChampion.manager_name}" class="current-champ-avatar" />
-            <div class="champ-details">
-              <div class="champ-name">{currentChampion.manager_name}</div>
-              <div class="champ-stats">
-                <span>Regular Season: #{currentChampion.regular_season_rank}</span>
-                <span>Total Championships: {currentChampion.championship_count}</span>
-                <span>Seasons Played: {currentChampion.total_seasons}</span>
+      {@const currentChampion = champions.find(c => !c.disputed_championship) || champions[0]}
+      {#if !currentChampion.disputed_championship}
+        <StatCard size="lg">
+          <div class="current-champion-display">
+            <h3 class="current-champ-title">{currentChampion.season_year} Champion</h3>
+            <div class="champ-info">
+              <img src="{currentChampion.avatar_url || '/default-avatar.png'}" alt="{currentChampion.manager_name}" class="current-champ-avatar" />
+              <div class="champ-details">
+                <div class="champ-name">{currentChampion.manager_name}</div>
+                <div class="champ-stats">
+                  <span>Regular Season: #{currentChampion.regular_season_rank}</span>
+                  <span>Total Championships: {currentChampion.championship_count}</span>
+                  <span>Seasons Played: {currentChampion.total_seasons}</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </StatCard>
+        </StatCard>
+      {/if}
     {/if}
 
   </div>
@@ -700,6 +720,38 @@
   
   .clickable-row:hover {
     background: #e3f2fd !important;
+  }
+
+  /* Disputed row styling */
+  .disputed-row {
+    background: #fef3c7 !important;
+  }
+
+  .disputed-row:hover {
+    background: #fde68a !important;
+  }
+
+  .disputed-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #dc2626;
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .disputed-footnote {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #92400e;
+    text-align: center;
   }
   
   .table-title {
@@ -832,23 +884,6 @@
     grid-column: 1 / -1;
   }
 
-  .year-badge {
-    background: #1f2937;
-    color: #ffd700;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .year-badge:hover {
-    background: #ffd700;
-    color: #1f2937;
-    transform: scale(1.05);
-  }
-
   .year-cell {
     font-weight: bold;
     color: #1f2937;
@@ -971,6 +1006,11 @@
 
     .years-cell {
       flex-direction: column;
+    }
+
+    .disputed-footnote {
+      font-size: 0.75rem;
+      padding: 0.5rem;
     }
   }
 </style>
