@@ -4,7 +4,7 @@ import { query } from '$lib/db';
 
 export async function load() {
   try {
-    // Get all champions with manager details joined
+    // Get all champions with manager details joined - EXCLUDING DISPUTED CHAMPIONSHIPS
     const champions = (await query(`
       SELECT 
         hr.season_year,
@@ -16,14 +16,24 @@ export async function load() {
         m.real_name,
         m.logo_url,
         m.team_alias,
-        COUNT(*) OVER (PARTITION BY hr.manager_id) as championship_count,
+        -- Championship count excludes disputed
+        (
+          SELECT COUNT(*) 
+          FROM historical_rankings hr_count 
+          JOIN seasons s_count ON hr_count.season_year = s_count.season_year
+          WHERE hr_count.manager_id = hr.manager_id 
+            AND hr_count.final_rank = 1
+            AND (s_count.disputed_championship IS NULL OR s_count.disputed_championship = false)
+        ) as championship_count,
         -- Get their total seasons played
         (SELECT COUNT(*) FROM historical_rankings hr2 WHERE hr2.manager_id = hr.manager_id) as total_seasons,
         -- Get their playoff appearances
         (SELECT COUNT(*) FROM historical_rankings hr3 WHERE hr3.manager_id = hr.manager_id AND hr3.playoff_status IN ('championship', 'consolation')) as playoff_appearances
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
+      JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
+        AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
       ORDER BY hr.season_year DESC, hr.manager_id
     `)).rows;
 
@@ -34,7 +44,7 @@ export async function load() {
       avatar_url: champ.logo_url
     }));
 
-    // Get championship summary stats
+    // Get championship summary stats - EXCLUDING DISPUTED CHAMPIONSHIPS
     const statsQuery = await query(`
       SELECT 
         COUNT(DISTINCT hr.manager_id) as unique_champions,
@@ -43,7 +53,9 @@ export async function load() {
         MAX(hr.season_year) as latest_season
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
+      JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
+        AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
     `);
     
     const stats = statsQuery.rows[0] || {
@@ -54,13 +66,15 @@ export async function load() {
       most_championships_by_one: 0
     };
 
-    // Get most championships by one manager
+    // Get most championships by one manager - EXCLUDING DISPUTED CHAMPIONSHIPS
     if (stats.total_championships > 0) {
       const maxChamps = (await query(`
         SELECT COUNT(*) as count
         FROM historical_rankings hr
         JOIN managers m ON hr.manager_id = m.manager_id
+        JOIN seasons s ON hr.season_year = s.season_year
         WHERE hr.final_rank = 1 
+          AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
         GROUP BY hr.manager_id
         ORDER BY count DESC
         LIMIT 1
@@ -68,7 +82,7 @@ export async function load() {
       stats.most_championships_by_one = maxChamps ? maxChamps.count : 0;
     }
 
-    // Get managers grouped by championship count with their details
+    // Get managers grouped by championship count with their details - EXCLUDING DISPUTED CHAMPIONSHIPS
     const managersData = (await query(`
       SELECT 
         hr.manager_id,
@@ -80,7 +94,9 @@ export async function load() {
         ARRAY_AGG(hr.season_year ORDER BY hr.season_year DESC) as championship_years
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
+      JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
+        AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
       GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url, m.team_alias
       ORDER BY championship_count DESC, MIN(hr.season_year) ASC
     `)).rows;
