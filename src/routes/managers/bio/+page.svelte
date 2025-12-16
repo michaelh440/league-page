@@ -16,6 +16,10 @@
   $: careerStats = data.careerStats;
   $: playoffStats = data.playoffStats;
   
+  // Check if any season has a disputed championship (for showing footnote)
+  $: hasDisputedSeason = careerStats?.seasonHistory?.some(s => s.disputed_championship) || 
+                         playoffStats?.playoffHistory?.some(s => s.disputed_championship);
+  
   // Update select element when managerId changes
   $: if (selectElement && managerId) {
     selectElement.value = managerId;
@@ -232,7 +236,7 @@
                 </thead>
                 <tbody>
                   {#each careerStats.seasonHistory as season}
-                    <tr>
+                    <tr class:disputed-row={season.disputed_championship}>
                       <td>{season.year}</td>
                       <td>{season.wins || 0}</td>
                       <td>{season.losses || 0}</td>
@@ -247,7 +251,9 @@
                       <td>{season.avg_points_against || '0.0'}</td>
                       <td>
                         {#if season.finish}
-                          <span class="finish-badge rank-{season.finish}">{season.finish}</span>
+                          <span class="finish-badge rank-{season.finish}" class:disputed={season.disputed_championship}>
+                            {season.finish}{#if season.disputed_championship}<span class="asterisk">*</span>{/if}
+                          </span>
                         {:else}
                           <span class="finish-badge tbd">TBD</span>
                         {/if}
@@ -261,6 +267,11 @@
                 </tbody>
               </table>
             </div>
+            {#if careerStats.seasonHistory?.some(s => s.disputed_championship)}
+              <div class="disputed-footnote">
+                <span class="asterisk">*</span> Disputed championship - not counted in official records
+              </div>
+            {/if}
           </div>
         </StatCard>
       </section>
@@ -316,7 +327,7 @@
                   </thead>
                   <tbody>
                     {#each playoffStats.playoffHistory as playoff}
-                      <tr>
+                      <tr class:disputed-row={playoff.disputed_championship}>
                         <td>{playoff.year}</td>
                         <td>{playoff.wins || 0}</td>
                         <td>{playoff.losses || 0}</td>
@@ -324,7 +335,9 @@
                         <td>{playoff.avg_points_against || '0.0'}</td>
                         <td>
                           {#if playoff.finish && playoff.finish !== 99}
-                            <span class="finish-badge rank-{playoff.finish}">{playoff.finish}</span>
+                            <span class="finish-badge rank-{playoff.finish}" class:disputed={playoff.disputed_championship}>
+                              {playoff.finish}{#if playoff.disputed_championship}<span class="asterisk">*</span>{/if}
+                            </span>
                           {:else}
                             <span class="finish-badge tbd">TBD</span>
                           {/if}
@@ -338,6 +351,11 @@
                   </tbody>
                 </table>
               </div>
+              {#if playoffStats.playoffHistory?.some(s => s.disputed_championship)}
+                <div class="disputed-footnote">
+                  <span class="asterisk">*</span> Disputed championship - not counted in official records
+                </div>
+              {/if}
             </div>
           </StatCard>
 
@@ -693,6 +711,15 @@
     color: #374151;
   }
 
+  /* Disputed row styling */
+  .disputed-row {
+    background: #fef3c7 !important;
+  }
+
+  .disputed-row:hover {
+    background: #fde68a !important;
+  }
+
   .playoffs-yes {
     color: #16a34a;
     font-weight: bold;
@@ -708,6 +735,9 @@
     border-radius: 6px;
     font-weight: bold;
     color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
   }
 
   .finish-badge.rank-1 { background: #fbbf24; }
@@ -720,6 +750,39 @@
   .finish-badge.tbd {
     background: #6c757d;
     color: white;
+  }
+
+  /* Disputed finish badge styling */
+  .finish-badge.disputed {
+    position: relative;
+    opacity: 0.85;
+    border: 2px dashed #92400e;
+  }
+
+  .finish-badge .asterisk {
+    color: #dc2626;
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-left: 1px;
+  }
+
+  /* Disputed footnote */
+  .disputed-footnote {
+    margin-top: 1rem;
+    padding: 0.75rem 1rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    color: #92400e;
+    text-align: center;
+  }
+
+  .disputed-footnote .asterisk {
+    color: #dc2626;
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-right: 4px;
   }
 
   .no-data {
@@ -883,6 +946,11 @@
       width: 40px;
       height: 40px;
       font-size: 1.2rem;
+    }
+
+    .disputed-footnote {
+      font-size: 0.75rem;
+      padding: 0.5rem;
     }
   }
 </style>
