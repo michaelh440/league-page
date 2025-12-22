@@ -407,12 +407,12 @@
                       class="year-badge"
                       on:click={(e) => {
                         e.stopPropagation();
-                        window.location.href = `/standings/${year}`;
+                        window.location.href = `/seasons/${year}/playoffs`;
                       }}
                       on:keypress={(e) => {
                         if (e.key === 'Enter') {
                           e.stopPropagation();
-                          window.location.href = `/standings/${year}`;
+                          window.location.href = `/seasons/${year}/playoffs`;
                         }
                       }}
                       role="button"
