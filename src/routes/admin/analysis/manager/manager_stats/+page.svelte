@@ -1,0 +1,1526 @@
+<script>
+  import { onMount, onDestroy } from 'svelte';
+  import { browser } from '$app/environment';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
+  import StatsLayout from '$lib/components/StatsLayout.svelte';
+  import StatCard from '$lib/components/StatCard.svelte';
+
+  export let data;
+
+  // Chart.js loaded dynamically on client side only
+  let Chart = null;
+
+  // Navigation items
+  const navItems = [
+    //{ label: "All Time Scoring", href: "/league/all_time_stats" },
+    //{ label: "Regular Season Scoring", href: "/league/reg_season_stats" },
+    //{ label: "Playoff Scoring", href: "/league/playoff_stats" },
+    //{ label: "Streaks", href: "/league/streaks" },
+    { label: "Manager Stats Charts", href: "/admin/analysis/manager/manager_stats", active: true },
+    //{ label: "Ranking", href: "/league/ranking" },
+    //{ label: "Rivalries", href: "/league/rivalries" },
+    { label: "Draft Charts", href: "/admin/drafts/current_season/performance_tracking" }
+  ];
+
+  // State
+  let selectedSeason = data.selectedSeasonId;
+  let selectedManagers = [];
+  let includePlayoffs = false;
+  let isManagerDropdownOpen = false;
+
+  // Chart instances
+  let avgPointsChart = null;
+  let avgMarginChart = null;
+  let weeklyMarginChart = null;
+  let standingsRankChart = null;
+  let powerRankChart = null;
+
+  // Chart canvas references
+  let avgPointsCanvas;
+  let avgMarginCanvas;
+  let weeklyMarginCanvas;
+  let standingsRankCanvas;
+  let powerRankCanvas;
+
+  // Predefined colors for managers (up to 12)
+  const managerColors = [
+    { bg: 'rgba(54, 162, 235, 0.2)', border: 'rgb(54, 162, 235)' },
+    { bg: 'rgba(255, 99, 132, 0.2)', border: 'rgb(255, 99, 132)' },
+    { bg: 'rgba(75, 192, 192, 0.2)', border: 'rgb(75, 192, 192)' },
+    { bg: 'rgba(255, 159, 64, 0.2)', border: 'rgb(255, 159, 64)' },
+    { bg: 'rgba(153, 102, 255, 0.2)', border: 'rgb(153, 102, 255)' },
+    { bg: 'rgba(255, 205, 86, 0.2)', border: 'rgb(255, 205, 86)' },
+    { bg: 'rgba(201, 203, 207, 0.2)', border: 'rgb(201, 203, 207)' },
+    { bg: 'rgba(255, 99, 255, 0.2)', border: 'rgb(255, 99, 255)' },
+    { bg: 'rgba(99, 255, 132, 0.2)', border: 'rgb(99, 255, 132)' },
+    { bg: 'rgba(132, 99, 255, 0.2)', border: 'rgb(132, 99, 255)' },
+    { bg: 'rgba(255, 132, 99, 0.2)', border: 'rgb(255, 132, 99)' },
+    { bg: 'rgba(99, 255, 255, 0.2)', border: 'rgb(99, 255, 255)' }
+  ];
+
+  // Get color for a manager based on their index in selection
+  function getManagerColor(managerId) {
+    const index = selectedManagers.indexOf(managerId);
+    return managerColors[index % managerColors.length];
+  }
+
+  // Build labels for x-axis (weeks + playoff rounds)
+  function buildLabels(managerData, includePlayoffs) {
+    const labels = new Set();
+    managerData.forEach(row => {
+      if (!includePlayoffs && row.game_type === 'playoff') return;
+      const label = row.game_type === 'playoff' 
+        ? `P${row.week}` 
+        : `W${row.week}`;
+      labels.add(label);
+    });
+    return Array.from(labels).sort((a, b) => {
+      const aIsPlayoff = a.startsWith('P');
+      const bIsPlayoff = b.startsWith('P');
+      if (aIsPlayoff !== bIsPlayoff) return aIsPlayoff ? 1 : -1;
+      return parseInt(a.slice(1)) - parseInt(b.slice(1));
+    });
+  }
+
+  // Filter data for selected managers and playoff toggle
+  function filterData(allData, managerId, includePlayoffs) {
+    return allData.filter(row => {
+      if (row.manager_id !== managerId) return false;
+      if (!includePlayoffs && row.game_type === 'playoff') return false;
+      return true;
+    });
+  }
+
+  // Create/update Average Points Chart
+  function updateAvgPointsChart() {
+    if (!avgPointsCanvas || !Chart) return;
+    
+    if (avgPointsChart) {
+      avgPointsChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    // Get all data for selected managers
+    const allManagerData = data.avgPointsData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    const labels = buildLabels(allManagerData, includePlayoffs);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = filterData(data.avgPointsData, managerId, includePlayoffs);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = labels.map(label => {
+        const isPlayoff = label.startsWith('P');
+        const week = parseInt(label.slice(1));
+        const row = managerData.find(r => 
+          r.week === week && 
+          (isPlayoff ? r.game_type === 'playoff' : r.game_type === 'regular')
+        );
+        if (!row) return null;
+        return includePlayoffs ? row.running_avg_points_all : row.running_avg_points_reg;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: false,
+        spanGaps: true
+      };
+    });
+
+    avgPointsChart = new Chart(avgPointsCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Running Average Points Scored',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.dataset.label}: ${context.parsed.y?.toFixed(2) || 'N/A'}`
+            }
+          }
+        },
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: 'Points'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Create/update Average Margin Chart
+  function updateAvgMarginChart() {
+    if (!avgMarginCanvas || !Chart) return;
+    
+    if (avgMarginChart) {
+      avgMarginChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    const allManagerData = data.avgMarginData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    const labels = buildLabels(allManagerData, includePlayoffs);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = filterData(data.avgMarginData, managerId, includePlayoffs);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = labels.map(label => {
+        const isPlayoff = label.startsWith('P');
+        const week = parseInt(label.slice(1));
+        const row = managerData.find(r => 
+          r.week === week && 
+          (isPlayoff ? r.game_type === 'playoff' : r.game_type === 'regular')
+        );
+        if (!row) return null;
+        return includePlayoffs ? row.running_avg_margin_all : row.running_avg_margin_reg;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: false,
+        spanGaps: true
+      };
+    });
+
+    avgMarginChart = new Chart(avgMarginCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Running Average Margin of Victory',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const val = context.parsed.y;
+                if (val === null) return 'N/A';
+                const sign = val >= 0 ? '+' : '';
+                return `${context.dataset.label}: ${sign}${val.toFixed(2)}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: 'Margin'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Create/update Weekly Margin Bar Chart
+  function updateWeeklyMarginChart() {
+    if (!weeklyMarginCanvas || !Chart) return;
+    
+    if (weeklyMarginChart) {
+      weeklyMarginChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    const allManagerData = data.weeklyMarginsData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    const labels = buildLabels(allManagerData, includePlayoffs);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = filterData(data.weeklyMarginsData, managerId, includePlayoffs);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = labels.map(label => {
+        const isPlayoff = label.startsWith('P');
+        const week = parseInt(label.slice(1));
+        const row = managerData.find(r => 
+          r.week === week && 
+          (isPlayoff ? r.game_type === 'playoff' : r.game_type === 'regular')
+        );
+        return row ? parseFloat(row.margin) : null;
+      });
+
+      // Color bars based on win/loss
+      const bgColors = labels.map((label, i) => {
+        const val = dataPoints[i];
+        if (val === null) return 'rgba(200, 200, 200, 0.5)';
+        return val >= 0 ? color.bg : color.bg.replace('0.2', '0.5');
+      });
+
+      const borderColors = labels.map((label, i) => {
+        const val = dataPoints[i];
+        if (val === null) return 'rgb(200, 200, 200)';
+        return color.border;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        backgroundColor: bgColors,
+        borderColor: borderColors,
+        borderWidth: 2
+      };
+    });
+
+    weeklyMarginChart = new Chart(weeklyMarginCanvas, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Actual Margin Each Week',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const val = context.parsed.y;
+                if (val === null) return 'N/A';
+                const result = val > 0 ? 'W' : val < 0 ? 'L' : 'T';
+                const sign = val >= 0 ? '+' : '';
+                return `${context.dataset.label}: ${result} (${sign}${val.toFixed(2)})`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            title: {
+              display: true,
+              text: 'Margin'
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Create/update Standings Rank Chart
+  function updateStandingsRankChart() {
+    if (!standingsRankCanvas || !Chart) return;
+    
+    if (standingsRankChart) {
+      standingsRankChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    // Get all data for selected managers
+    const rankData = data.standingsRankData || [];
+    const allManagerData = rankData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    if (allManagerData.length === 0) {
+      return;
+    }
+    
+    // Build labels using same pattern as other charts
+    const labels = buildLabels(allManagerData, includePlayoffs);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = filterData(rankData, managerId, includePlayoffs);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = labels.map(label => {
+        const isPlayoff = label.startsWith('P');
+        const week = parseInt(label.slice(1));
+        const row = managerData.find(r => 
+          r.week === week && 
+          (isPlayoff ? r.game_type === 'playoff' : r.game_type === 'regular')
+        );
+        return row ? row.standings_rank : null;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: false,
+        spanGaps: true
+      };
+    });
+
+    standingsRankChart = new Chart(standingsRankCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Standings Position by Week',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const rank = context.parsed.y;
+                if (rank === null) return 'N/A';
+                const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+                return `${context.dataset.label}: ${rank}${suffix}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            reverse: true, // 1st place at top
+            min: 1,
+            title: {
+              display: true,
+              text: 'Position'
+            },
+            ticks: {
+              stepSize: 1,
+              callback: (value) => {
+                const suffix = value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th';
+                return `${value}${suffix}`;
+              }
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Create/update Power Rank Chart
+  function updatePowerRankChart() {
+    if (!powerRankCanvas || !Chart) return;
+    
+    if (powerRankChart) {
+      powerRankChart.destroy();
+    }
+
+    if (selectedManagers.length === 0) {
+      return;
+    }
+
+    // Get all data for selected managers
+    const rankData = data.powerRankData || [];
+    const allManagerData = rankData.filter(row => 
+      selectedManagers.includes(row.manager_id)
+    );
+    
+    if (allManagerData.length === 0) {
+      return;
+    }
+    
+    // Build labels using same pattern as other charts
+    const labels = buildLabels(allManagerData, includePlayoffs);
+    
+    const datasets = selectedManagers.map(managerId => {
+      const managerData = filterData(rankData, managerId, includePlayoffs);
+      const managerInfo = data.managers.find(m => m.manager_id === managerId);
+      const color = getManagerColor(managerId);
+      
+      const dataPoints = labels.map(label => {
+        const isPlayoff = label.startsWith('P');
+        const week = parseInt(label.slice(1));
+        const row = managerData.find(r => 
+          r.week === week && 
+          (isPlayoff ? r.game_type === 'playoff' : r.game_type === 'regular')
+        );
+        return row ? row.power_rank : null;
+      });
+
+      return {
+        label: managerInfo?.manager_name || `Manager ${managerId}`,
+        data: dataPoints,
+        borderColor: color.border,
+        backgroundColor: color.bg,
+        tension: 0.3,
+        fill: false,
+        spanGaps: true
+      };
+    });
+
+    powerRankChart = new Chart(powerRankCanvas, {
+      type: 'line',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: {
+            display: true,
+            text: 'Power Rankings by Week',
+            font: { size: 16, weight: 'bold' }
+          },
+          legend: {
+            position: 'bottom'
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                const rank = context.parsed.y;
+                if (rank === null) return 'N/A';
+                const suffix = rank === 1 ? 'st' : rank === 2 ? 'nd' : rank === 3 ? 'rd' : 'th';
+                return `${context.dataset.label}: ${rank}${suffix}`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            reverse: true, // 1st place at top
+            min: 1,
+            title: {
+              display: true,
+              text: 'Power Rank'
+            },
+            ticks: {
+              stepSize: 1,
+              callback: (value) => {
+                const suffix = value === 1 ? 'st' : value === 2 ? 'nd' : value === 3 ? 'rd' : 'th';
+                return `${value}${suffix}`;
+              }
+            }
+          },
+          x: {
+            title: {
+              display: true,
+              text: 'Week'
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Update all charts
+  function updateCharts() {
+    updateAvgPointsChart();
+    updateAvgMarginChart();
+    updateWeeklyMarginChart();
+    updateStandingsRankChart();
+    updatePowerRankChart();
+  }
+
+  // Handle season change
+  function handleSeasonChange(event) {
+    const newSeasonId = event.target.value;
+    goto(`?season=${newSeasonId}`, { replaceState: true });
+  }
+
+  // Toggle manager selection
+  function toggleManager(managerId) {
+    if (selectedManagers.includes(managerId)) {
+      selectedManagers = selectedManagers.filter(id => id !== managerId);
+    } else {
+      selectedManagers = [...selectedManagers, managerId];
+    }
+  }
+
+  // Select/deselect all managers
+  function selectAllManagers() {
+    if (selectedManagers.length === data.managers.length) {
+      selectedManagers = [];
+    } else {
+      selectedManagers = data.managers.map(m => m.manager_id);
+    }
+  }
+
+  // Close dropdown when clicking outside
+  function handleClickOutside(event) {
+    const dropdown = document.getElementById('manager-dropdown');
+    if (dropdown && !dropdown.contains(event.target)) {
+      isManagerDropdownOpen = false;
+    }
+  }
+
+  // Track the current season to detect changes
+  let currentSeasonId = data.selectedSeasonId;
+  let chartReady = false;
+  
+  // Reactive: when season changes, update the season tracker and refresh charts
+  $: if (data.selectedSeasonId !== currentSeasonId) {
+    currentSeasonId = data.selectedSeasonId;
+    selectedSeason = data.selectedSeasonId;
+    
+    // Validate that selected managers exist in new season
+    const validManagerIds = data.managers.map(m => m.manager_id);
+    const validSelected = selectedManagers.filter(id => validManagerIds.includes(id));
+    
+    // If no valid managers remain, default to first 2
+    if (validSelected.length === 0) {
+      if (data.managers.length >= 2) {
+        selectedManagers = [data.managers[0].manager_id, data.managers[1].manager_id];
+      } else if (data.managers.length === 1) {
+        selectedManagers = [data.managers[0].manager_id];
+      } else {
+        selectedManagers = [];
+      }
+    } else if (validSelected.length !== selectedManagers.length) {
+      // Some managers weren't in this season, use only valid ones
+      selectedManagers = validSelected;
+    }
+    
+    // Force chart update with new data
+    if (chartReady && Chart) {
+      setTimeout(updateCharts, 50);
+    }
+  }
+
+  // Reactive: update charts whenever these dependencies change
+  $: {
+    // Dependencies: selectedManagers array contents, includePlayoffs, and data
+    const deps = [
+      selectedManagers.join(','),
+      includePlayoffs,
+      data.avgPointsData?.length,
+      data.selectedSeasonId
+    ];
+    
+    if (chartReady && Chart && avgPointsCanvas) {
+      updateCharts();
+    }
+  }
+
+  onMount(async () => {
+    // Dynamically import Chart.js on client side only
+    const chartModule = await import('chart.js/auto');
+    Chart = chartModule.default;
+
+    // Default to first 2 managers selected if available
+    if (data.managers.length >= 2) {
+      selectedManagers = [data.managers[0].manager_id, data.managers[1].manager_id];
+    } else if (data.managers.length === 1) {
+      selectedManagers = [data.managers[0].manager_id];
+    }
+    
+    document.addEventListener('click', handleClickOutside);
+    
+    // Mark charts as ready and do initial render
+    chartReady = true;
+    setTimeout(updateCharts, 100);
+  });
+
+  onDestroy(() => {
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', handleClickOutside);
+    }
+    if (avgPointsChart) avgPointsChart.destroy();
+    if (avgMarginChart) avgMarginChart.destroy();
+    if (weeklyMarginChart) weeklyMarginChart.destroy();
+    if (standingsRankChart) standingsRankChart.destroy();
+    if (powerRankChart) powerRankChart.destroy();
+  });
+</script>
+
+<StatsLayout title="Manager Stats" {navItems}>
+  <div class="page-content">
+  <!-- Controls Section -->
+  <div class="controls-section">
+    <!-- Season Selector -->
+    <div class="control-group">
+      <label for="season-select">Season</label>
+      <select 
+        id="season-select" 
+        bind:value={selectedSeason} 
+        on:change={handleSeasonChange}
+      >
+        {#each data.seasons as season}
+          <option value={season.season_id}>
+            {season.season_year} {season.is_active ? '(Current)' : ''}
+          </option>
+        {/each}
+      </select>
+    </div>
+
+    <!-- Manager Multi-Select -->
+    <div class="control-group" id="manager-dropdown">
+      <label>Managers</label>
+      <button 
+        class="dropdown-trigger"
+        on:click|stopPropagation={() => isManagerDropdownOpen = !isManagerDropdownOpen}
+      >
+        {selectedManagers.length === 0 
+          ? 'Select managers...' 
+          : `${selectedManagers.length} selected`}
+        <span class="dropdown-arrow">{isManagerDropdownOpen ? '▲' : '▼'}</span>
+      </button>
+      
+      {#if isManagerDropdownOpen}
+        <div class="dropdown-menu">
+          <button class="select-all-btn" on:click={selectAllManagers}>
+            {selectedManagers.length === data.managers.length ? 'Deselect All' : 'Select All'}
+          </button>
+          <div class="dropdown-items">
+            {#each data.managers as manager}
+              <label class="dropdown-item">
+                <input 
+                  type="checkbox" 
+                  checked={selectedManagers.includes(manager.manager_id)}
+                  on:change={() => toggleManager(manager.manager_id)}
+                />
+                <span class="manager-option">
+                  {#if manager.team_logo}
+                    <img src={manager.team_logo} alt="" class="mini-logo" />
+                  {/if}
+                  {manager.manager_name}
+                </span>
+              </label>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    <!-- Include Playoffs Toggle -->
+    <div class="control-group toggle-group">
+      <label class="toggle-label">
+        <input 
+          type="checkbox" 
+          bind:checked={includePlayoffs}
+        />
+        <span class="toggle-text">Include Playoffs</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- Selected Managers Display -->
+  {#if selectedManagers.length > 0}
+    <div class="selected-managers">
+      {#each selectedManagers as managerId, i}
+        {@const manager = data.managers.find(m => m.manager_id === managerId)}
+        {@const color = managerColors[i % managerColors.length]}
+        <span 
+          class="manager-tag"
+          style="background-color: {color.bg}; border-color: {color.border};"
+        >
+          {#if manager?.team_logo}
+            <img src={manager.team_logo} alt="" class="tag-logo" />
+          {/if}
+          {manager?.manager_name || 'Unknown'}
+          <button class="remove-tag" on:click={() => toggleManager(managerId)}>×</button>
+        </span>
+      {/each}
+    </div>
+  {/if}
+
+  <!-- Charts Grid -->
+  <div class="charts-grid">
+    <!-- Standings Position Chart -->
+    <StatCard size="full">
+      <div class="chart-container">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view standings history</div>
+        {:else}
+          <canvas bind:this={standingsRankCanvas}></canvas>
+        {/if}
+      </div>
+    </StatCard>
+
+    <!-- Power Rankings Chart -->
+    <StatCard size="full">
+      <div class="chart-container">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view power rankings history</div>
+        {:else}
+          <canvas bind:this={powerRankCanvas}></canvas>
+        {/if}
+      </div>
+    </StatCard>
+
+    <!-- Running Average Points Chart -->
+    <StatCard size="full">
+      <div class="chart-container">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view chart</div>
+        {:else}
+          <canvas bind:this={avgPointsCanvas}></canvas>
+        {/if}
+      </div>
+    </StatCard>
+
+    <!-- Running Average Margin Chart -->
+    <StatCard size="full">
+      <div class="chart-container">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view chart</div>
+        {:else}
+          <canvas bind:this={avgMarginCanvas}></canvas>
+        {/if}
+      </div>
+    </StatCard>
+
+    <!-- Weekly Margin Bar Chart -->
+    <StatCard size="full">
+      <div class="chart-container chart-container-tall">
+        {#if selectedManagers.length === 0}
+          <div class="no-selection">Select at least one manager to view chart</div>
+        {:else}
+          <canvas bind:this={weeklyMarginCanvas}></canvas>
+        {/if}
+      </div>
+    </StatCard>
+  </div>
+
+  <!-- Season Stats Tables -->
+  {#if data.seasonStats}
+    <div class="stats-tables-section">
+      <h2 class="section-title">Season Statistics</h2>
+      
+      <div class="stats-tables-grid">
+        <!-- Highest Single-Week Scores -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🔥 Highest Single-Week Scores</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Score</th>
+                <th>Week</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.highScores.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-green">{row.score}</td>
+                  <td class="num-col">W{row.week}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Lowest Single-Week Scores -->
+        <div class="stats-table-card">
+          <h3 class="table-header">📉 Lowest Single-Week Scores</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Score</th>
+                <th>Week</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.lowScores.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-red">{row.score}</td>
+                  <td class="num-col">W{row.week}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Average Points Per Week -->
+        <div class="stats-table-card">
+          <h3 class="table-header">📊 Average Points Per Week</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Avg</th>
+                <th>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.avgPoints as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col">{row.avg_points}</td>
+                  <td class="num-col">{row.total_points}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Most Consistent (Lowest Std Dev) -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🎯 Most Consistent</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Std Dev</th>
+                <th>Avg</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.consistency.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-green">{row.std_dev}</td>
+                  <td class="num-col">{row.avg_points}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Most Boom-or-Bust (Highest Std Dev) -->
+        <div class="stats-table-card">
+          <h3 class="table-header">💥 Most Boom-or-Bust</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Std Dev</th>
+                <th>High/Low</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.boomBust.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-orange">{row.std_dev}</td>
+                  <td class="num-col">{row.high}/{row.low}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Luckiest Teams -->
+        <div class="stats-table-card">
+          <h3 class="table-header">🍀 Luckiest Teams</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Luck</th>
+                <th>W-L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.luck.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-green">+{row.luck_factor}</td>
+                  <td class="num-col">{row.wins}-{row.losses}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Unluckiest Teams -->
+        <div class="stats-table-card">
+          <h3 class="table-header">😢 Unluckiest Teams</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Luck</th>
+                <th>W-L</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.luck.slice(-5).reverse() as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col highlight-red">{row.luck_factor}</td>
+                  <td class="num-col">{row.wins}-{row.losses}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Points Left on Bench (only available from Sleeper API) -->
+        {#if data.seasonStats.benchPoints && data.seasonStats.benchPoints.length > 0}
+        <div class="stats-table-card">
+          <h3 class="table-header">🪑 Points Left on Bench</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Manager</th>
+                <th>Total</th>
+                <th>Avg/Wk</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.benchPoints.slice(0, 5) as row, i}
+                <tr>
+                  <td class="rank-col">{i + 1}</td>
+                  <td class="manager-col">
+                    {#if row.team_logo}<img src={row.team_logo} alt="" class="table-logo" />{/if}
+                    {row.manager_name}
+                  </td>
+                  <td class="num-col">{row.total_bench_points}</td>
+                  <td class="num-col">{row.avg_bench_points}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+        {/if}
+
+        <!-- Biggest Rivalries -->
+        <div class="stats-table-card wide">
+          <h3 class="table-header">⚔️ Biggest Rivalries</h3>
+          <table class="mini-table">
+            <thead>
+              <tr>
+                <th>Matchup</th>
+                <th>Games</th>
+                <th>Record</th>
+                <th>Avg Score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each data.seasonStats.rivalries.slice(0, 5) as row}
+                <tr>
+                  <td class="rivalry-col">
+                    <span class="rivalry-team">
+                      {#if row.manager1_logo}<img src={row.manager1_logo} alt="" class="table-logo" />{/if}
+                      {row.manager1_name}
+                    </span>
+                    <span class="vs">vs</span>
+                    <span class="rivalry-team">
+                      {#if row.manager2_logo}<img src={row.manager2_logo} alt="" class="table-logo" />{/if}
+                      {row.manager2_name}
+                    </span>
+                  </td>
+                  <td class="num-col">{row.games}</td>
+                  <td class="num-col">{row.manager1_wins}-{row.manager2_wins}{row.ties > 0 ? `-${row.ties}` : ''}</td>
+                  <td class="num-col">{row.avg_combined_score}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  {/if}
+  </div>
+</StatsLayout>
+
+<style>
+  .page-content {
+    padding-right: 1.5rem;
+  }
+
+  .controls-section {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    align-items: flex-end;
+  }
+
+  .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+  }
+
+  .control-group label {
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: #495057;
+  }
+
+  .control-group select {
+    padding: 0.5rem 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    min-width: 150px;
+  }
+
+  .dropdown-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    min-width: 180px;
+    cursor: pointer;
+  }
+
+  .dropdown-trigger:hover {
+    border-color: #adb5bd;
+  }
+
+  .dropdown-arrow {
+    font-size: 0.7rem;
+    margin-left: 0.5rem;
+  }
+
+  .dropdown-menu {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+    min-width: 220px;
+  }
+
+  .select-all-btn {
+    width: 100%;
+    padding: 0.6rem 1rem;
+    background: #e9ecef;
+    border: none;
+    border-bottom: 1px solid #dee2e6;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+
+  .select-all-btn:hover {
+    background: #dee2e6;
+  }
+
+  .dropdown-items {
+    padding: 0.5rem 0;
+  }
+
+  .dropdown-item {
+    display: flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    gap: 0.5rem;
+  }
+
+  .dropdown-item:hover {
+    background: #f8f9fa;
+  }
+
+  .dropdown-item input {
+    cursor: pointer;
+  }
+
+  .manager-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .mini-logo {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .toggle-group {
+    justify-content: flex-end;
+  }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+  }
+
+  .toggle-text {
+    font-weight: 500;
+  }
+
+  .selected-managers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .manager-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    border: 2px solid;
+  }
+
+  .tag-logo {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .remove-tag {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 0.2rem;
+    line-height: 1;
+    opacity: 0.6;
+  }
+
+  .remove-tag:hover {
+    opacity: 1;
+  }
+
+  .charts-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .chart-container {
+    height: 350px;
+    position: relative;
+  }
+
+  .chart-container-tall {
+    height: 400px;
+  }
+
+  .no-selection {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #6c757d;
+    font-style: italic;
+  }
+
+  /* Mobile Styles */
+  @media (max-width: 768px) {
+    .page-content {
+      padding-right: 1rem;
+    }
+
+    .controls-section {
+      flex-direction: column;
+      gap: 1rem;
+      padding: 0.75rem;
+    }
+
+    .control-group {
+      width: 100%;
+    }
+
+    .control-group select,
+    .dropdown-trigger {
+      width: 100%;
+    }
+
+    .chart-container {
+      height: 280px;
+    }
+
+    .chart-container-tall {
+      height: 320px;
+    }
+
+    .selected-managers {
+      gap: 0.4rem;
+    }
+
+    .manager-tag {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  /* Tablet Styles */
+  @media (max-width: 1024px) and (min-width: 769px) {
+    .controls-section {
+      gap: 1rem;
+    }
+
+    .chart-container {
+      height: 320px;
+    }
+  }
+
+  /* Season Stats Tables */
+  .stats-tables-section {
+    margin-top: 2rem;
+  }
+
+  .section-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #003366;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 3px solid #003366;
+  }
+
+  .stats-tables-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .stats-table-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+  }
+
+  .stats-table-card.wide {
+    grid-column: span 2;
+  }
+
+  .table-header {
+    background: linear-gradient(135deg, #003366, #004080);
+    color: white;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+  }
+
+  .mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  .mini-table th {
+    background: #f8f9fa;
+    padding: 0.6rem 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: #495057;
+    border-bottom: 2px solid #dee2e6;
+  }
+
+  .mini-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid #eee;
+    vertical-align: middle;
+  }
+
+  .mini-table tbody tr:hover {
+    background: #f8f9fa;
+  }
+
+  .mini-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .rank-col {
+    width: 35px;
+    text-align: center;
+    font-weight: 600;
+    color: #6c757d;
+  }
+
+  .manager-col {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .num-col {
+    text-align: right;
+    font-weight: 500;
+  }
+
+  .table-logo {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+
+  .highlight-green {
+    color: #28a745;
+    font-weight: 600;
+  }
+
+  .highlight-red {
+    color: #dc3545;
+    font-weight: 600;
+  }
+
+  .highlight-orange {
+    color: #fd7e14;
+    font-weight: 600;
+  }
+
+  .rivalry-col {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .rivalry-team {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .vs {
+    color: #6c757d;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  @media (max-width: 768px) {
+    .stats-tables-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .stats-table-card.wide {
+      grid-column: span 1;
+    }
+
+    .mini-table {
+      font-size: 0.8rem;
+    }
+
+    .mini-table th,
+    .mini-table td {
+      padding: 0.5rem;
+    }
+
+    .table-logo {
+      width: 20px;
+      height: 20px;
+    }
+
+    .rivalry-col {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+  }
+</style>
