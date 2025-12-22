@@ -23,6 +23,23 @@ export async function load({ url, fetch }) {
     const selectedSeason = seasons.find(s => s.season_id === selectedSeasonId);
     const isActiveSeason = selectedSeason?.is_active || false;
     
+    // Get regular season length from leagues table
+    let regSeasonLength = 14; // default
+    try {
+      const leagueResult = await query(
+        `SELECT l.reg_season_length 
+         FROM leagues l 
+         JOIN seasons s ON s.league_id = l.league_id 
+         WHERE s.season_id = $1`,
+        [selectedSeasonId]
+      );
+      if (leagueResult.rows.length > 0 && leagueResult.rows[0].reg_season_length) {
+        regSeasonLength = leagueResult.rows[0].reg_season_length;
+      }
+    } catch (e) {
+      console.error('Error fetching reg_season_length:', e.message);
+    }
+    
     // Get managers for this season from DB
     const managersResult = await query(
       `SELECT * FROM vw_manager_season_list WHERE season_id = $1 ORDER BY manager_name`,
@@ -184,19 +201,14 @@ export async function load({ url, fetch }) {
           }
         }
 
-        // Determine current week using same logic as elsewhere
-        const regularSeasonLength = leagueData.settings?.playoff_week_start 
-          ? leagueData.settings.playoff_week_start - 1 
-          : 14;
-        
+        // Determine current week - cap at regular season length
         let currentWeek = 0;
         if (nflState.season_type === 'regular') {
-          // Cap at end of regular season
-          currentWeek = nflState.display_week > regularSeasonLength 
-            ? regularSeasonLength + 1 
-            : nflState.display_week;
+          // Cap at regular season length from DB
+          currentWeek = Math.min(nflState.display_week, regSeasonLength);
         } else if (nflState.season_type === 'post') {
-          currentWeek = regularSeasonLength + 1;
+          // In post-season, use full regular season
+          currentWeek = regSeasonLength;
         }
 
         if (currentWeek > 0 && managers.length > 0) {
@@ -792,21 +804,24 @@ function calculateSeasonStatsShared(managerStats, allWeeklyScores, hasBenchData)
   for (const m of Object.values(managerStats)) {
     if (m.weeklyScores.length === 0) continue;
 
-    const scores = m.weeklyScores.map(s => s.points);
-    const gamesPlayed = scores.length;
-    const totalPoints = scores.reduce((sum, p) => sum + p, 0);
+    // Filter to only played games (scores > 0) for all calculations
+    const playedGames = m.weeklyScores.filter(s => s.points > 0);
+    if (playedGames.length === 0) continue;
+    
+    const playedScores = playedGames.map(s => s.points);
+    const gamesPlayed = playedScores.length;
+    const totalPoints = playedScores.reduce((sum, p) => sum + p, 0);
     const avgPoints = totalPoints / gamesPlayed;
     
-    // Calculate standard deviation
-    const variance = scores.reduce((sum, p) => sum + Math.pow(p - avgPoints, 2), 0) / gamesPlayed;
+    // Calculate standard deviation (only from played games)
+    const variance = playedScores.reduce((sum, p) => sum + Math.pow(p - avgPoints, 2), 0) / gamesPlayed;
     const stdDev = Math.sqrt(variance);
 
-    // Find high and low scores (filter out 0s for low score - unplayed weeks)
-    const highScore = Math.max(...scores);
-    const playedScores = scores.filter(s => s > 0);
-    const lowScore = playedScores.length > 0 ? Math.min(...playedScores) : 0;
-    const highWeek = m.weeklyScores.find(s => s.points === highScore)?.week;
-    const lowWeek = m.weeklyScores.find(s => s.points === lowScore && s.points > 0)?.week;
+    // Find high and low scores
+    const highScore = Math.max(...playedScores);
+    const lowScore = Math.min(...playedScores);
+    const highWeek = playedGames.find(s => s.points === highScore)?.week;
+    const lowWeek = playedGames.find(s => s.points === lowScore)?.week;
 
     // Add to high/low scores
     stats.highScores.push({
@@ -818,17 +833,14 @@ function calculateSeasonStatsShared(managerStats, allWeeklyScores, hasBenchData)
       week: highWeek
     });
 
-    // Only add to low scores if there's a valid played game
-    if (lowScore > 0) {
-      stats.lowScores.push({
-        manager_id: m.manager_id,
-        manager_name: m.manager_name,
-        team_name: m.team_name,
-        team_logo: m.team_logo,
-        score: Math.round(lowScore * 100) / 100,
-        week: lowWeek
-      });
-    }
+    stats.lowScores.push({
+      manager_id: m.manager_id,
+      manager_name: m.manager_name,
+      team_name: m.team_name,
+      team_logo: m.team_logo,
+      score: Math.round(lowScore * 100) / 100,
+      week: lowWeek
+    });
 
     // Consistency stats
     stats.consistency.push({
@@ -882,10 +894,12 @@ function calculateSeasonStatsShared(managerStats, allWeeklyScores, hasBenchData)
     let expectedWins = 0;
     for (const weekData of allWeeklyScores) {
       const myScore = weekData.scores.find(s => s.managerId === m.manager_id);
-      if (!myScore) continue;
+      if (!myScore || myScore.points === 0) continue; // Skip unplayed weeks
       
-      // Count how many teams this manager would have beaten this week
-      const otherScores = weekData.scores.filter(s => s.managerId !== m.manager_id);
+      // Count how many teams this manager would have beaten this week (exclude 0-point teams)
+      const otherScores = weekData.scores.filter(s => s.managerId !== m.manager_id && s.points > 0);
+      if (otherScores.length === 0) continue;
+      
       const winsThisWeek = otherScores.filter(s => myScore.points > s.points).length;
       expectedWins += winsThisWeek / otherScores.length;
     }

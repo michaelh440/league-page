@@ -17,7 +17,7 @@
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats" },
     { label: "Streaks", href: "/league/streaks" },
-    { label: "Manager Stats", href: "/league/manager_stats", active: true },
+    { label: "Manager Stats", href: "/admin/analysis/manager/manager_stats", active: true },
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
     { label: "Draft Room", href: "/drafts/previous_seasons" }
@@ -1045,7 +1045,8 @@
           </table>
         </div>
 
-        <!-- Points Left on Bench -->
+        <!-- Points Left on Bench (only available from Sleeper API) -->
+        {#if data.seasonStats.benchPoints && data.seasonStats.benchPoints.length > 0}
         <div class="stats-table-card">
           <h3 class="table-header">🪑 Points Left on Bench</h3>
           <table class="mini-table">
@@ -1072,6 +1073,7 @@
             </tbody>
           </table>
         </div>
+        {/if}
 
         <!-- Biggest Rivalries -->
         <div class="stats-table-card wide">
