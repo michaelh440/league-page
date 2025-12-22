@@ -7,6 +7,7 @@ export async function load({ url }) {
 
   try {
     // Always get the list of managers for the dropdown
+    // Championship count excludes disputed championships
     const managersResult = await query(`
       SELECT 
         m.manager_id,
@@ -25,11 +26,13 @@ export async function load({ url }) {
       FROM managers m
       LEFT JOIN (
         SELECT 
-          manager_id, 
+          hr.manager_id, 
           COUNT(*) AS championships
-        FROM historical_rankings 
-        WHERE final_rank = 1 
-        GROUP BY manager_id
+        FROM historical_rankings hr
+        JOIN seasons s ON hr.season_year = s.season_year
+        WHERE hr.final_rank = 1 
+          AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+        GROUP BY hr.manager_id
       ) champ_count ON champ_count.manager_id = m.manager_id
       ORDER BY m.username
     `);
@@ -106,11 +109,13 @@ export async function load({ url }) {
         `, [managerId]),
 
         // Season by season history with corrected manager_id joins and season filtering
+        // Added disputed_championship flag for asterisk display
         query(`
           WITH season_stats AS (
             SELECT 
               s.season_id,
               s.season_year,
+              s.disputed_championship,
               t.team_id,
               t.manager_id,
               -- Win/Loss calculation from matchups using manager_id AND season_id
@@ -140,7 +145,7 @@ export async function load({ url }) {
             LEFT JOIN matchups m ON (m.team1_id = t.manager_id OR m.team2_id = t.manager_id)
               AND m.season_id = s.season_id
               AND m.team1_score IS NOT NULL AND m.team2_score IS NOT NULL
-            GROUP BY s.season_id, s.season_year, t.team_id, t.manager_id
+            GROUP BY s.season_id, s.season_year, s.disputed_championship, t.team_id, t.manager_id
           ),
           scoring_stats AS (
             SELECT 
@@ -204,7 +209,9 @@ export async function load({ url }) {
             CASE 
               WHEN fr.final_rank IS NOT NULL THEN fr.final_rank
               ELSE NULL 
-            END as finish
+            END as finish,
+            -- Flag to indicate if this season's championship is disputed
+            COALESCE(ss.disputed_championship, false) as disputed_championship
           FROM season_stats ss
           LEFT JOIN scoring_stats sc ON sc.season_id = ss.season_id AND sc.team_id = ss.team_id
           LEFT JOIN playoff_info pi ON pi.season_id = ss.season_id
@@ -266,11 +273,13 @@ export async function load({ url }) {
         `, [managerId]),
 
         // Playoff history by year - Updated to use manager_id and match season data
+        // Added disputed_championship flag for asterisk display
         query(`
           WITH playoff_seasons AS (
             SELECT 
               s.season_id,
               s.season_year,
+              s.disputed_championship,
               t.team_id,
               COUNT(CASE 
                 WHEN (p.team1_id = t.manager_id AND p.team1_score > p.team2_score) OR 
@@ -301,7 +310,7 @@ export async function load({ url }) {
             LEFT JOIN playoffs p ON (p.team1_id = t.manager_id OR p.team2_id = t.manager_id)
               AND p.season_id = s.season_id
               AND p.team1_score IS NOT NULL AND p.team2_score IS NOT NULL
-            GROUP BY s.season_id, s.season_year, t.team_id
+            GROUP BY s.season_id, s.season_year, s.disputed_championship, t.team_id
           ),
           final_rankings AS (
             SELECT 
@@ -316,21 +325,35 @@ export async function load({ url }) {
             ps.losses,
             ROUND(ps.avg_points, 2) as avg_points,
             ROUND(ps.avg_points_against, 2) as avg_points_against,
-            COALESCE(fr.final_rank, 99) as finish
+            COALESCE(fr.final_rank, 99) as finish,
+            COALESCE(ps.disputed_championship, false) as disputed_championship
           FROM playoff_seasons ps
           LEFT JOIN final_rankings fr ON fr.season_year = ps.season_year
           WHERE ps.total_playoff_games > 0  -- Only include seasons where they actually played playoff games
           ORDER BY ps.season_year DESC
         `, [managerId]),
 
-        // Trophy counts
+        // Trophy counts - EXCLUDING DISPUTED CHAMPIONSHIPS
         query(`
           SELECT 
-            SUM(CASE WHEN final_rank = 1 THEN 1 ELSE 0 END) as championships,
-            SUM(CASE WHEN final_rank = 2 THEN 1 ELSE 0 END) as runner_ups,
-            SUM(CASE WHEN final_rank = 3 THEN 1 ELSE 0 END) as third_place
-          FROM historical_rankings 
-          WHERE manager_id = $1
+            SUM(CASE 
+              WHEN hr.final_rank = 1 
+                AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+              THEN 1 ELSE 0 
+            END) as championships,
+            SUM(CASE 
+              WHEN hr.final_rank = 2 
+                AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+              THEN 1 ELSE 0 
+            END) as runner_ups,
+            SUM(CASE 
+              WHEN hr.final_rank = 3 
+                AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+              THEN 1 ELSE 0 
+            END) as third_place
+          FROM historical_rankings hr
+          JOIN seasons s ON hr.season_year = s.season_year
+          WHERE hr.manager_id = $1
         `, [managerId])
       ]);
 
