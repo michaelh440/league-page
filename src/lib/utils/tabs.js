@@ -137,7 +137,7 @@ export const tabs = [
     nest: true,
     key: 'league',
     children: [
-      { icon: 'history', label: 'League History', dest: '/league/history' },
+      { icon: 'history', label: 'League Origin', dest: '/league/history' },
       { icon: 'bar_chart', label: 'All Time League Stats', dest: '/league/all_time_stats' },
       { icon: 'timeline', label: 'Regular Season Stats', dest: '/league/reg_season_stats' },
       { icon: 'sports', label: 'Playoff Stats', dest: '/league/playoff_stats' },
