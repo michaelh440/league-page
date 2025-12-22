@@ -228,9 +228,18 @@
 			</div>
 		</div>
 
-		<!-- Blank Placeholder Card (completely empty) for alignment -->
-		<div class="card card-placeholder">
-			<!-- Intentionally blank -->
+		<!--Analysis Charts Card -->
+		<div class="card card-green">
+			<div class="card-header">
+				<span class="card-label">Analysis Charts</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">0</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/analysis/manager/manager_stats">Manager Analysis Charts</a>
+				<a href="/admin/analysis/drafts/current_season/performance">Current Season Draft Performance</a>
+			</div>
 		</div>
 		
 		<!-- Managers Card -->
