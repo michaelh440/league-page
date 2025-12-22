@@ -13,14 +13,14 @@
 
   // Navigation items
   const navItems = [
-    { label: "All Time Scoring", href: "/league/all_time_stats" },
-    { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
-    { label: "Playoff Scoring", href: "/league/playoff_stats" },
-    { label: "Streaks", href: "/league/streaks" },
-    { label: "Manager Stats", href: "/admin/analysis/manager/manager_stats", active: true },
-    { label: "Ranking", href: "/league/ranking" },
-    { label: "Rivalries", href: "/league/rivalries" },
-    { label: "Draft Room", href: "/drafts/previous_seasons" }
+    //{ label: "All Time Scoring", href: "/league/all_time_stats" },
+    //{ label: "Regular Season Scoring", href: "/league/reg_season_stats" },
+    //{ label: "Playoff Scoring", href: "/league/playoff_stats" },
+    //{ label: "Streaks", href: "/league/streaks" },
+    { label: "Manager Stats Charts", href: "/admin/analysis/manager/manager_stats", active: true },
+    //{ label: "Ranking", href: "/league/ranking" },
+    //{ label: "Rivalries", href: "/league/rivalries" },
+    { label: "Draft Charts", href: "/admin/drafts/current_season/performance_tracking" }
   ];
 
   // State
