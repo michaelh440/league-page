@@ -24,12 +24,14 @@
 	async function loadStats() {
 		try {
 			// Load all stats
-			const [seasonsRes, activeSeasonsRes, managersRes, teamsRes, usersRes] = await Promise.all([
+			const [seasonsRes, activeSeasonsRes, managersRes, teamsRes, usersRes, leaguesRes, activeLeaguesRes] = await Promise.all([
 				fetch('/api/admin/stats/seasons'),
 				fetch('/api/admin/stats/active_seasons'),
 				fetch('/api/admin/stats/managers'),
 				fetch('/api/admin/stats/teams'),
-				fetch('/api/admin/stats/users')
+				fetch('/api/admin/stats/users'),
+				fetch('/api/admin/stats/leagues'),
+				fetch('/api/admin/stats/active_leagues'),
 			]);
 
 			if (seasonsRes.ok) {
@@ -57,10 +59,21 @@
 				stats.users.total = data.count;
 			}
 
+			if(leaguesRes.ok) {
+				const data = await leaguesRes.json();
+				stats.leagues.total = data.count;
+			}
+			
+			if (activeLeaguesRes.ok) {
+				const data = await activeLeaguesRes.json();
+				stats.leagues.active = data.count;
+			}
+
 			stats.seasons.loading = false;
 			stats.managers.loading = false;
 			stats.teams.loading = false;
 			stats.users.loading = false;
+			stats.leagues.loading = false;
 		} catch (err) {
 			console.error('Stats error:', err);
 		}
@@ -175,8 +188,8 @@
 				<span class="card-label">Active Leagues</span>
 			</div>
 			<div class="card-stats">
-				<span class="card-number">4</span>
-				<span class="card-number accent">1</span>
+				<span class="card-number">{stats.leagues.total}</span>
+				<span class="card-number accent">{stats.leagues.active}</span>
 			</div>
 			<div class="card-actions">
 				<a href="/admin/leagues">Manage Leagues</a>
