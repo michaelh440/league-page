@@ -231,6 +231,14 @@
 			</div>
 		</div>
 
+		<!-- API List Card -->
+		<div class="card card-orange">
+			<div class="card-title">Season Integration</div>
+			<div class="card-actions">
+				<a href="/admin/staging_status">Staging Status</a>
+			</div>
+		</div>
+
 		<!-- Blank Placeholder Card (completely empty) for alignment -->
 		<div class="card card-placeholder">
 			<!-- Intentionally blank -->
