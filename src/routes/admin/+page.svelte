@@ -244,11 +244,6 @@
 			<!-- Intentionally blank -->
 		</div>
 
-		<!-- Blank Placeholder Card (completely empty) for alignment -->
-		<div class="card card-placeholder">
-			<!-- Intentionally blank -->
-		</div>
-
 		<!-- Third Row-->
 		<!-- Managers Card -->
 		<div class="card card-blue">

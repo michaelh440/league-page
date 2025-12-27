@@ -4,7 +4,7 @@
     export let data;
     
     let selectedSeason = data.seasons?.length > 0 ? data.seasons[0] : null;
-    let activeTab = 'season'; // 'season' or 'weekly'
+    let activeTab = 'production'; // 'production', 'season', or 'weekly'
     let refreshing = false;
     
     async function refresh() {
@@ -83,25 +83,174 @@
         <div class="tabs">
             <button 
                 class="tab" 
+                class:active={activeTab === 'production'}
+                on:click={() => activeTab = 'production'}
+            >
+                Production Status
+            </button>
+            <button 
+                class="tab" 
                 class:active={activeTab === 'season'}
                 on:click={() => activeTab = 'season'}
             >
-                Season-Level Data
+                Season-Level Staging
             </button>
             <button 
                 class="tab" 
                 class:active={activeTab === 'weekly'}
                 on:click={() => activeTab = 'weekly'}
             >
-                Weekly Data
+                Weekly Staging
             </button>
         </div>
+        
+        <!-- Production Status Tab -->
+        {#if activeTab === 'production'}
+            <div class="tab-content">
+                <h2>Sleeper Seasons - Production Data Status</h2>
+                <p class="section-desc">Shows which Sleeper seasons have data in production tables</p>
+                
+                {#if data.sleeperSeasons.length === 0}
+                    <div class="empty-table">No Sleeper seasons found in database</div>
+                {:else}
+                    <div class="production-grid">
+                        <table class="data-table production-table">
+                            <thead>
+                                <tr>
+                                    <th class="sticky-col">Season</th>
+                                    <th>Teams</th>
+                                    <th>Managers</th>
+                                    <th>Drafts</th>
+                                    <th>Draft Picks</th>
+                                    <th>Weekly Rosters</th>
+                                    <th>Playoff Rosters</th>
+                                    <th>Player Stats</th>
+                                    <th>Playoff Stats</th>
+                                    <th>Matchups</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {#each data.sleeperSeasons as season}
+                                    {@const teams = data.production.teams.find(t => t.season_id === season.season_id)}
+                                    {@const managers = data.production.managers.find(m => m.season_id === season.season_id)}
+                                    {@const drafts = data.production.drafts.find(d => d.season_id === season.season_id)}
+                                    {@const picks = data.production.draftPicks.find(p => p.season_id === season.season_id)}
+                                    {@const weeklyRoster = data.production.weeklyRoster.find(w => w.season_id === season.season_id)}
+                                    {@const playoffRoster = data.production.playoffRoster.find(p => p.season_id === season.season_id)}
+                                    {@const playerStats = data.production.playerStats.find(p => p.season_id === season.season_id)}
+                                    {@const playoffStats = data.production.playoffStats.find(p => p.season_id === season.season_id)}
+                                    {@const matchups = data.production.matchups.find(m => m.season_id === season.season_id)}
+                                    <tr>
+                                        <td class="sticky-col season-cell">
+                                            {season.season_year}
+                                            {#if season.is_active}
+                                                <span class="active-badge">Active</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if teams}
+                                                <span class="has-data">{teams.team_count}</span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if managers}
+                                                <span class="has-data">{managers.manager_count}</span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if drafts}
+                                                <span class="has-data">{drafts.draft_count}</span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if picks && picks.pick_count > 0}
+                                                <span class="has-data">{picks.pick_count}</span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if weeklyRoster}
+                                                <span class="has-data" title="{weeklyRoster.total_records} records">
+                                                    {weeklyRoster.weeks_with_data} wks
+                                                </span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if playoffRoster}
+                                                <span class="has-data" title="{playoffRoster.total_records} records">
+                                                    {playoffRoster.weeks_with_data} wks
+                                                </span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if playerStats}
+                                                <span class="has-data" title="{playerStats.total_records} records">
+                                                    {playerStats.weeks_with_data} wks
+                                                </span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if playoffStats}
+                                                <span class="has-data" title="{playoffStats.total_records} records">
+                                                    {playoffStats.weeks_with_data} wks
+                                                </span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if matchups}
+                                                <span class="has-data" title="{matchups.total_records} records">
+                                                    {matchups.weeks_with_data} wks
+                                                </span>
+                                            {:else}
+                                                <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                    </tr>
+                                {/each}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="legend production-legend">
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="has-data">123</span>
+                                <span>Has data (count shown)</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="no-data-icon">✗</span>
+                                <span>No data</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="active-badge">Active</span>
+                                <span>Current active season</span>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
+            </div>
+        {/if}
         
         <!-- Season-Level Tables Tab -->
         {#if activeTab === 'season'}
             <div class="tab-content">
                 <h2>Season-Level Staging Tables</h2>
-                <p class="section-desc">These tables contain data that applies to the entire season (no weekly breakdown)</p>
+                <p class="section-desc">Data in staging tables waiting to be processed into production</p>
                 
                 <!-- League Staging -->
                 <div class="staging-table-section">
@@ -317,7 +466,7 @@
         {#if activeTab === 'weekly'}
             <div class="tab-content">
                 <h2>Weekly Staging Tables</h2>
-                <p class="section-desc">These tables contain week-by-week data</p>
+                <p class="section-desc">Week-by-week data in staging tables waiting to be processed</p>
                 
                 <!-- Season Selector -->
                 <div class="season-selector">
@@ -908,6 +1057,71 @@
         text-align: center;
         padding: 3rem;
         color: #64748b;
+    }
+    
+    /* Production Table Styles */
+    .production-grid {
+        overflow-x: auto;
+        margin-bottom: 1.5rem;
+    }
+    
+    .production-table {
+        min-width: 900px;
+    }
+    
+    .production-table th,
+    .production-table td {
+        text-align: center;
+        white-space: nowrap;
+    }
+    
+    .production-table .sticky-col {
+        position: sticky;
+        left: 0;
+        background: white;
+        z-index: 1;
+        text-align: left;
+    }
+    
+    .production-table thead .sticky-col {
+        background: #f8fafc;
+    }
+    
+    .production-table tr:hover .sticky-col {
+        background: #f8fafc;
+    }
+    
+    .has-data {
+        display: inline-block;
+        padding: 0.2rem 0.5rem;
+        background: #d1fae5;
+        color: #065f46;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    
+    .no-data-icon {
+        color: #dc2626;
+        font-weight: 700;
+        font-size: 0.9rem;
+    }
+    
+    .active-badge {
+        display: inline-block;
+        margin-left: 0.5rem;
+        padding: 0.15rem 0.4rem;
+        background: #3b82f6;
+        color: white;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        vertical-align: middle;
+    }
+    
+    .production-legend {
+        margin-top: 1rem;
     }
     
     /* Responsive */
