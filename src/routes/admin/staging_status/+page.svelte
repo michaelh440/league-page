@@ -246,219 +246,157 @@
             </div>
         {/if}
         
-        <!-- Season-Level Tables Tab -->
+        <!-- Season-Level Staging Tab -->
         {#if activeTab === 'season'}
             <div class="tab-content">
                 <h2>Season-Level Staging Tables</h2>
                 <p class="section-desc">Data in staging tables waiting to be processed into production</p>
                 
-                <!-- League Staging -->
-                <div class="staging-table-section">
-                    <h3>
-                        <span class="table-icon">🏆</span>
-                        staging_sleeper_league
-                        <span class="arrow">→</span>
-                        <span class="target">leagues</span>
-                    </h3>
-                    {#if data.seasonLevel.league.length === 0}
-                        <div class="empty-table">No data in staging table</div>
-                    {:else}
-                        <table class="data-table">
+                {#if data.sleeperSeasons.length === 0}
+                    <div class="empty-table">No Sleeper seasons found in database</div>
+                {:else}
+                    <div class="production-grid">
+                        <table class="data-table production-table">
                             <thead>
                                 <tr>
-                                    <th>Season</th>
-                                    <th>Total</th>
-                                    <th>Processed</th>
-                                    <th>Unprocessed</th>
-                                    <th>Status</th>
+                                    <th class="sticky-col">Season</th>
+                                    <th>League</th>
+                                    <th>Users → Managers</th>
+                                    <th>Rosters → Teams</th>
+                                    <th>Drafts</th>
+                                    <th>Draft Picks</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {#each data.seasonLevel.league as row}
+                                {#each data.sleeperSeasons as season}
+                                    {@const league = data.seasonLevel.league.find(l => l.season_year === season.season_year)}
+                                    {@const users = data.seasonLevel.users.find(u => u.season_year === season.season_year)}
+                                    {@const rosters = data.seasonLevel.rosters.find(r => r.season_year === season.season_year)}
+                                    {@const drafts = data.seasonLevel.drafts.find(d => d.season_year === season.season_year)}
+                                    {@const draftPicks = data.seasonLevel.draftPicks.find(p => p.season_year === season.season_year)}
                                     <tr>
-                                        <td class="season-cell">{row.season_year}</td>
-                                        <td>{row.total_records}</td>
-                                        <td class="processed">{row.processed_count}</td>
-                                        <td class="unprocessed">{row.unprocessed_count}</td>
+                                        <td class="sticky-col season-cell">
+                                            {season.season_year}
+                                            {#if season.is_active}
+                                                <span class="active-badge">Active</span>
+                                            {/if}
+                                        </td>
                                         <td>
-                                            <span class="status-badge {getStatusClass(row.processed_count, row.unprocessed_count)}">
-                                                {getStatusLabel(row.processed_count, row.unprocessed_count)}
-                                            </span>
+                                            {#if league}
+                                                <div class="staging-cell">
+                                                    <span class="status-badge small {getStatusClass(league.processed_count, league.unprocessed_count)}">
+                                                        {getStatusLabel(league.processed_count, league.unprocessed_count)}
+                                                    </span>
+                                                    <span class="staging-counts">
+                                                        <span class="count-processed">{league.processed_count}</span>/<span class="count-unprocessed">{league.unprocessed_count}</span>
+                                                    </span>
+                                                </div>
+                                            {:else}
+                                                <span class="no-staging">—</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if users}
+                                                <div class="staging-cell">
+                                                    <span class="status-badge small {getStatusClass(users.processed_count, users.unprocessed_count)}">
+                                                        {getStatusLabel(users.processed_count, users.unprocessed_count)}
+                                                    </span>
+                                                    <span class="staging-counts">
+                                                        <span class="count-processed">{users.processed_count}</span>/<span class="count-unprocessed">{users.unprocessed_count}</span>
+                                                    </span>
+                                                    {#if users.mapped_count > 0}
+                                                        <span class="mapped-count" title="Mapped to managers">{users.mapped_count} mapped</span>
+                                                    {/if}
+                                                </div>
+                                            {:else}
+                                                <span class="no-staging">—</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if rosters}
+                                                <div class="staging-cell">
+                                                    <span class="status-badge small {getStatusClass(rosters.processed_count, rosters.unprocessed_count)}">
+                                                        {getStatusLabel(rosters.processed_count, rosters.unprocessed_count)}
+                                                    </span>
+                                                    <span class="staging-counts">
+                                                        <span class="count-processed">{rosters.processed_count}</span>/<span class="count-unprocessed">{rosters.unprocessed_count}</span>
+                                                    </span>
+                                                    {#if rosters.mapped_count > 0}
+                                                        <span class="mapped-count" title="Mapped to teams">{rosters.mapped_count} mapped</span>
+                                                    {/if}
+                                                </div>
+                                            {:else}
+                                                <span class="no-staging">—</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if drafts}
+                                                <div class="staging-cell">
+                                                    <span class="status-badge small {getStatusClass(drafts.processed_count, drafts.unprocessed_count)}">
+                                                        {getStatusLabel(drafts.processed_count, drafts.unprocessed_count)}
+                                                    </span>
+                                                    <span class="staging-counts">
+                                                        <span class="count-processed">{drafts.processed_count}</span>/<span class="count-unprocessed">{drafts.unprocessed_count}</span>
+                                                    </span>
+                                                    {#if drafts.mapped_count > 0}
+                                                        <span class="mapped-count" title="Mapped to drafts">{drafts.mapped_count} mapped</span>
+                                                    {/if}
+                                                </div>
+                                            {:else}
+                                                <span class="no-staging">—</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if draftPicks}
+                                                <div class="staging-cell">
+                                                    <span class="status-badge small {getStatusClass(draftPicks.processed_count, draftPicks.unprocessed_count)}">
+                                                        {getStatusLabel(draftPicks.processed_count, draftPicks.unprocessed_count)}
+                                                    </span>
+                                                    <span class="staging-counts">
+                                                        <span class="count-processed">{draftPicks.processed_count}</span>/<span class="count-unprocessed">{draftPicks.unprocessed_count}</span>
+                                                    </span>
+                                                    {#if draftPicks.mapped_count > 0}
+                                                        <span class="mapped-count" title="Mapped to picks">{draftPicks.mapped_count} mapped</span>
+                                                    {/if}
+                                                </div>
+                                            {:else}
+                                                <span class="no-staging">—</span>
+                                            {/if}
                                         </td>
                                     </tr>
                                 {/each}
                             </tbody>
                         </table>
-                    {/if}
-                </div>
-                
-                <!-- Users Staging -->
-                <div class="staging-table-section">
-                    <h3>
-                        <span class="table-icon">👤</span>
-                        staging_sleeper_users
-                        <span class="arrow">→</span>
-                        <span class="target">managers</span>
-                    </h3>
-                    {#if data.seasonLevel.users.length === 0}
-                        <div class="empty-table">No data in staging table</div>
-                    {:else}
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Season</th>
-                                    <th>Total</th>
-                                    <th>Processed</th>
-                                    <th>Unprocessed</th>
-                                    <th>Mapped</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each data.seasonLevel.users as row}
-                                    <tr>
-                                        <td class="season-cell">{row.season_year}</td>
-                                        <td>{row.total_records}</td>
-                                        <td class="processed">{row.processed_count}</td>
-                                        <td class="unprocessed">{row.unprocessed_count}</td>
-                                        <td>{row.mapped_count}</td>
-                                        <td>
-                                            <span class="status-badge {getStatusClass(row.processed_count, row.unprocessed_count)}">
-                                                {getStatusLabel(row.processed_count, row.unprocessed_count)}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    {/if}
-                </div>
-                
-                <!-- Rosters Staging -->
-                <div class="staging-table-section">
-                    <h3>
-                        <span class="table-icon">📋</span>
-                        staging_sleeper_rosters
-                        <span class="arrow">→</span>
-                        <span class="target">teams</span>
-                    </h3>
-                    {#if data.seasonLevel.rosters.length === 0}
-                        <div class="empty-table">No data in staging table</div>
-                    {:else}
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Season</th>
-                                    <th>Total</th>
-                                    <th>Processed</th>
-                                    <th>Unprocessed</th>
-                                    <th>Mapped</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each data.seasonLevel.rosters as row}
-                                    <tr>
-                                        <td class="season-cell">{row.season_year}</td>
-                                        <td>{row.total_records}</td>
-                                        <td class="processed">{row.processed_count}</td>
-                                        <td class="unprocessed">{row.unprocessed_count}</td>
-                                        <td>{row.mapped_count}</td>
-                                        <td>
-                                            <span class="status-badge {getStatusClass(row.processed_count, row.unprocessed_count)}">
-                                                {getStatusLabel(row.processed_count, row.unprocessed_count)}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    {/if}
-                </div>
-                
-                <!-- Drafts Staging -->
-                <div class="staging-table-section">
-                    <h3>
-                        <span class="table-icon">📝</span>
-                        staging_sleeper_drafts
-                        <span class="arrow">→</span>
-                        <span class="target">drafts</span>
-                    </h3>
-                    {#if data.seasonLevel.drafts.length === 0}
-                        <div class="empty-table">No data in staging table</div>
-                    {:else}
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Season</th>
-                                    <th>Total</th>
-                                    <th>Processed</th>
-                                    <th>Unprocessed</th>
-                                    <th>Mapped</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each data.seasonLevel.drafts as row}
-                                    <tr>
-                                        <td class="season-cell">{row.season_year}</td>
-                                        <td>{row.total_records}</td>
-                                        <td class="processed">{row.processed_count}</td>
-                                        <td class="unprocessed">{row.unprocessed_count}</td>
-                                        <td>{row.mapped_count}</td>
-                                        <td>
-                                            <span class="status-badge {getStatusClass(row.processed_count, row.unprocessed_count)}">
-                                                {getStatusLabel(row.processed_count, row.unprocessed_count)}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    {/if}
-                </div>
-                
-                <!-- Draft Picks Staging -->
-                <div class="staging-table-section">
-                    <h3>
-                        <span class="table-icon">🎯</span>
-                        staging_sleeper_draft_picks
-                        <span class="arrow">→</span>
-                        <span class="target">draft_picks</span>
-                    </h3>
-                    {#if data.seasonLevel.draftPicks.length === 0}
-                        <div class="empty-table">No data in staging table</div>
-                    {:else}
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Season</th>
-                                    <th>Total</th>
-                                    <th>Processed</th>
-                                    <th>Unprocessed</th>
-                                    <th>Mapped</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each data.seasonLevel.draftPicks as row}
-                                    <tr>
-                                        <td class="season-cell">{row.season_year}</td>
-                                        <td>{row.total_records}</td>
-                                        <td class="processed">{row.processed_count}</td>
-                                        <td class="unprocessed">{row.unprocessed_count}</td>
-                                        <td>{row.mapped_count}</td>
-                                        <td>
-                                            <span class="status-badge {getStatusClass(row.processed_count, row.unprocessed_count)}">
-                                                {getStatusLabel(row.processed_count, row.unprocessed_count)}
-                                            </span>
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
-                    {/if}
-                </div>
+                    </div>
+                    
+                    <div class="legend">
+                        <h4>Legend</h4>
+                        <div class="legend-items">
+                            <div class="legend-item">
+                                <span class="status-badge small complete">Complete</span>
+                                <span>All records processed</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="status-badge small partial">Partial</span>
+                                <span>Some records processed</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="status-badge small pending">Pending</span>
+                                <span>No records processed yet</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="staging-counts">
+                                    <span class="count-processed">✓</span>/<span class="count-unprocessed">✗</span>
+                                </span>
+                                <span>Processed / Unprocessed</span>
+                            </div>
+                            <div class="legend-item">
+                                <span class="no-staging">—</span>
+                                <span>No staging data</span>
+                            </div>
+                        </div>
+                    </div>
+                {/if}
             </div>
         {/if}
         
@@ -1122,6 +1060,32 @@
     
     .production-legend {
         margin-top: 1rem;
+    }
+    
+    /* Staging Cell Styles */
+    .staging-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.25rem;
+    }
+    
+    .staging-counts {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+    
+    .mapped-count {
+        font-size: 0.65rem;
+        color: #6366f1;
+        background: #eef2ff;
+        padding: 0.1rem 0.35rem;
+        border-radius: 3px;
+    }
+    
+    .no-staging {
+        color: #cbd5e1;
+        font-size: 1rem;
     }
     
     /* Responsive */
