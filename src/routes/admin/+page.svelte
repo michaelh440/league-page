@@ -24,7 +24,7 @@
 	async function loadStats() {
 		try {
 			// Load all stats
-			const [seasonsRes, activeSeasonsRes, managersRes, teamsRes, usersRes, leaguesRes, activeLeaguesRes] = await Promise.all([
+			const [seasonsRes, activeSeasonsRes, managersRes, teamsRes, usersRes, leaguesRes, activeLeaguesRes, weeklySummaryRes, videoRes] = await Promise.all([
 				fetch('/api/admin/stats/seasons'),
 				fetch('/api/admin/stats/active_seasons'),
 				fetch('/api/admin/stats/managers'),
@@ -32,6 +32,8 @@
 				fetch('/api/admin/stats/users'),
 				fetch('/api/admin/stats/leagues'),
 				fetch('/api/admin/stats/active_leagues'),
+				fetch('/api/admin/stats/weekly_summaries'),
+				fetch('/api/admin/stats/videos'),
 			]);
 
 			if (seasonsRes.ok) {
@@ -69,11 +71,23 @@
 				stats.leagues.active = data.count;
 			}
 
+			if (weeklySummaryRes.ok) {
+				const data = await weeklySummaryRes.json();
+				stats.weekly_summaries = data.count;
+			}
+
+			if (videoRes.ok) {
+				const data = await videoRes.json();
+				stats.videos = data.count;
+			}
+
 			stats.seasons.loading = false;
 			stats.managers.loading = false;
 			stats.teams.loading = false;
 			stats.users.loading = false;
 			stats.leagues.loading = false;
+			stats.weekly_summaries.loading = false;
+			stats.videos.loading = false;
 		} catch (err) {
 			console.error('Stats error:', err);
 		}
@@ -133,7 +147,7 @@
 				<span class="card-label">Total Videos</span>
 			</div>
 			<div class="card-stats">
-				<span class="card-number">0</span>
+				<span class="card-number">{stats.videos}</span>
 			</div>
 			<div class="card-actions">
 				<a href="/admin/videos">Add New Video</a>
@@ -202,7 +216,7 @@
 				<span class="card-label">Total Weekly Summaries</span>
 			</div>
 			<div class="card-stats">
-				<span class="card-number">0</span>
+				<span class="card-number">{stats.weekly_summaries}</span>
 			</div>
 			<div class="card-actions">
 				<a href="/admin/weekly_summary">Generate Weekly Summary</a>
