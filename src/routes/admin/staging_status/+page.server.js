@@ -345,3 +345,154 @@ export async function load() {
         };
     }
 }
+
+// ============================================
+// FORM ACTIONS
+// ============================================
+
+export const actions = {
+    fetchDraftPicks: async ({ request }) => {
+        const formData = await request.formData();
+        const seasonYear = parseInt(formData.get('seasonYear'));
+        const sleeperLeagueId = formData.get('sleeperLeagueId');
+        
+        console.log(`Fetching draft picks for season ${seasonYear}, league ${sleeperLeagueId}`);
+        
+        try {
+            // Step 1: Fetch drafts for this league from Sleeper API
+            const draftsUrl = `https://api.sleeper.app/v1/league/${sleeperLeagueId}/drafts`;
+            const draftsRes = await fetch(draftsUrl);
+            
+            if (!draftsRes.ok) {
+                throw new Error(`Failed to fetch drafts from Sleeper: ${draftsRes.status}`);
+            }
+            
+            const drafts = await draftsRes.json();
+            console.log(`Found ${drafts.length} draft(s) for league`);
+            
+            let totalDraftsStaged = 0;
+            let totalPicksStaged = 0;
+            
+            for (const draft of drafts) {
+                // Only process completed drafts
+                if (draft.status !== 'complete') {
+                    console.log(`Skipping draft ${draft.draft_id} - status: ${draft.status}`);
+                    continue;
+                }
+                
+                // Check if draft season matches requested season
+                const draftSeason = parseInt(draft.season);
+                if (draftSeason !== seasonYear) {
+                    console.log(`Skipping draft ${draft.draft_id} - season ${draftSeason} doesn't match ${seasonYear}`);
+                    continue;
+                }
+                
+                console.log(`Processing draft ${draft.draft_id} for season ${draftSeason}`);
+                
+                // Step 2: Insert draft into staging table
+                await query(`
+                    INSERT INTO staging_sleeper_drafts (
+                        sleeper_draft_id,
+                        sleeper_league_id,
+                        season_year,
+                        draft_type,
+                        draft_status,
+                        total_rounds,
+                        draft_metadata,
+                        raw_data,
+                        processed
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, false)
+                    ON CONFLICT (sleeper_draft_id, season_year) 
+                    DO UPDATE SET
+                        draft_type = EXCLUDED.draft_type,
+                        draft_status = EXCLUDED.draft_status,
+                        total_rounds = EXCLUDED.total_rounds,
+                        draft_metadata = EXCLUDED.draft_metadata,
+                        raw_data = EXCLUDED.raw_data,
+                        processed = false
+                `, [
+                    draft.draft_id,
+                    sleeperLeagueId,
+                    draftSeason,
+                    draft.type,
+                    draft.status,
+                    draft.settings?.rounds || 15,
+                    JSON.stringify(draft.metadata || {}),
+                    JSON.stringify(draft)
+                ]);
+                
+                totalDraftsStaged++;
+                
+                // Step 3: Fetch picks for this draft
+                const picksUrl = `https://api.sleeper.app/v1/draft/${draft.draft_id}/picks`;
+                const picksRes = await fetch(picksUrl);
+                
+                if (!picksRes.ok) {
+                    console.error(`Failed to fetch picks for draft ${draft.draft_id}`);
+                    continue;
+                }
+                
+                const picks = await picksRes.json();
+                console.log(`Found ${picks.length} picks for draft ${draft.draft_id}`);
+                
+                // Step 4: Insert each pick into staging table
+                for (const pick of picks) {
+                    await query(`
+                        INSERT INTO staging_sleeper_draft_picks (
+                            sleeper_draft_id,
+                            pick_number,
+                            round_number,
+                            pick_in_round,
+                            sleeper_user_id,
+                            sleeper_roster_id,
+                            player_id,
+                            player_metadata,
+                            season_year,
+                            raw_data,
+                            processed
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, false)
+                        ON CONFLICT (sleeper_draft_id, pick_number, season_year) 
+                        DO UPDATE SET
+                            round_number = EXCLUDED.round_number,
+                            pick_in_round = EXCLUDED.pick_in_round,
+                            sleeper_user_id = EXCLUDED.sleeper_user_id,
+                            sleeper_roster_id = EXCLUDED.sleeper_roster_id,
+                            player_id = EXCLUDED.player_id,
+                            player_metadata = EXCLUDED.player_metadata,
+                            raw_data = EXCLUDED.raw_data,
+                            processed = false
+                    `, [
+                        draft.draft_id,
+                        pick.pick_no,
+                        pick.round,
+                        pick.draft_slot,
+                        pick.picked_by || '',
+                        pick.roster_id,
+                        pick.player_id,
+                        JSON.stringify(pick.metadata || {}),
+                        draftSeason,
+                        JSON.stringify(pick)
+                    ]);
+                    
+                    totalPicksStaged++;
+                }
+            }
+            
+            console.log(`Successfully staged ${totalDraftsStaged} drafts and ${totalPicksStaged} picks`);
+            
+            return {
+                success: true,
+                message: `Fetched ${totalDraftsStaged} draft(s) with ${totalPicksStaged} picks for ${seasonYear}`,
+                draftsStaged: totalDraftsStaged,
+                picksStaged: totalPicksStaged
+            };
+            
+        } catch (error) {
+            console.error('Error fetching draft picks:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+};

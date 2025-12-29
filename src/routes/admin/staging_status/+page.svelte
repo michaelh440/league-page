@@ -2300,12 +2300,15 @@
 
 <script>
     import { invalidateAll } from '$app/navigation';
+    import { enhance } from '$app/forms';
     
     export let data;
     
     let selectedSeason = data.seasons?.length > 0 ? data.seasons[0] : null;
     let activeTab = 'production'; // 'production', 'season', or 'weekly'
     let refreshing = false;
+    let fetchingDraftPicks = null; // Track which season is being fetched
+    let fetchResult = null; // Store fetch result message
     
     async function refresh() {
         refreshing = true;
@@ -2779,12 +2782,14 @@
                                     <th>Mapped</th>
                                     <th>Status</th>
                                     <th>In Production</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {#each data.sleeperSeasons as season}
                                     {@const staging = data.seasonLevel.drafts.find(d => d.season_year === season.season_year)}
                                     {@const production = data.production.drafts.find(d => d.season_id === season.season_id)}
+                                    {@const needsFetch = !staging && !production}
                                     <tr>
                                         <td class="season-cell">
                                             {season.season_year}
@@ -2818,6 +2823,44 @@
                                                 <span class="no-data-icon">✗</span>
                                             {/if}
                                         </td>
+                                        <td>
+                                            {#if needsFetch}
+                                                <form 
+                                                    method="POST" 
+                                                    action="?/fetchDraftPicks"
+                                                    use:enhance={() => {
+                                                        fetchingDraftPicks = season.season_year;
+                                                        fetchResult = null;
+                                                        return async ({ result }) => {
+                                                            fetchingDraftPicks = null;
+                                                            if (result.type === 'success') {
+                                                                fetchResult = result.data;
+                                                                await invalidateAll();
+                                                            } else {
+                                                                fetchResult = { success: false, error: 'Request failed' };
+                                                            }
+                                                        };
+                                                    }}
+                                                >
+                                                    <input type="hidden" name="seasonYear" value={season.season_year} />
+                                                    <input type="hidden" name="sleeperLeagueId" value={season.sleeper_league_id} />
+                                                    <button 
+                                                        type="submit" 
+                                                        class="fetch-btn"
+                                                        disabled={fetchingDraftPicks !== null}
+                                                    >
+                                                        {#if fetchingDraftPicks === season.season_year}
+                                                            <span class="spinner-tiny"></span>
+                                                            Fetching...
+                                                        {:else}
+                                                            ↓ Fetch
+                                                        {/if}
+                                                    </button>
+                                                </form>
+                                            {:else}
+                                                <span class="no-action">—</span>
+                                            {/if}
+                                        </td>
                                     </tr>
                                 {/each}
                             </tbody>
@@ -2833,6 +2876,18 @@
                         <span class="arrow">→</span>
                         <span class="target">draft_picks</span>
                     </h3>
+                    
+                    {#if fetchResult}
+                        <div class="fetch-result {fetchResult.success ? 'success' : 'error'}">
+                            {#if fetchResult.success}
+                                ✓ {fetchResult.message}
+                            {:else}
+                                ✗ Error: {fetchResult.error}
+                            {/if}
+                            <button class="dismiss-btn" on:click={() => fetchResult = null}>×</button>
+                        </div>
+                    {/if}
+                    
                     {#if data.sleeperSeasons.length === 0}
                         <div class="empty-table">No Sleeper seasons found</div>
                     {:else}
@@ -2846,12 +2901,14 @@
                                     <th>Mapped</th>
                                     <th>Status</th>
                                     <th>In Production</th>
+                                    <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {#each data.sleeperSeasons as season}
                                     {@const staging = data.seasonLevel.draftPicks.find(p => p.season_year === season.season_year)}
                                     {@const production = data.production.draftPicks.find(p => p.season_id === season.season_id)}
+                                    {@const needsFetch = !staging && (!production || production.pick_count === 0)}
                                     <tr>
                                         <td class="season-cell">
                                             {season.season_year}
@@ -2883,6 +2940,44 @@
                                                 <span class="has-data">{production.pick_count}</span>
                                             {:else}
                                                 <span class="no-data-icon">✗</span>
+                                            {/if}
+                                        </td>
+                                        <td>
+                                            {#if needsFetch}
+                                                <form 
+                                                    method="POST" 
+                                                    action="?/fetchDraftPicks"
+                                                    use:enhance={() => {
+                                                        fetchingDraftPicks = season.season_year;
+                                                        fetchResult = null;
+                                                        return async ({ result }) => {
+                                                            fetchingDraftPicks = null;
+                                                            if (result.type === 'success') {
+                                                                fetchResult = result.data;
+                                                                await invalidateAll();
+                                                            } else {
+                                                                fetchResult = { success: false, error: 'Request failed' };
+                                                            }
+                                                        };
+                                                    }}
+                                                >
+                                                    <input type="hidden" name="seasonYear" value={season.season_year} />
+                                                    <input type="hidden" name="sleeperLeagueId" value={season.sleeper_league_id} />
+                                                    <button 
+                                                        type="submit" 
+                                                        class="fetch-btn"
+                                                        disabled={fetchingDraftPicks !== null}
+                                                    >
+                                                        {#if fetchingDraftPicks === season.season_year}
+                                                            <span class="spinner-tiny"></span>
+                                                            Fetching...
+                                                        {:else}
+                                                            ↓ Fetch
+                                                        {/if}
+                                                    </button>
+                                                </form>
+                                            {:else}
+                                                <span class="no-action">—</span>
                                             {/if}
                                         </td>
                                     </tr>
@@ -3255,6 +3350,80 @@
     
     .no-staging {
         color: #cbd5e1;
+    }
+    
+    /* Fetch Button Styles */
+    .fetch-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.65rem;
+        background: #3b82f6;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+    
+    .fetch-btn:hover:not(:disabled) {
+        background: #2563eb;
+    }
+    
+    .fetch-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+    
+    .spinner-tiny {
+        width: 10px;
+        height: 10px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    .no-action {
+        color: #cbd5e1;
+    }
+    
+    /* Fetch Result Messages */
+    .fetch-result {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        margin: 0;
+        border-bottom: 1px solid #e2e8f0;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .fetch-result.success {
+        background: #d1fae5;
+        color: #065f46;
+    }
+    
+    .fetch-result.error {
+        background: #fee2e2;
+        color: #991b1b;
+    }
+    
+    .dismiss-btn {
+        background: none;
+        border: none;
+        font-size: 1.1rem;
+        cursor: pointer;
+        opacity: 0.6;
+        padding: 0 0.25rem;
+        color: inherit;
+    }
+    
+    .dismiss-btn:hover {
+        opacity: 1;
     }
     
     /* Status Badges */
