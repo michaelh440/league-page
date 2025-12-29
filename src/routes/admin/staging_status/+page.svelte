@@ -2789,7 +2789,6 @@
                                 {#each data.sleeperSeasons as season}
                                     {@const staging = data.seasonLevel.drafts.find(d => d.season_year === season.season_year)}
                                     {@const production = data.production.drafts.find(d => d.season_id === season.season_id)}
-                                    {@const needsFetch = !staging && !production}
                                     <tr>
                                         <td class="season-cell">
                                             {season.season_year}
@@ -2824,42 +2823,38 @@
                                             {/if}
                                         </td>
                                         <td>
-                                            {#if needsFetch}
-                                                <form 
-                                                    method="POST" 
-                                                    action="?/fetchDraftPicks"
-                                                    use:enhance={() => {
-                                                        fetchingDraftPicks = season.season_year;
-                                                        fetchResult = null;
-                                                        return async ({ result }) => {
-                                                            fetchingDraftPicks = null;
-                                                            if (result.type === 'success') {
-                                                                fetchResult = result.data;
-                                                                await invalidateAll();
-                                                            } else {
-                                                                fetchResult = { success: false, error: 'Request failed' };
-                                                            }
-                                                        };
-                                                    }}
+                                            <form 
+                                                method="POST" 
+                                                action="?/fetchDraftPicks"
+                                                use:enhance={() => {
+                                                    fetchingDraftPicks = season.season_year;
+                                                    fetchResult = null;
+                                                    return async ({ result }) => {
+                                                        fetchingDraftPicks = null;
+                                                        if (result.type === 'success') {
+                                                            fetchResult = result.data;
+                                                            await invalidateAll();
+                                                        } else {
+                                                            fetchResult = { success: false, error: 'Request failed' };
+                                                        }
+                                                    };
+                                                }}
+                                            >
+                                                <input type="hidden" name="seasonYear" value={season.season_year} />
+                                                <input type="hidden" name="sleeperLeagueId" value={season.sleeper_league_id} />
+                                                <button 
+                                                    type="submit" 
+                                                    class="fetch-btn"
+                                                    disabled={fetchingDraftPicks !== null}
                                                 >
-                                                    <input type="hidden" name="seasonYear" value={season.season_year} />
-                                                    <input type="hidden" name="sleeperLeagueId" value={season.sleeper_league_id} />
-                                                    <button 
-                                                        type="submit" 
-                                                        class="fetch-btn"
-                                                        disabled={fetchingDraftPicks !== null}
-                                                    >
-                                                        {#if fetchingDraftPicks === season.season_year}
-                                                            <span class="spinner-tiny"></span>
-                                                            Fetching...
-                                                        {:else}
-                                                            ↓ Fetch
-                                                        {/if}
-                                                    </button>
-                                                </form>
-                                            {:else}
-                                                <span class="no-action">—</span>
-                                            {/if}
+                                                    {#if fetchingDraftPicks === season.season_year}
+                                                        <span class="spinner-tiny"></span>
+                                                        Fetching...
+                                                    {:else}
+                                                        ↓ Fetch
+                                                    {/if}
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 {/each}
@@ -2908,7 +2903,6 @@
                                 {#each data.sleeperSeasons as season}
                                     {@const staging = data.seasonLevel.draftPicks.find(p => p.season_year === season.season_year)}
                                     {@const production = data.production.draftPicks.find(p => p.season_id === season.season_id)}
-                                    {@const needsFetch = !staging && (!production || production.pick_count === 0)}
                                     <tr>
                                         <td class="season-cell">
                                             {season.season_year}
@@ -2943,42 +2937,38 @@
                                             {/if}
                                         </td>
                                         <td>
-                                            {#if needsFetch}
-                                                <form 
-                                                    method="POST" 
-                                                    action="?/fetchDraftPicks"
-                                                    use:enhance={() => {
-                                                        fetchingDraftPicks = season.season_year;
-                                                        fetchResult = null;
-                                                        return async ({ result }) => {
-                                                            fetchingDraftPicks = null;
-                                                            if (result.type === 'success') {
-                                                                fetchResult = result.data;
-                                                                await invalidateAll();
-                                                            } else {
-                                                                fetchResult = { success: false, error: 'Request failed' };
-                                                            }
-                                                        };
-                                                    }}
+                                            <form 
+                                                method="POST" 
+                                                action="?/fetchDraftPicks"
+                                                use:enhance={() => {
+                                                    fetchingDraftPicks = season.season_year;
+                                                    fetchResult = null;
+                                                    return async ({ result }) => {
+                                                        fetchingDraftPicks = null;
+                                                        if (result.type === 'success') {
+                                                            fetchResult = result.data;
+                                                            await invalidateAll();
+                                                        } else {
+                                                            fetchResult = { success: false, error: 'Request failed' };
+                                                        }
+                                                    };
+                                                }}
+                                            >
+                                                <input type="hidden" name="seasonYear" value={season.season_year} />
+                                                <input type="hidden" name="sleeperLeagueId" value={season.sleeper_league_id} />
+                                                <button 
+                                                    type="submit" 
+                                                    class="fetch-btn"
+                                                    disabled={fetchingDraftPicks !== null}
                                                 >
-                                                    <input type="hidden" name="seasonYear" value={season.season_year} />
-                                                    <input type="hidden" name="sleeperLeagueId" value={season.sleeper_league_id} />
-                                                    <button 
-                                                        type="submit" 
-                                                        class="fetch-btn"
-                                                        disabled={fetchingDraftPicks !== null}
-                                                    >
-                                                        {#if fetchingDraftPicks === season.season_year}
-                                                            <span class="spinner-tiny"></span>
-                                                            Fetching...
-                                                        {:else}
-                                                            ↓ Fetch
-                                                        {/if}
-                                                    </button>
-                                                </form>
-                                            {:else}
-                                                <span class="no-action">—</span>
-                                            {/if}
+                                                    {#if fetchingDraftPicks === season.season_year}
+                                                        <span class="spinner-tiny"></span>
+                                                        Fetching...
+                                                    {:else}
+                                                        ↓ Fetch
+                                                    {/if}
+                                                </button>
+                                            </form>
                                         </td>
                                     </tr>
                                 {/each}
