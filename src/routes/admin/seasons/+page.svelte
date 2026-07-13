@@ -17,12 +17,6 @@
 	let formSeasonYear = new Date().getFullYear();
 	let formPlatform = 'sleeper';
 	let formIsActive = false;
-
-	// League source when adding a season: pick an existing league, or create one
-	// directly from its Sleeper league ID.
-	let leagueMode = 'existing'; // 'existing' | 'new_sleeper'
-	let formSleeperLeagueId = '';
-	let formLeagueName = '';
 	
 	// Reactive statements
 	$: seasons = data.seasons;
@@ -37,16 +31,12 @@
 		formSeasonYear = new Date().getFullYear();
 		formPlatform = 'sleeper';
 		formIsActive = false;
-		leagueMode = 'existing';
-		formSleeperLeagueId = '';
-		formLeagueName = '';
 	}
-
+	
 	// Start editing
 	function startEdit(season) {
 		editingSeason = season.season_id;
 		showAddForm = true;
-		leagueMode = 'existing'; // editing always uses the existing-league selector
 		formLeagueId = season.league_id.toString();
 		formSeasonYear = season.season_year;
 		formPlatform = season.platform;
@@ -146,114 +136,52 @@
 				{#if editingSeason}
 					<input type="hidden" name="season_id" value={editingSeason} />
 				{/if}
-
-				<!-- League source is submitted so the server knows how to resolve the league -->
-				<input type="hidden" name="league_mode" value={editingSeason ? 'existing' : leagueMode} />
-
-				{#if !editingSeason}
+				
+				<div class="form-group">
+					<label for="league_id">League *</label>
+					<select 
+						id="league_id"
+						name="league_id" 
+						bind:value={formLeagueId}
+						required
+					>
+						<option value="">Select League</option>
+						{#each leagues as league}
+							<option value={league.league_id}>
+								{league.league_name} ({league.platform})
+							</option>
+						{/each}
+					</select>
+				</div>
+				
+				<div class="form-row">
 					<div class="form-group">
-						<span class="field-label">League Source</span>
-						<div class="mode-toggle">
-							<label class="mode-option" class:selected={leagueMode === 'existing'}>
-								<input type="radio" bind:group={leagueMode} value="existing" />
-								<span>Select existing league</span>
-							</label>
-							<label class="mode-option" class:selected={leagueMode === 'new_sleeper'}>
-								<input type="radio" bind:group={leagueMode} value="new_sleeper" />
-								<span>New league from Sleeper ID</span>
-							</label>
-						</div>
-					</div>
-				{/if}
-
-				{#if leagueMode === 'existing' || editingSeason}
-					<div class="form-group">
-						<label for="league_id">League *</label>
-						<select
-							id="league_id"
-							name="league_id"
-							bind:value={formLeagueId}
-							required
-						>
-							<option value="">Select League</option>
-							{#each leagues as league}
-								<option value={league.league_id}>
-									{league.league_name} ({league.platform})
-								</option>
-							{/each}
-						</select>
-					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label for="season_year">Season Year *</label>
-							<input
-								type="number"
-								id="season_year"
-								name="season_year"
-								bind:value={formSeasonYear}
-								min="2000"
-								max="2100"
-								required
-							/>
-						</div>
-
-						<div class="form-group">
-							<label for="platform">Platform *</label>
-							<select
-								id="platform"
-								name="platform"
-								bind:value={formPlatform}
-								required
-							>
-								<option value="sleeper">Sleeper</option>
-								<option value="yahoo">Yahoo</option>
-								<option value="espn">ESPN</option>
-							</select>
-						</div>
-					</div>
-				{:else}
-					<!-- New Sleeper league: enter the Sleeper league ID directly -->
-					<div class="form-group">
-						<label for="sleeper_league_id">Sleeper League ID *</label>
-						<input
-							type="text"
-							id="sleeper_league_id"
-							name="sleeper_league_id"
-							bind:value={formSleeperLeagueId}
-							placeholder="e.g. 1247755381011140608"
+						<label for="season_year">Season Year *</label>
+						<input 
+							type="number" 
+							id="season_year"
+							name="season_year" 
+							bind:value={formSeasonYear}
+							min="2000"
+							max="2100"
 							required
 						/>
-						<small>Found in your Sleeper league URL. Details (name, team count, scoring)
-							are pulled from Sleeper automatically.</small>
 					</div>
-
-					<div class="form-row">
-						<div class="form-group">
-							<label for="league_name">League Name</label>
-							<input
-								type="text"
-								id="league_name"
-								name="league_name"
-								bind:value={formLeagueName}
-								placeholder="Optional — auto-filled from Sleeper"
-							/>
-						</div>
-
-						<div class="form-group">
-							<label for="season_year_new">Season Year *</label>
-							<input
-								type="number"
-								id="season_year_new"
-								name="season_year"
-								bind:value={formSeasonYear}
-								min="2000"
-								max="2100"
-								required
-							/>
-						</div>
+					
+					<div class="form-group">
+						<label for="platform">Platform *</label>
+						<select 
+							id="platform"
+							name="platform" 
+							bind:value={formPlatform}
+							required
+						>
+							<option value="sleeper">Sleeper</option>
+							<option value="yahoo">Yahoo</option>
+							<option value="espn">ESPN</option>
+						</select>
 					</div>
-				{/if}
+				</div>
 				
 				<div class="form-group checkbox-group">
 					<label>
@@ -629,44 +557,6 @@
 		margin-top: 0.25rem;
 	}
 	
-	.field-label {
-		display: block;
-		font-weight: 600;
-		color: #333;
-		margin-bottom: 0.5rem;
-	}
-
-	.mode-toggle {
-		display: flex;
-		gap: 0.75rem;
-		flex-wrap: wrap;
-	}
-
-	.mode-option {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.75rem 1rem;
-		border: 2px solid #ddd;
-		border-radius: 8px;
-		cursor: pointer;
-		font-weight: 500;
-		color: #333;
-		margin: 0;
-		flex: 1;
-		min-width: 200px;
-	}
-
-	.mode-option.selected {
-		border-color: #00316b;
-		background: rgba(0, 49, 107, 0.05);
-	}
-
-	.mode-option input[type="radio"] {
-		width: auto;
-		margin: 0;
-	}
-
 	.checkbox-group label {
 		display: flex;
 		align-items: center;
