@@ -50,18 +50,24 @@ export async function query(text, params) {
 // src/lib/db.js - Simple Neon connection without search_path options
 import pg from 'pg';
 import { dev } from '$app/environment';
+import { env } from '$env/dynamic/private';
+
+// SvelteKit/Vite does NOT copy .env into process.env for the dev server, so
+// process.env.DATABASE_URL is undefined locally (which pg reports as
+// "SASL: ... client password must be a string"). Read it through $env, which
+// loads .env in dev and reads process.env in production (e.g. Vercel).
+const connectionString = env.DATABASE_URL || process.env.DATABASE_URL;
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: dev ? false : {
-    rejectUnauthorized: false
-  }
+  connectionString,
+  // Neon requires SSL in every environment (connection string uses sslmode=require).
+  ssl: { rejectUnauthorized: false }
   // NO search_path options - Neon pooled connections don't support this
 });
 
 // Log connection details (only in development)
 if (dev) {
-  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+  console.log('DATABASE_URL:', connectionString ? 'Set' : 'NOT SET');
   console.log('Environment:', dev ? 'Development' : 'Production');
 }
 

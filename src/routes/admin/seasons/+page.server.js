@@ -71,14 +71,85 @@ export const actions = {
 	add: async ({ request }) => {
 		try {
 			const data = await request.formData();
-			const leagueId = data.get('league_id');
+			const leagueMode = (data.get('league_mode') || 'existing').toString();
 			const seasonYear = data.get('season_year');
-			const platform = data.get('platform');
 			const isActive = data.get('is_active') === 'on';
-			
+
+			let leagueId;
+			let platform;
+			let createdLeagueNote = '';
+
+			if (leagueMode === 'new_sleeper') {
+				// Create (or reuse) a Sleeper league directly from its league ID
+				const sleeperLeagueId = (data.get('sleeper_league_id') || '').toString().trim();
+				let leagueName = (data.get('league_name') || '').toString().trim();
+				platform = 'sleeper';
+
+				if (!sleeperLeagueId) {
+					return fail(400, { success: false, error: 'Sleeper League ID is required' });
+				}
+
+				// Reuse an existing league with this Sleeper ID rather than duplicating it
+				const existingLeague = await query(
+					`SELECT league_id FROM leagues WHERE platform_id = $1 AND platform = 'sleeper'`,
+					[sleeperLeagueId]
+				);
+
+				if (existingLeague.rows.length > 0) {
+					leagueId = existingLeague.rows[0].league_id;
+					createdLeagueNote = ' (linked to existing league)';
+				} else {
+					// Best-effort enrich from the public Sleeper API; fall back to sane defaults
+					let maxTeams = 12;
+					let regSeasonLength = 14;
+					let scoringType = null; // DB defaults to 'Half-PPR'
+					let leagueYear = parseInt(seasonYear);
+
+					try {
+						const res = await fetch(`https://api.sleeper.app/v1/league/${sleeperLeagueId}`);
+						if (res.ok) {
+							const l = await res.json();
+							if (l && l.league_id) {
+								if (!leagueName) leagueName = l.name;
+								if (l.total_rosters) maxTeams = l.total_rosters;
+								if (l.settings?.playoff_week_start) regSeasonLength = l.settings.playoff_week_start - 1;
+								const rec = l.scoring_settings?.rec;
+								if (rec !== undefined) scoringType = rec >= 1 ? 'PPR' : rec >= 0.5 ? 'Half-PPR' : 'Standard';
+								if (l.season) leagueYear = parseInt(l.season);
+							}
+						}
+					} catch (err) {
+						console.warn('Sleeper league lookup failed:', err.message);
+					}
+
+					if (!leagueName) {
+						return fail(400, {
+							success: false,
+							error: 'Could not read the league name from Sleeper. Enter a league name and try again.'
+						});
+					}
+
+					const leagueInsert = await query(
+						`INSERT INTO leagues
+							(platform_id, platform, league_name, max_teams, reg_season_length, scoring_type, league_year, created_at)
+						 VALUES ($1, 'sleeper', $2, $3, $4, $5, $6, NOW())
+						 RETURNING league_id`,
+						[sleeperLeagueId, leagueName, maxTeams, regSeasonLength, scoringType, leagueYear]
+					);
+					leagueId = leagueInsert.rows[0].league_id;
+					createdLeagueNote = ` (created league "${leagueName}")`;
+				}
+			} else {
+				leagueId = data.get('league_id');
+				platform = data.get('platform');
+				if (!leagueId) {
+					return fail(400, { success: false, error: 'Please select a league' });
+				}
+			}
+
 			// Check if season already exists for this league and year
 			const checkQuery = `
-				SELECT season_id FROM seasons 
+				SELECT season_id FROM seasons
 				WHERE league_id = $1 AND season_year = $2
 			`;
 			const checkResult = await query(checkQuery, [leagueId, seasonYear]);
@@ -107,10 +178,10 @@ export const actions = {
 			`;
 			
 			const result = await query(insertQuery, [leagueId, seasonYear, isActive, platform]);
-			
+
 			return {
 				success: true,
-				message: `Season ${seasonYear} created successfully`,
+				message: `Season ${seasonYear} created successfully${createdLeagueNote}`,
 				season_id: result.rows[0].season_id
 			};
 		} catch (error) {
