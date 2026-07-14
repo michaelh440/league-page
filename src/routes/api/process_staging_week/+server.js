@@ -68,6 +68,9 @@ export async function POST({ request }) {
 		// Step 2: JS promotion — weekly rosters -> weekly_roster, player stats -> player_fantasy_stats
 		const jsResult = await processRostersAndStatsFromStaging(parseInt(season), parseInt(week));
 
+		// Step 3: rebuild per-week regular-season standings (team_rankings) from matchups
+		const rankRes = await query(`SELECT rebuild_reg_season_team_rankings($1) AS weeks`, [seasonId]);
+
 		const steps = [
 			{
 				step: 'map_users_to_managers',
@@ -89,6 +92,12 @@ export async function POST({ request }) {
 				records: jsResult.processed.stats,
 				success: true,
 				message: `${jsResult.processed.stats} player_fantasy_stats rows`
+			},
+			{
+				step: 'rebuild_team_rankings',
+				records: rankRes.rows[0].weeks,
+				success: true,
+				message: `standings rebuilt through ${rankRes.rows[0].weeks} week(s)`
 			}
 		];
 

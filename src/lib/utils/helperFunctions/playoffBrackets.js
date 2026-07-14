@@ -70,9 +70,9 @@ export async function getPlayoffMatchups(leagueId, seasonId, week) {
 	}
 	const loserOffset = champEntrants.size;
 
-	// team resolution
+	// team resolution — playoffs (like matchups) key team1_id/team2_id on manager_id
 	const teamRows = await query(
-		`SELECT t.platform_team_id, t.team_id, COALESCE(t.team_name, mg.real_name, mg.username) AS team_name
+		`SELECT t.platform_team_id, t.manager_id, COALESCE(t.team_name, mg.real_name, mg.username) AS team_name
 		 FROM teams t LEFT JOIN managers mg ON mg.manager_id = t.manager_id WHERE t.season_id = $1`,
 		[seasonId]
 	);
@@ -100,12 +100,12 @@ export async function getPlayoffMatchups(leagueId, seasonId, week) {
 
 			const t1 = teamByRoster[String(r1)];
 			const t2 = teamByRoster[String(r2)];
-			if (!t1 || !t2 || t1.team_id === t2.team_id) continue;
+			if (!t1 || !t2 || t1.manager_id === t2.manager_id) continue;
 
 			rows.push({
-				team1_id: t1.team_id,
+				team1_id: t1.manager_id,
 				team1_name: t1.team_name,
-				team2_id: t2.team_id,
+				team2_id: t2.manager_id,
 				team2_name: t2.team_name,
 				team1_score: pointsByRoster[r1] ?? null,
 				team2_score: pointsByRoster[r2] ?? null,
@@ -116,4 +116,37 @@ export async function getPlayoffMatchups(leagueId, seasonId, week) {
 		}
 	}
 	return rows;
+}
+
+/**
+ * Derive the week's playoff matchups from Sleeper's brackets and stage them into
+ * staging_sleeper_playoffs (one row per bracket game). Returns the count staged.
+ */
+export async function stagePlayoffMatchups(leagueId, seasonId, seasonYear, week) {
+	const rows = await getPlayoffMatchups(leagueId, seasonId, week);
+	for (const r of rows) {
+		await query(
+			`INSERT INTO staging_sleeper_playoffs (
+				sleeper_league_id, season_year, week, sleeper_matchup_id,
+				team1_manager_id, team1_name, team2_manager_id, team2_name,
+				team1_score, team2_score, bracket, round_name, processed
+			) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,false)
+			ON CONFLICT (season_year, week, bracket, sleeper_matchup_id) DO UPDATE SET
+				team1_manager_id = EXCLUDED.team1_manager_id,
+				team1_name = EXCLUDED.team1_name,
+				team2_manager_id = EXCLUDED.team2_manager_id,
+				team2_name = EXCLUDED.team2_name,
+				team1_score = EXCLUDED.team1_score,
+				team2_score = EXCLUDED.team2_score,
+				bracket = EXCLUDED.bracket,
+				round_name = EXCLUDED.round_name,
+				processed = false`,
+			[
+				leagueId, seasonYear, week, r.platform_matchup_id,
+				r.team1_id, r.team1_name, r.team2_id, r.team2_name,
+				r.team1_score, r.team2_score, r.bracket, r.round_name
+			]
+		);
+	}
+	return rows.length;
 }

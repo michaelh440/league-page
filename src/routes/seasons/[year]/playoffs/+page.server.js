@@ -37,15 +37,17 @@ export async function load({ params }) {
         p.playoff_id ASC
     `, [year]);
 
-    if (result.rows.length === 0) {
-      throw error(404, `No playoff data found for ${year}`);
-    }
-
     // Structure into championship/consolation brackets
     const bracketData = {
       championship: { week15: [], week16: [] },
       consolation: { week15: [], week16: [] }
     };
+
+    // No playoff data yet (e.g. an in-progress season) — return empty brackets so the
+    // page renders a "no data" state instead of a hard 404.
+    if (result.rows.length === 0) {
+      return { season: year, ...bracketData };
+    }
 
     // Determine which weeks are playoffs (usually 15 and 16, but could vary)
     const weeks = [...new Set(result.rows.map(r => r.week))].sort();

@@ -23,7 +23,43 @@ export async function load({ params }) {
     }
     
     const seasonId = seasonResult.rows[0].season_id;
-    
+
+    // Finalized seasons use historical_rankings. Seasons without it (e.g. an in-progress
+    // Sleeper season being loaded week by week) read the latest week from team_rankings,
+    // which the pipeline rebuilds after each week — so partial standings still show.
+    const hasRankings = (await query(
+      `SELECT 1 FROM historical_rankings WHERE season_year = $1 LIMIT 1`,
+      [year]
+    )).rows.length > 0;
+
+    if (!hasRankings) {
+      const live = await query(`
+        SELECT
+          tr.reg_season_rank AS rank,
+          tr.final_rank,
+          CASE WHEN tr.reg_season_rank <= 4 THEN 'playoffs'
+               WHEN tr.reg_season_rank <= 8 THEN 'consolation'
+               ELSE 'missed' END AS playoff_status,
+          m.manager_id,
+          COALESCE(mtn.team_name, m.team_alias, m.username) AS manager_name,
+          COALESCE(mtn.logo_url, m.logo_url, 'https://via.placeholder.com/48') AS logo_url,
+          tr.wins, tr.losses, tr.ties,
+          tr.points_for::numeric(10,2) AS points_for,
+          tr.points_against::numeric(10,2) AS points_against
+        FROM team_rankings tr
+        JOIN managers m ON m.manager_id = tr.team_id
+        LEFT JOIN manager_team_names mtn ON mtn.manager_id = m.manager_id AND mtn.season_year = $1
+        WHERE tr.season_id = $2
+          AND tr.week = (SELECT MAX(week) FROM team_rankings WHERE season_id = $2)
+        ORDER BY tr.reg_season_rank
+      `, [year, seasonId]);
+
+      const yearsResult = await query(`
+        SELECT DISTINCT season_year FROM seasons WHERE season_year IS NOT NULL ORDER BY season_year
+      `);
+      return { year, standings: live.rows, availableYears: yearsResult.rows.map(r => r.season_year) };
+    }
+
     // Rest of the code stays the same...
     const standingsResult = await query(`
       WITH season_wins_losses AS (

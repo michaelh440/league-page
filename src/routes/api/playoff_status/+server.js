@@ -3,7 +3,6 @@
 // (playoffs, playoff_roster, playoff_fantasy_stats). Read-only.
 import { json } from '@sveltejs/kit';
 import { query } from '$lib/db';
-import { getPlayoffMatchups } from '$lib/utils/helperFunctions/playoffBrackets.js';
 
 function buildLineup(row) {
 	const swp = row.starters_with_positions;
@@ -44,20 +43,15 @@ export async function GET({ url }) {
 	}
 
 	try {
-		// Derive the week's playoff matchups from Sleeper brackets (shown in the preview,
-		// same data that the push writes to the playoffs table).
-		let matchups = [];
-		try {
-			const lg = await query(
-				`SELECT l.platform_id FROM seasons s JOIN leagues l ON s.league_id = l.league_id WHERE s.season_id = $1`,
-				[seasonId]
-			);
-			if (lg.rows[0]?.platform_id) {
-				matchups = await getPlayoffMatchups(lg.rows[0].platform_id, parseInt(seasonId), parseInt(week));
-			}
-		} catch (e) {
-			console.warn('Could not derive playoff matchups for preview:', e.message);
-		}
+		// Staged playoff matchups for this week (what the push will promote to the playoffs table)
+		const stagedMatchups = await query(
+			`SELECT bracket, round_name, team1_name, team2_name, team1_score, team2_score
+			 FROM staging_sleeper_playoffs
+			 WHERE season_year = $1 AND week = $2 AND processed = false
+			 ORDER BY (bracket = 'Championship') DESC, round_name`,
+			[seasonYear, week]
+		);
+		const matchups = stagedMatchups.rows;
 
 		// team labels
 		const teamRows = await query(

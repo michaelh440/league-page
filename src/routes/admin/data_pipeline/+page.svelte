@@ -43,6 +43,27 @@
 		playoffWeek = playoffWeeks[0];
 	}
 
+	// Playoff overview grid — staging vs production per playoff week (from the status object)
+	$: playoffWeekRows = playoffWeeks.map((w) => {
+		const s = {
+			matchups: status?.stagingByWeek?.playoffs?.[w] || 0,
+			rosters: status?.stagingByWeek?.rosters?.[w] || 0,
+			stats: status?.stagingByWeek?.stats?.[w] || 0
+		};
+		const p = {
+			matchups: status?.playoffs?.[w] || 0,
+			rosters: status?.playoffRosters?.[w] || 0,
+			stats: status?.playoffStats?.[w] || 0
+		};
+		const st =
+			s.matchups + s.rosters + s.stats > 0
+				? 'staged'
+				: p.matchups + p.rosters + p.stats > 0
+					? 'processed'
+					: 'empty';
+		return { w, s, p, st };
+	});
+
 	$: selectedSeason = selectedSeasonId
 		? data.seasons.find((s) => s.season_id === parseInt(selectedSeasonId))
 		: null;
@@ -272,8 +293,19 @@
 			);
 			const r = await res.json();
 			if (!r.success) throw new Error(r.error || 'Playoff staging failed');
-			setMessage('success', `Playoff week ${playoffWeek} staged: ${r.staged.teams} teams, ${r.staged.stats} stats. Review, then push.`);
+
+			// Stage the bracket matchups too (into staging_sleeper_playoffs)
+			const mRes = await fetch('/api/stage_playoff_matchups', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ season: parseInt(selectedSeason.season_year), week: parseInt(playoffWeek) })
+			});
+			const mResult = await mRes.json();
+			if (!mResult.success) throw new Error(mResult.error || 'Playoff matchup staging failed');
+
+			setMessage('success', `Playoff week ${playoffWeek} staged: ${mResult.staged} matchups, ${r.staged.teams} teams, ${r.staged.stats} stats. Review, then push.`);
 			await loadPlayoffStatus();
+			await fetchStatus();
 		} catch (err) {
 			setMessage('error', `Playoff fetch failed: ${err.message}`);
 		}
@@ -295,6 +327,7 @@
 			playoffPushSteps = r.steps;
 			setMessage('success', `Playoff week ${playoffWeek} pushed to production.`);
 			await loadPlayoffStatus();
+			await fetchStatus();
 		} catch (err) {
 			setMessage('error', `Playoff push failed: ${err.message}`);
 		}
@@ -725,6 +758,23 @@
 					{loadingPlayoff ? '⏳…' : '🔍 Show staged / production'}
 				</button>
 			</div>
+
+			<!-- Playoff week overview (staging vs production) -->
+			<div class="overview-grid" style="margin-top: 1rem;">
+				<div class="grid-header">Week</div>
+				<div class="grid-header">Staging</div>
+				<div class="grid-header">Production</div>
+				<div class="grid-header">State</div>
+				{#each playoffWeekRows as row (row.w)}
+					<button class="grid-cell week-cell" class:selected={row.w === playoffWeek} on:click={() => selectPlayoffWeek(row.w)}>W{row.w}</button>
+					<div class="grid-cell">{row.s.matchups} matchups · {row.s.rosters} rosters · {row.s.stats} stats</div>
+					<div class="grid-cell">{row.p.matchups} matchups · {row.p.rosters} rosters · {row.p.stats} stats</div>
+					<div class="grid-cell">
+						<span class="pill pill-{row.st}">{row.st === 'staged' ? '● Staged' : row.st === 'processed' ? '✓ In prod' : '– Empty'}</span>
+					</div>
+				{/each}
+			</div>
+			<p class="legend">Playoff matchups are derived from the Sleeper bracket into <code>staging_sleeper_playoffs</code> on fetch, then pushed to the <code>playoffs</code> table.</p>
 
 			{#if playoff}
 				<h3>Staged <span class="tag tag-amber">to be pushed</span></h3>

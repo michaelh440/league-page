@@ -24,7 +24,8 @@ export async function GET({ url }) {
 			stagingByWeek: {
 				rosters: {},
 				stats: {},
-				matchups: {}
+				matchups: {},
+				playoffs: {}
 			},
 			
 			// Season-level data
@@ -243,6 +244,19 @@ export async function GET({ url }) {
 
 		for (const row of stagingMatchupsByWeekQuery.rows) {
 			status.stagingByWeek.matchups[row.week] = parseInt(row.count);
+		}
+
+		// Staged playoff matchups by week (separate staging_sleeper_playoffs table)
+		const stagingPlayoffsByWeekQuery = await query(`
+			SELECT week, COUNT(*) as count
+			FROM staging_sleeper_playoffs
+			WHERE season_year = $1 AND processed = false
+			GROUP BY week
+			ORDER BY week
+		`, [seasonYear]);
+
+		for (const row of stagingPlayoffsByWeekQuery.rows) {
+			status.stagingByWeek.playoffs[row.week] = parseInt(row.count);
 		}
 
 		return json(status);
