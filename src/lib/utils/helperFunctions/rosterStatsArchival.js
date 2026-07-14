@@ -6,10 +6,14 @@ import { query } from '$lib/db';
  * @param {string} leagueID - Sleeper league ID
  * @param {number} season - Season year
  * @param {number} week - Week number to archive
+ * @param {Object} [options]
+ * @param {boolean} [options.processImmediately=true] - When false, only stage the data
+ *        (leave it unprocessed) so it can be previewed and pushed to production later.
  * @returns {Promise<Object>}
  */
-export async function archiveRostersAndStats(leagueID, season, week) {
-  console.log(`Starting roster and stats archive for league ${leagueID}, season ${season}, week ${week}`);
+export async function archiveRostersAndStats(leagueID, season, week, options = {}) {
+  const { processImmediately = true } = options;
+  console.log(`Starting roster and stats archive for league ${leagueID}, season ${season}, week ${week} (processImmediately=${processImmediately})`);
   
   try {
     // Get season_id from database
@@ -53,36 +57,40 @@ export async function archiveRostersAndStats(leagueID, season, week) {
     const matchupsRes = await fetch(matchupsUrl);
     const matchupsData = await matchupsRes.json();
     
-    for (const roster of rostersData) {
-      const matchupData = matchupsData.find(m => m.roster_id === roster.roster_id);
-      
-      if (!matchupData) continue; // Skip if no matchup data for this week
-      
-      // Create position and name maps from player IDs using the already-fetched player data
+    // Iterate the WEEK's matchups (not the current rosters). The matchup object carries
+    // week-specific `players` and `starters`, so we resolve players who were on the team
+    // that week even if they've since been dropped (the current roster would miss them).
+    for (const matchupData of matchupsData) {
+      const roster = rostersData.find(r => r.roster_id === matchupData.roster_id) || {};
+
+      const weekPlayers = Array.isArray(matchupData.players) ? matchupData.players : [];
+      const starters = Array.isArray(matchupData.starters) ? matchupData.starters : [];
+      // Resolve every player that appears this week (starters ∪ full week roster)
+      const allPlayerIds = Array.from(new Set([...weekPlayers, ...starters]));
+
+      // Create position and name maps from the full Sleeper player data
       const playerPositions = {};
       const playerNames = {};
-      if (roster.players) {
-        roster.players.forEach(playerId => {
-          const playerInfo = playersData[playerId];
-          
-          if (playerInfo) {
-            // Regular player
-            playerPositions[playerId] = playerInfo.position;
-            playerNames[playerId] = playerInfo.full_name || 
-                                    `${playerInfo.first_name} ${playerInfo.last_name}`;
-          } else if (playerId.length <= 3 && playerId === playerId.toUpperCase()) {
-            // This looks like a defense team abbreviation (MIA, PIT, etc.)
-            playerPositions[playerId] = 'DEF';
-            playerNames[playerId] = playerId; // Use team abbreviation as name for now
-          } else {
-            // Unknown player - log warning but continue
-            console.warn(`Player ${playerId} not found in Sleeper player data`);
-            playerPositions[playerId] = null;
-            playerNames[playerId] = `Unknown (${playerId})`;
-          }
-        });
+      for (const playerId of allPlayerIds) {
+        const playerInfo = playersData[playerId];
+
+        if (playerInfo) {
+          // Regular player
+          playerPositions[playerId] = playerInfo.position;
+          playerNames[playerId] = playerInfo.full_name ||
+                                  `${playerInfo.first_name} ${playerInfo.last_name}`;
+        } else if (playerId.length <= 3 && playerId === playerId.toUpperCase()) {
+          // This looks like a defense team abbreviation (MIA, PIT, etc.)
+          playerPositions[playerId] = 'DEF';
+          playerNames[playerId] = playerId; // Use team abbreviation as name for now
+        } else {
+          // Unknown player - log warning but continue
+          console.warn(`Player ${playerId} not found in Sleeper player data`);
+          playerPositions[playerId] = null;
+          playerNames[playerId] = `Unknown (${playerId})`;
+        }
       }
-      
+
       // Insert into staging table with roster positions
       await query(`
         INSERT INTO staging_sleeper_weekly_rosters (
@@ -96,7 +104,7 @@ export async function archiveRostersAndStats(leagueID, season, week) {
           bench_with_positions,
           raw_data
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        ON CONFLICT (sleeper_league_id, roster_id, season_year, week) 
+        ON CONFLICT (sleeper_league_id, roster_id, season_year, week)
         DO UPDATE SET
           starters = EXCLUDED.starters,
           players = EXCLUDED.players,
@@ -106,16 +114,16 @@ export async function archiveRostersAndStats(leagueID, season, week) {
           processed = false
       `, [
         leagueID,
-        roster.roster_id,
+        matchupData.roster_id,
         season,
         week,
-        JSON.stringify(matchupData.starters || []),
-        JSON.stringify(roster.players || []),
+        JSON.stringify(starters),
+        JSON.stringify(weekPlayers), // week-specific roster, not the current one
         JSON.stringify({ positions: playerPositions, names: playerNames }), // Player positions AND names
         JSON.stringify(rosterPositions), // League's lineup slot structure
         JSON.stringify({ roster, matchup: matchupData })
       ]);
-      
+
       rostersStaged++;
     }
     
@@ -185,28 +193,36 @@ export async function archiveRostersAndStats(leagueID, season, week) {
     
     console.log(`Staged ${statsStaged} player stat records`);
     
-    // Step 3: Process staged rosters into main tables
-    console.log('Processing rosters into main tables...');
-    let rostersProcessed = 0;
-    try {
-      rostersProcessed = await processRostersFromStaging(season_id, season, week);
-      console.log(`Successfully processed ${rostersProcessed} rosters`);
-    } catch (error) {
-      console.error('Error processing rosters:', error);
-      throw error;
+    // Steps 3 & 4: Process staged data into main tables.
+    // Skipped when staging only (stage -> preview -> push flow); the data stays
+    // unprocessed until it is explicitly pushed via processRostersAndStatsFromStaging().
+    let rostersProcessed = null;
+    let statsProcessed = null;
+
+    if (processImmediately) {
+      // Step 3: Process staged rosters into main tables
+      console.log('Processing rosters into main tables...');
+      try {
+        rostersProcessed = await processRostersFromStaging(season_id, season, week);
+        console.log(`Successfully processed ${rostersProcessed} rosters`);
+      } catch (error) {
+        console.error('Error processing rosters:', error);
+        throw error;
+      }
+
+      // Step 4: Process staged stats into main tables
+      console.log('Processing player stats into main tables...');
+      try {
+        statsProcessed = await processStatsFromStaging(season_id, season, week);
+        console.log(`Successfully processed ${statsProcessed} stats`);
+      } catch (error) {
+        console.error('Error processing stats:', error);
+        throw error;
+      }
+    } else {
+      console.log('Staging only - skipping processing into main tables');
     }
-    
-    // Step 4: Process staged stats into main tables
-    console.log('Processing player stats into main tables...');
-    let statsProcessed = 0;
-    try {
-      statsProcessed = await processStatsFromStaging(season_id, season, week);
-      console.log(`Successfully processed ${statsProcessed} stats`);
-    } catch (error) {
-      console.error('Error processing stats:', error);
-      throw error;
-    }
-    
+
     return {
       success: true,
       season: season,
@@ -225,6 +241,45 @@ export async function archiveRostersAndStats(leagueID, season, week) {
     console.error('Error archiving rosters and stats:', error);
     throw error;
   }
+}
+
+/**
+ * Push already-staged rosters and player stats for a week into the production tables.
+ * Use this for the "stage -> preview -> push" flow, after data has been staged with
+ * archiveRostersAndStats(..., { processImmediately: false }).
+ *
+ * @param {number} season - Season year
+ * @param {number} week - Week number
+ * @returns {Promise<Object>} counts of rows processed into weekly_roster / player_fantasy_stats
+ */
+export async function processRostersAndStatsFromStaging(season, week) {
+  // Resolve season_id (mirrors archiveRostersAndStats)
+  const seasonResult = await query(`
+    SELECT s.season_id
+    FROM seasons s
+    JOIN leagues l ON s.league_id = l.league_id
+    WHERE s.season_year = $1 AND l.platform = 'sleeper'
+  `, [season]);
+
+  if (seasonResult.rows.length === 0) {
+    throw new Error('Season not found in database');
+  }
+
+  const { season_id } = seasonResult.rows[0];
+
+  const rostersProcessed = await processRostersFromStaging(season_id, season, week);
+  const statsProcessed = await processStatsFromStaging(season_id, season, week);
+
+  return {
+    success: true,
+    season,
+    week,
+    season_id,
+    processed: {
+      rosters: rostersProcessed,
+      stats: statsProcessed
+    }
+  };
 }
 
 /**
@@ -452,10 +507,7 @@ async function processRostersFromStaging(season_id, season_year, week) {
 async function processStatsFromStaging(season_id, season_year, week) {
   let processedCount = 0;
   let skippedCount = 0;
-  
-  // Valid positions for the CHECK constraint
-  const validPositions = ['QB', 'RB', 'WR', 'TE', 'K', 'DEF'];
-  
+
   console.log(`Processing player stats for season_id=${season_id}, year=${season_year}, week=${week}`);
   
   // Get unprocessed stat records for this week
@@ -468,22 +520,11 @@ async function processStatsFromStaging(season_id, season_year, week) {
   console.log(`Found ${stagingRecords.rows.length} unprocessed player stat records`);
   
   for (const record of stagingRecords.rows) {
-    // Skip if missing position
-    if (!record.position) {
-      console.warn(`Skipping player ${record.sleeper_player_id} (${record.player_name}) - no position found`);
-      skippedCount++;
-      // Don't mark as processed - leave for manual review
-      continue;
-    }
-    
-    // Skip if position is not valid (IDP positions like DB, LB, DL)
-    if (!validPositions.includes(record.position)) {
-      console.warn(`Skipping player ${record.sleeper_player_id} (${record.player_name}) - invalid position: ${record.position} (likely IDP)`);
-      skippedCount++;
-      // Don't mark as processed - leave for manual review
-      continue;
-    }
-    
+    // Keep ALL players' stats — including IDP, O-line, and special teams. We intentionally
+    // do NOT filter by position. player_fantasy_stats.position is NOT NULL, so fall back to
+    // 'UNK' on the rare row that has no position.
+    const position = record.position || 'UNK';
+
     // Check if already exists
     const existing = await query(`
       SELECT 1 FROM player_fantasy_stats
@@ -502,7 +543,7 @@ async function processStatsFromStaging(season_id, season_year, week) {
         WHERE season_id = $5 AND week = $6 AND sleeper_player_id = $7
       `, [
         record.player_name,
-        record.position,
+        position,
         record.team,
         record.fantasy_points_half_ppr,
         season_id,
@@ -527,7 +568,7 @@ async function processStatsFromStaging(season_id, season_year, week) {
         record.week,
         record.sleeper_player_id,
         record.player_name,
-        record.position,
+        position,
         record.team,
         record.fantasy_points_half_ppr,
         'sleeper'

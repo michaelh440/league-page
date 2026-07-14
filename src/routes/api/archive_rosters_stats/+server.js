@@ -6,15 +6,19 @@ export async function GET({ url }) {
   const leagueID = url.searchParams.get('league_id');
   const season = url.searchParams.get('season');
   const week = url.searchParams.get('week');
-  
+  // When stageOnly=true, data is staged but NOT processed into production tables.
+  const stageOnly = url.searchParams.get('stageOnly') === 'true';
+
   if (!leagueID || !season || !week) {
-    return json({ 
-      error: 'Missing required parameters: league_id, season, and week' 
+    return json({
+      error: 'Missing required parameters: league_id, season, and week'
     }, { status: 400 });
   }
-  
+
   try {
-    const result = await archiveRostersAndStats(leagueID, parseInt(season), parseInt(week));
+    const result = await archiveRostersAndStats(leagueID, parseInt(season), parseInt(week), {
+      processImmediately: !stageOnly
+    });
     return json(result);
   } catch (error) {
     console.error('Error in archive_rosters_stats endpoint:', error);
