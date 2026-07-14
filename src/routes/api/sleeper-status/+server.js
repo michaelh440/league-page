@@ -234,8 +234,9 @@ export async function GET({ url }) {
 		}
 
 		// Matchups by week
+		// staging_sleeper_matchups stores one row per team; count distinct games (matchup ids)
 		const stagingMatchupsByWeekQuery = await query(`
-			SELECT week, COUNT(*) as count
+			SELECT week, COUNT(DISTINCT sleeper_matchup_id) as count
 			FROM staging_sleeper_matchups
 			WHERE season_year = $1 AND processed = false
 			GROUP BY week
