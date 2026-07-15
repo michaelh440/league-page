@@ -2,6 +2,16 @@
 import { query } from '$lib/db';
 import { error } from '@sveltejs/kit';
 
+// Only list seasons that actually have matchup data. A season row can exist before the
+// season starts (e.g. 2026 created ahead of time) — those shouldn't appear in the nav.
+const AVAILABLE_YEARS_SQL = `
+  SELECT DISTINCT s.season_year
+  FROM seasons s
+  JOIN matchups m ON m.season_id = s.season_id
+  WHERE s.season_year IS NOT NULL
+  ORDER BY s.season_year
+`;
+
 export async function load({ params }) {
   const year = params.year ? parseInt(params.year) : 2023;
   
@@ -54,9 +64,7 @@ export async function load({ params }) {
         ORDER BY tr.reg_season_rank
       `, [year, seasonId]);
 
-      const yearsResult = await query(`
-        SELECT DISTINCT season_year FROM seasons WHERE season_year IS NOT NULL ORDER BY season_year
-      `);
+      const yearsResult = await query(`${AVAILABLE_YEARS_SQL}`);
       return { year, standings: live.rows, availableYears: yearsResult.rows.map(r => r.season_year) };
     }
 
@@ -139,12 +147,7 @@ export async function load({ params }) {
     `, [year, seasonId]);
     
     // Get available years for dropdown
-    const yearsResult = await query(`
-      SELECT DISTINCT season_year 
-      FROM seasons
-      WHERE season_year IS NOT NULL
-      ORDER BY season_year
-    `);
+    const yearsResult = await query(`${AVAILABLE_YEARS_SQL}`);
     
     const availableYears = yearsResult.rows.map(row => row.season_year);
     

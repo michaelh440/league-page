@@ -6,6 +6,7 @@
 import { json } from '@sveltejs/kit';
 import { query } from '$lib/db';
 import { processRostersAndStatsFromStaging } from '$lib/utils/helperFunctions/rosterStatsArchival.js';
+import { processMatchupsFromStaging } from '$lib/utils/helperFunctions/matchupProcessing.js';
 
 export async function POST({ request }) {
 	try {
@@ -56,14 +57,34 @@ export async function POST({ request }) {
 			[]
 		);
 
-		// Step 1: DB promotion — users -> managers, rosters -> teams, matchups -> matchups + weekly_scoring
-		const dbResult = await query(`SELECT * FROM process_sleeper_week($1, $2)`, [seasonId, week]);
-		const dbSteps = dbResult.rows.map((r) => ({
-			step: r.step,
-			records: r.records_processed,
-			success: r.success,
-			message: r.message
-		}));
+		// Step 1: season-level promotion — users -> managers/team names, rosters -> teams.
+		// (These are inherently season-scoped, so they stay as DB functions.)
+		const usersRes = await query(`SELECT * FROM process_sleeper_users()`);
+		const rostersRes = await query(`SELECT * FROM process_sleeper_rosters()`);
+		const dbSteps = [
+			{
+				step: 'process_users',
+				records: usersRes.rows[0]?.records_processed ?? 0,
+				success: usersRes.rows[0]?.success ?? false,
+				message: usersRes.rows[0]?.message ?? ''
+			},
+			{
+				step: 'process_rosters',
+				records: rostersRes.rows[0]?.records_processed ?? 0,
+				success: rostersRes.rows[0]?.success ?? false,
+				message: rostersRes.rows[0]?.message ?? ''
+			}
+		];
+
+		// Step 1b: matchups -> matchups + weekly_scoring for THIS week only.
+		// Handled in JS (not process_sleeper_matchups) so it's week-scoped and keys on manager_id.
+		const matchupRes = await processMatchupsFromStaging(parseInt(season), parseInt(week));
+		dbSteps.push({
+			step: 'process_matchups',
+			records: matchupRes.matchups,
+			success: true,
+			message: `${matchupRes.matchups} matchup(s) -> matchups + weekly_scoring (week ${matchupRes.week})`
+		});
 
 		// Step 2: JS promotion — weekly rosters -> weekly_roster, player stats -> player_fantasy_stats
 		const jsResult = await processRostersAndStatsFromStaging(parseInt(season), parseInt(week));
