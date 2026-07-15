@@ -89,8 +89,13 @@ async importWeekData() {
         // Step 5: Stage matchups for this week
         await this.stageMatchups(matchupsData, leagueData);
 
-        // Step 6: Stage weekly rosters (starters/bench)
-        await this.stageWeeklyRosters(matchupsData, rostersData.rosters, playersData, leagueData);
+        // NOTE: weekly rosters are intentionally NOT staged here.
+        // archiveRostersAndStats() is the single authoritative writer for
+        // staging_sleeper_weekly_rosters: it resolves week-specific matchup.players and
+        // stores the {positions,names} shape the push/preview expect. Staging here too
+        // created a second row per roster whenever the league id source differed
+        // (this adapter uses the hardcoded leagueInfo.leagueID, the archive uses the
+        // DB's leagues.platform_id), which left duplicate ARRAY/OBJECT rows.
 
         return {
             success: true,
