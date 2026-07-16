@@ -1,6 +1,46 @@
 import { query } from '$lib/db';
 import { error } from '@sveltejs/kit';
 
+// One roster for one team in one week, with each player's fantasy points and NFL team.
+// Points live in player_fantasy_stats; the platform join key differs by era -- Yahoo
+// seasons (2015-2023) key on yahoo_player_id, Sleeper seasons (2024+) on
+// sleeper_player_id -- so match on whichever the roster row carries. LEFT JOIN so a
+// player with no recorded stat line (e.g. a team DEF) still renders, just without points.
+const ROSTER_SQL = `
+  SELECT
+    wr.player_name,
+    wr.position,
+    wr.lineup_slot,
+    wr.is_starter,
+    wr.sleeper_player_id,
+    wr.yahoo_player_id,
+    pfs.total_fantasy_points AS points,
+    pfs.nfl_team
+  FROM weekly_roster wr
+  LEFT JOIN player_fantasy_stats pfs
+    ON pfs.season_id = wr.season_id
+   AND pfs.week = wr.week
+   AND ( (wr.sleeper_player_id IS NOT NULL AND pfs.sleeper_player_id = wr.sleeper_player_id)
+      OR (wr.yahoo_player_id  IS NOT NULL AND pfs.yahoo_player_id  = wr.yahoo_player_id) )
+  WHERE wr.season_id = $1
+    AND wr.week = $2
+    AND wr.team_id = $3
+  ORDER BY
+    CASE wr.lineup_slot
+      WHEN 'QB' THEN 1
+      WHEN 'RB' THEN 2
+      WHEN 'WR' THEN 3
+      WHEN 'TE' THEN 4
+      WHEN 'FLEX' THEN 5
+      WHEN 'K' THEN 6
+      WHEN 'DEF' THEN 7
+      WHEN 'BN' THEN 8
+      WHEN 'IR' THEN 9
+      ELSE 10
+    END,
+    wr.player_name
+`;
+
 export async function load({ params }) {
   const year = parseInt(params.year);
   
@@ -9,15 +49,22 @@ export async function load({ params }) {
     throw error(404, 'Season not found');
   }
 
-  // Check if season exists
+  // Resolve the season. season_year is not unique -- 2023 has two rows (season_id 9 with
+  // all the data, and an empty orphan 10). Prefer the season that actually has matchups,
+  // otherwise the roster lookups key on the empty one and every roster comes back blank.
   const seasonResult = await query(`
-    SELECT season_id FROM seasons WHERE season_year = $1
+    SELECT s.season_id
+    FROM seasons s
+    WHERE s.season_year = $1
+    ORDER BY (SELECT COUNT(*) FROM matchups m WHERE m.season_id = s.season_id) DESC,
+             s.season_id ASC
+    LIMIT 1
   `, [year]);
-  
+
   if (seasonResult.rows.length === 0) {
     throw error(404, 'Season not found');
   }
-  
+
   const seasonId = seasonResult.rows[0].season_id;
 
   const result = await query(`
@@ -54,61 +101,9 @@ export async function load({ params }) {
       weeks.push(week);
     }
 
-    // Get team1 roster
-    const team1Roster = await query(`
-      SELECT 
-        player_name,
-        position,
-        lineup_slot,
-        is_starter,
-        yahoo_player_id
-      FROM weekly_roster
-      WHERE season_id = $1 
-        AND week = $2 
-        AND team_id = $3
-      ORDER BY 
-        CASE lineup_slot
-          WHEN 'QB' THEN 1
-          WHEN 'RB' THEN 2
-          WHEN 'WR' THEN 3
-          WHEN 'TE' THEN 4
-          WHEN 'FLEX' THEN 5
-          WHEN 'K' THEN 6
-          WHEN 'DEF' THEN 7
-          WHEN 'BN' THEN 8
-          WHEN 'IR' THEN 9
-          ELSE 10
-        END,
-        player_name
-    `, [seasonId, row.week, row.team1_id]);
-
-    // Get team2 roster
-    const team2Roster = await query(`
-      SELECT 
-        player_name,
-        position,
-        lineup_slot,
-        is_starter,
-        yahoo_player_id
-      FROM weekly_roster
-      WHERE season_id = $1 
-        AND week = $2 
-        AND team_id = $3
-      ORDER BY 
-        CASE lineup_slot
-          WHEN 'QB' THEN 1
-          WHEN 'RB' THEN 2
-          WHEN 'WR' THEN 3
-          WHEN 'TE' THEN 4
-          WHEN 'FLEX' THEN 5
-          WHEN 'K' THEN 6
-          WHEN 'DEF' THEN 7
-          WHEN 'BN' THEN 8
-          WHEN 'IR' THEN 9
-          ELSE 10
-        END,
-        player_name
-    `, [seasonId, row.week, row.team2_id]);
+    // Get both rosters with per-player points
+    const team1Roster = await query(ROSTER_SQL, [seasonId, row.week, row.team1_id]);
+    const team2Roster = await query(ROSTER_SQL, [seasonId, row.week, row.team2_id]);
 
     week.games.push({
       team1: row.team1,

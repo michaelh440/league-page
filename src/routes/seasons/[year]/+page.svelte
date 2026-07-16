@@ -45,6 +45,31 @@
         };
         return colors[position] || '#999';
     }
+
+    const PLAYER_DEFAULT = 'https://sleepercdn.com/images/v2/icons/player_default.webp';
+
+    // Headshot from the Sleeper CDN. Team defenses use the team logo; everyone else the
+    // player thumb. Only Sleeper seasons (2024+) carry sleeper_player_id, so Yahoo-era
+    // players fall back to the default silhouette.
+    function playerImage(player) {
+        if (!player.sleeper_player_id) return PLAYER_DEFAULT;
+        if (player.position === 'DEF') {
+            return `https://sleepercdn.com/images/team_logos/nfl/${String(player.sleeper_player_id).toLowerCase()}.png`;
+        }
+        return `https://sleepercdn.com/content/nfl/players/thumb/${player.sleeper_player_id}.jpg`;
+    }
+
+    // Small NFL team logo. nfl_team casing varies by source ('ARI' vs 'Bal'), and the
+    // CDN wants lowercase.
+    function teamLogo(nflTeam) {
+        if (!nflTeam) return null;
+        return `https://sleepercdn.com/images/team_logos/nfl/${String(nflTeam).toLowerCase()}.png`;
+    }
+
+    // Points may be null (no recorded stat line); show a dash rather than "null".
+    function formatPoints(points) {
+        return points === null || points === undefined ? '—' : Number(points).toFixed(2);
+    }
 </script>
 
 <div class="page-layout">
@@ -114,9 +139,18 @@
                                                         <div class="position-badge" style="background-color: {getPositionColor(player.position)}">
                                                             {player.lineup_slot}
                                                         </div>
+                                                        <img class="player-img" src={playerImage(player)} alt={player.player_name}
+                                                             on:error={(e) => (e.currentTarget.src = PLAYER_DEFAULT)} />
                                                         <div class="player-info">
                                                             <span class="player-name">{player.player_name}</span>
+                                                            <span class="player-meta">
+                                                                {#if teamLogo(player.nfl_team)}
+                                                                    <img class="nfl-logo" src={teamLogo(player.nfl_team)} alt={player.nfl_team} />
+                                                                {/if}
+                                                                {#if player.nfl_team}<span class="nfl-team">{player.nfl_team}</span>{/if}
+                                                            </span>
                                                         </div>
+                                                        <div class="player-points">{formatPoints(player.points)}</div>
                                                     </div>
                                                 {/each}
                                             </div>
@@ -132,9 +166,18 @@
                                                         <div class="position-badge" style="background-color: {getPositionColor(player.position)}">
                                                             {player.lineup_slot}
                                                         </div>
+                                                        <img class="player-img" src={playerImage(player)} alt={player.player_name}
+                                                             on:error={(e) => (e.currentTarget.src = PLAYER_DEFAULT)} />
                                                         <div class="player-info">
                                                             <span class="player-name">{player.player_name}</span>
+                                                            <span class="player-meta">
+                                                                {#if teamLogo(player.nfl_team)}
+                                                                    <img class="nfl-logo" src={teamLogo(player.nfl_team)} alt={player.nfl_team} />
+                                                                {/if}
+                                                                {#if player.nfl_team}<span class="nfl-team">{player.nfl_team}</span>{/if}
+                                                            </span>
                                                         </div>
+                                                        <div class="player-points">{formatPoints(player.points)}</div>
                                                     </div>
                                                 {/each}
                                             </div>
@@ -201,6 +244,7 @@
 
     .content {
         flex: 1;
+        min-width: 0; /* allow the flex column to shrink to the track so children never overflow the viewport */
         max-width: 100%;
     }
 
@@ -243,7 +287,7 @@
 
     .week-section {
         width: 100%;
-        max-width: 800px;
+        max-width: 782px;
     }
 
     h4 {
@@ -260,7 +304,7 @@
 
     .matchup {
         width: 95%;
-        max-width: 600px;
+        max-width: 731px;
         margin: 10px auto;
     }
 
@@ -366,6 +410,7 @@
         background-color: #fff;
         border-radius: 8px;
         overflow-y: auto;
+        overflow-x: hidden;
         border-left: 1px solid #bbb;
         border-right: 1px solid #bbb;
         border-bottom: 1px solid #bbb;
@@ -381,6 +426,7 @@
 
     .team-roster {
         flex: 1;
+        min-width: 0; /* let the column shrink so the player name ellipsizes instead of forcing a horizontal scroll */
         background-color: #fff;
         padding: 0.5rem;
     }
@@ -443,6 +489,51 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+    }
+
+    .player-img {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        object-fit: cover;
+        object-position: top center;
+        background-color: #ececec;
+        flex-shrink: 0;
+    }
+
+    .player-meta {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        margin-top: 1px;
+    }
+
+    .nfl-logo {
+        width: 14px;
+        height: 14px;
+        object-fit: contain;
+    }
+
+    .nfl-team {
+        font-size: 0.68rem;
+        color: #888;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
+
+    .player-points {
+        flex-shrink: 0;
+        min-width: 46px;
+        text-align: right;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #222;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .player-row.bench .player-points {
+        font-weight: 600;
+        color: #666;
     }
 
     .roster-divider {
