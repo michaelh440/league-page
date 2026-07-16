@@ -90,13 +90,6 @@
 						>
 							Dashboard
 						</a>
-						<a
-							href="/admin/data_pipeline"
-							class="nav-link"
-							class:active={isActive('/admin/data_pipeline')}
-						>
-							Data Pipeline
-						</a>
 						{#if user?.can_manage_managers || user?.is_admin}
 							<a
 								href="/admin/users"
@@ -180,14 +173,6 @@
 								on:click={() => mobileMenuOpen = false}
 							>
 								Dashboard
-							</a>
-							<a
-								href="/admin/data_pipeline"
-								class="mobile-nav-link"
-								class:active={isActive('/admin/data_pipeline')}
-								on:click={() => mobileMenuOpen = false}
-							>
-								Data Pipeline
 							</a>
 							{#if user?.can_manage_managers || user?.is_admin}
 								<a

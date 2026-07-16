@@ -340,6 +340,7 @@
 		playoffPushSteps = null;
 	}
 
+
 	function selectWeek(w) {
 		selectedWeek = w;
 		preview = null;
@@ -880,6 +881,16 @@
 				<p class="hint">Loading…</p>
 			{/if}
 		</div>
+
+		<!-- On to step 2 -->
+		<div class="section next-step">
+			<div>
+				<h2>Done loading this season?</h2>
+				<p class="muted">Once the regular season and playoffs above are pushed, continue to step 2 to
+					write the final <code>historical_rankings</code> record for the season.</p>
+			</div>
+			<a class="btn btn-push next-btn" href="/admin/pipeline_step_2">Continue to Pipeline step 2 →</a>
+		</div>
 	{/if}
 </div>
 
@@ -922,6 +933,10 @@
 	.btn-secondary { background: #6c757d; color: #fff; }
 	.btn-push { background: #28a745; color: #fff; }
 	.btn-ghost { background: #eef1f6; color: #00316b; }
+	.next-step { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; }
+	.next-step h2 { margin-bottom: 0.25rem; }
+	.next-step p { margin: 0; }
+	.next-btn { text-decoration: none; display: inline-block; white-space: nowrap; }
 	.tag { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 10px; vertical-align: middle; }
 	.tag-amber { background: #fff3cd; color: #856404; }
 	.tag-green { background: #d4edda; color: #155724; }

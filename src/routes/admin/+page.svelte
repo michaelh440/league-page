@@ -159,6 +159,8 @@
 		<div class="card card-purple">
 			<div class="card-title">Sleeper Integration</div>
 			<div class="card-actions">
+				<a href="/admin/data_pipeline">Pipeline step 1</a>
+				<a href="/admin/pipeline_step_2">Pipeline step 2</a>
 				<a href="/admin/sleeper_data">Sleeper Archive Status</a>
 				<a href="/admin/archive">Archive Stats</a>
 			</div>
