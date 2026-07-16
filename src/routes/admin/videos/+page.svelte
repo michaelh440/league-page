@@ -15,13 +15,30 @@
 	// Form fields
 	let formVideoUrl = '';
 	let formSeasonId = '';
-	let formWeek = '';
+	let formSegment = '';
 	let formTitle = '';
 	let formDescription = '';
 	let formPublishDate = '';
 	let formPlaylist = '';
 	let formIsFeatured = false;
-	
+
+	const weekOptions = Array.from({ length: 18 }, (_, i) => i + 1);
+
+	const CATEGORY_LABELS = {
+		preseason: 'Preseason',
+		draft: 'Draft',
+		postseason: 'Post Season',
+		misc: 'Miscellaneous'
+	};
+
+	// A video is either a numbered week or one of the standalone categories.
+	const segmentLabel = (video) =>
+		video.category === 'week' ? `Week ${video.week}` : CATEGORY_LABELS[video.category] ?? 'Unknown';
+
+	// The value the <select> uses: the week number as a string, or the category name.
+	const segmentValue = (video) =>
+		video.category === 'week' ? String(video.week) : video.category;
+
 	// Reactive statement to update videos when data changes
 	$: videos = data.videos;
 	$: seasons = data.seasons;
@@ -46,7 +63,7 @@
 		editingVideo = null;
 		formVideoUrl = '';
 		formSeasonId = '';
-		formWeek = '';
+		formSegment = '';
 		formTitle = '';
 		formDescription = '';
 		formPublishDate = '';
@@ -59,8 +76,11 @@
 		editingVideo = video.video_id;
 		showAddForm = true;
 		formVideoUrl = video.video_url || '';
-		formSeasonId = video.season_id.toString();
-		formWeek = video.week.toString();
+		// Not .toString(): <option value={season.season_id}> binds the raw number and
+		// bind:value matches by identity, so "12" never matches 12 and the select
+		// rendered blank on edit.
+		formSeasonId = video.season_id;
+		formSegment = segmentValue(video);
 		formTitle = video.title || '';
 		formDescription = video.description || '';
 		formPublishDate = video.publish_date || '';
@@ -189,17 +209,18 @@
 					</div>
 					
 					<div class="form-group">
-						<label for="week">Week *</label>
-						<input 
-							type="number" 
-							id="week"
-							name="week" 
-							bind:value={formWeek}
-							min="1"
-							max="18"
-							placeholder="1-18"
-							required
-						/>
+						<label for="segment">Segment *</label>
+						<select id="segment" name="segment" bind:value={formSegment} required>
+							<option value="">Select Segment</option>
+							<option value="preseason">Preseason</option>
+							<option value="draft">Draft</option>
+							{#each weekOptions as week}
+								<option value={String(week)}>Week {week}</option>
+							{/each}
+							<option value="postseason">Post Season</option>
+							<option value="misc">Miscellaneous</option>
+						</select>
+						<small>One video per numbered week; Preseason, Draft, Post Season and Miscellaneous allow several.</small>
 					</div>
 				</div>
 				
@@ -261,7 +282,7 @@
 					<div class="video-thumbnail">
 						<img 
 							src={getYoutubeThumbnail(video.video_url)} 
-							alt={video.title || `Week ${video.week} Video`}
+							alt={video.title || `${segmentLabel(video)} Video`}
 						/>
 						<div class="play-overlay">▶</div>
 					</div>
@@ -278,7 +299,7 @@
 				{/if}
 				
 				<div class="video-info">
-					<h3>{video.title || `Week ${video.week} - ${video.season_year} Season`}</h3>
+					<h3>{video.title || `${segmentLabel(video)} - ${video.season_year} Season`}</h3>
 					
 					{#if video.description}
 						<p class="video-description">{video.description}</p>
@@ -286,7 +307,7 @@
 					
 					<div class="video-meta">
 						<span>📅 {formatDate(video.publish_date || video.created_at)}</span>
-						<span>🎬 Week {video.week}</span>
+						<span>🎬 {segmentLabel(video)}</span>
 						<span>📺 {video.season_year}</span>
 					</div>
 					

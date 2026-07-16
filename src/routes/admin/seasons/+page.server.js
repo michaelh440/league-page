@@ -1,5 +1,5 @@
 // src/routes/admin/seasons/+page.server.js
-import { query } from '$lib/db';
+import { query, withClient } from '$lib/db';
 import { fail } from '@sveltejs/kit';
 
 export const load = async () => {
@@ -90,14 +90,15 @@ export const actions = {
 				});
 			}
 			
-			// If setting as active, deactivate all other seasons for this league
+			// If setting as active, deactivate every other season. Scope is league-wide,
+			// not per-league: this schema creates a new league row per season, so
+			// "other seasons in this league" is always empty. Consumers read is_active
+			// globally. The seasons trigger enforces this too; doing it here keeps the
+			// intent visible at the call site.
 			if (isActive) {
-				await query(
-					'UPDATE seasons SET is_active = false WHERE league_id = $1',
-					[leagueId]
-				);
+				await query('UPDATE seasons SET is_active = false WHERE is_active');
 			}
-			
+
 			// Insert new season
 			const insertQuery = `
 				INSERT INTO seasons 
@@ -132,14 +133,14 @@ export const actions = {
 			const platform = data.get('platform');
 			const isActive = data.get('is_active') === 'on';
 			
-			// If setting as active, deactivate all other seasons for this league
+			// Deactivate every other season, not just this league's (see `add` above).
 			if (isActive) {
 				await query(
-					'UPDATE seasons SET is_active = false WHERE league_id = $1 AND season_id != $2',
-					[leagueId, seasonId]
+					'UPDATE seasons SET is_active = false WHERE is_active AND season_id <> $1',
+					[seasonId]
 				);
 			}
-			
+
 			// Update season
 			const updateQuery = `
 				UPDATE seasons
@@ -207,20 +208,27 @@ export const actions = {
 		try {
 			const data = await request.formData();
 			const seasonId = data.get('season_id');
-			const leagueId = data.get('league_id');
-			
-			// Deactivate all seasons for this league
-			await query(
-				'UPDATE seasons SET is_active = false WHERE league_id = $1',
-				[leagueId]
-			);
-			
-			// Activate this season
-			await query(
-				'UPDATE seasons SET is_active = true WHERE season_id = $1',
-				[seasonId]
-			);
-			
+
+			// Deactivate-then-activate must be atomic, or a failure between the two
+			// leaves the league with no active season at all. query() takes a fresh
+			// client per call, so BEGIN/COMMIT need a single client.
+			await withClient(async (client) => {
+				try {
+					await client.query('BEGIN');
+					await client.query(
+						'UPDATE seasons SET is_active = false WHERE is_active AND season_id <> $1',
+						[seasonId]
+					);
+					await client.query('UPDATE seasons SET is_active = true WHERE season_id = $1', [
+						seasonId
+					]);
+					await client.query('COMMIT');
+				} catch (err) {
+					await client.query('ROLLBACK').catch(() => {});
+					throw err;
+				}
+			});
+
 			return {
 				success: true,
 				message: 'Active season updated successfully'

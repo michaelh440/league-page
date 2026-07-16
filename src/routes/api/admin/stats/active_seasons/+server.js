@@ -1,4 +1,4 @@
-// src/routes/api/admin/stats/active_leagues/+server.js
+// src/routes/api/admin/stats/active_seasons/+server.js
 import { json } from '@sveltejs/kit';
 import { neon } from '@neondatabase/serverless';
 import { DATABASE_URL } from '$env/static/private';
@@ -11,13 +11,7 @@ export async function GET({ locals }) {
 	}
 
 	try {
-		// A league is active when it owns the active season.
-		const result = await sql`
-			SELECT COUNT(DISTINCT l.league_id) as count
-			FROM leagues l
-			JOIN seasons s ON s.league_id = l.league_id
-			WHERE s.is_active
-		`;
+		const result = await sql`SELECT COUNT(*) as count FROM seasons WHERE is_active`;
 		return json({ count: parseInt(result[0].count) });
 	} catch (error) {
 		console.error('Stats error:', error);

@@ -2,6 +2,27 @@
 import { query } from '$lib/db';
 import { fail } from '@sveltejs/kit';
 
+// The form sends one `segment` field: a week number ("1".."18") or a category name.
+// Numbered weeks store the number; everything else stores a NULL week. The
+// weekly_summary_videos_week_matches_category check enforces that pairing.
+const NON_WEEK_CATEGORIES = ['preseason', 'draft', 'postseason', 'misc'];
+
+function parseSegment(segment) {
+	const value = (segment ?? '').toString().trim();
+
+	if (/^\d+$/.test(value)) {
+		const week = parseInt(value, 10);
+		if (week < 1 || week > 18) return { error: `Week must be between 1 and 18 (got ${week})` };
+		return { category: 'week', week };
+	}
+
+	if (NON_WEEK_CATEGORIES.includes(value)) {
+		return { category: value, week: null };
+	}
+
+	return { error: 'Select a week, Preseason, Draft, Post Season, or Miscellaneous' };
+}
+
 export const load = async () => {
 	try {
 		// Get all videos with season info
@@ -9,6 +30,7 @@ export const load = async () => {
 			SELECT 
 				wsv.video_id,
 				wsv.video_url,
+				wsv.category,
 				wsv.week,
 				wsv.title,
 				wsv.description,
@@ -25,7 +47,17 @@ export const load = async () => {
 				s.platform
 			FROM weekly_summary_videos wsv
 			JOIN seasons s ON wsv.season_id = s.season_id
-			ORDER BY s.season_year DESC, wsv.week DESC
+			-- Reverse chronological within a season. week is NULL for the non-week
+			-- categories, so order by the category first and let NULLs sort last.
+			ORDER BY s.season_year DESC,
+			         CASE wsv.category
+			           WHEN 'postseason' THEN 4
+			           WHEN 'week'       THEN 3
+			           WHEN 'draft'      THEN 2
+			           WHEN 'preseason'  THEN 1
+			           ELSE 0
+			         END DESC,
+			         wsv.week DESC NULLS LAST
 		`;
 		
 		const videosResult = await query(videosQuery);
@@ -61,33 +93,37 @@ export const actions = {
 			const data = await request.formData();
 			const videoUrl = data.get('video_url');
 			const seasonId = data.get('season_id');
-			const week = data.get('week');
 			const title = data.get('title');
 			const description = data.get('description');
 			const publishDate = data.get('publish_date');
 			const playlist = data.get('playlist');
 			const isFeatured = data.get('is_featured') === 'on';
-			
+
+			const segment = parseSegment(data.get('segment'));
+			if (segment.error) {
+				return fail(400, { success: false, error: segment.error });
+			}
+
 			// Extract YouTube ID from URL
 			const youtubeId = extractYoutubeId(videoUrl);
-			
+
 			// If this video is featured, unfeatured all others
 			if (isFeatured) {
 				await query('UPDATE weekly_summary_videos SET is_featured = false');
 			}
-			
+
 			// Insert new video
 			const insertQuery = `
-				INSERT INTO weekly_summary_videos 
-				(video_url, season_id, week, title, description, publish_date, playlist,
+				INSERT INTO weekly_summary_videos
+				(video_url, season_id, category, week, title, description, publish_date, playlist,
 				 is_featured, video_provider, generation_status, provider_video_id, created_at)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'youtube', 'completed', $9, NOW())
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'youtube', 'completed', $10, NOW())
 				RETURNING video_id
 			`;
-			
+
 			const result = await query(insertQuery, [
-				videoUrl, seasonId, week, title, description, publishDate, playlist,
-				isFeatured, youtubeId
+				videoUrl, seasonId, segment.category, segment.week, title, description,
+				publishDate, playlist, isFeatured, youtubeId
 			]);
 			
 			return {
@@ -111,16 +147,20 @@ export const actions = {
 			const videoId = data.get('video_id');
 			const videoUrl = data.get('video_url');
 			const seasonId = data.get('season_id');
-			const week = data.get('week');
 			const title = data.get('title');
 			const description = data.get('description');
 			const publishDate = data.get('publish_date');
 			const playlist = data.get('playlist');
 			const isFeatured = data.get('is_featured') === 'on';
-			
+
+			const segment = parseSegment(data.get('segment'));
+			if (segment.error) {
+				return fail(400, { success: false, error: segment.error });
+			}
+
 			// Extract YouTube ID from URL
 			const youtubeId = extractYoutubeId(videoUrl);
-			
+
 			// If this video is featured, unfeatured all others
 			if (isFeatured) {
 				await query(
@@ -128,12 +168,13 @@ export const actions = {
 					[videoId]
 				);
 			}
-			
+
 			// Update video
 			const updateQuery = `
 				UPDATE weekly_summary_videos
-				SET video_url = $1, 
-				    season_id = $2, 
+				SET video_url = $1,
+				    season_id = $2,
+				    category = $11,
 				    week = $3,
 				    title = $4,
 				    description = $5,
@@ -147,8 +188,8 @@ export const actions = {
 			`;
 			
 			await query(updateQuery, [
-				videoUrl, seasonId, week, title, description, publishDate, playlist,
-				isFeatured, youtubeId, videoId
+				videoUrl, seasonId, segment.week, title, description, publishDate, playlist,
+				isFeatured, youtubeId, videoId, segment.category
 			]);
 			
 			return {

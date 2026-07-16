@@ -37,7 +37,10 @@
 	function startEdit(season) {
 		editingSeason = season.season_id;
 		showAddForm = true;
-		formLeagueId = season.league_id.toString();
+		// Not .toString(): <option value={league.league_id}> binds the raw number, and
+		// bind:value matches options by identity. A string "12" never matches 12, which
+		// left the League select blank on edit and blocked the (required) form.
+		formLeagueId = season.league_id;
 		formSeasonYear = season.season_year;
 		formPlatform = season.platform;
 		formIsActive = season.is_active;
