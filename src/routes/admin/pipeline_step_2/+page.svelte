@@ -2,23 +2,42 @@
 	export let data;
 
 	let selectedSeasonId = '';
-	let populatingRankings = false;
-	let rankingsResult = null;
+	let preview = null; // { rows, current, warning, ... }
+	let loadingPreview = false;
+	let pushing = false;
 	let message = null; // { type, text }
 
 	$: selectedSeason = selectedSeasonId
 		? data.seasons.find((s) => s.season_id === parseInt(selectedSeasonId))
 		: null;
 
+	// Auto-preview whenever a season is picked
+	$: if (selectedSeason) loadPreview();
+
 	function setMessage(type, text) {
 		message = { type, text };
 	}
 
-	async function populateRankings() {
-		if (populatingRankings || !selectedSeason) return;
-		populatingRankings = true;
+	async function loadPreview() {
+		if (!selectedSeason) return;
+		loadingPreview = true;
+		preview = null;
+		try {
+			const res = await fetch(`/api/populate_historical_rankings?season=${selectedSeason.season_year}`);
+			const r = await res.json();
+			if (!r.success) throw new Error(r.error || 'Failed to build preview');
+			preview = r;
+			if (r.warning) setMessage('warning', r.warning);
+		} catch (err) {
+			setMessage('error', `Preview failed: ${err.message}`);
+		}
+		loadingPreview = false;
+	}
+
+	async function pushRankings() {
+		if (pushing || !selectedSeason || !preview) return;
+		pushing = true;
 		message = null;
-		rankingsResult = null;
 		try {
 			const res = await fetch('/api/populate_historical_rankings', {
 				method: 'POST',
@@ -27,15 +46,51 @@
 			});
 			const r = await res.json();
 			if (!r.success) throw new Error(r.error || 'Failed to populate historical rankings');
-			rankingsResult = r;
-			setMessage(
-				r.warning ? 'warning' : 'success',
-				r.warning || `historical_rankings written for ${r.seasonYear} — ${r.managers} managers.`
-			);
+			setMessage('success', `historical_rankings written for ${r.seasonYear} — ${r.managers} managers.`);
+			await loadPreview(); // refresh "currently stored"
 		} catch (err) {
-			setMessage('error', `Populate failed: ${err.message}`);
+			setMessage('error', `Push failed: ${err.message}`);
 		}
-		populatingRankings = false;
+		pushing = false;
+	}
+
+	const statusTag = (s) => (s === 'championship' ? 'green' : s === 'consolation' ? 'amber' : 'grey');
+
+	// --- Career streaks (league-wide, not season-scoped) ---
+	let streaks = null; // { preview, current, lastUpdated }
+	let loadingStreaks = false;
+	let rebuildingStreaks = false;
+
+	$: streakDelta = streaks ? streaks.preview.length - streaks.current.length : 0;
+
+	async function loadStreaksPreview() {
+		loadingStreaks = true;
+		streaks = null;
+		try {
+			const res = await fetch('/api/rebuild_streaks');
+			const r = await res.json();
+			if (!r.success) throw new Error(r.error || 'Failed to preview streak rebuild');
+			streaks = r;
+		} catch (err) {
+			setMessage('error', `Streak preview failed: ${err.message}`);
+		}
+		loadingStreaks = false;
+	}
+
+	async function rebuildStreaks() {
+		if (rebuildingStreaks) return;
+		rebuildingStreaks = true;
+		message = null;
+		try {
+			const res = await fetch('/api/rebuild_streaks', { method: 'POST' });
+			const r = await res.json();
+			if (!r.success) throw new Error(r.error || 'Failed to rebuild streaks');
+			setMessage('success', `Career streaks rebuilt — ${r.managers} managers.`);
+			await loadStreaksPreview();
+		} catch (err) {
+			setMessage('error', `Rebuild failed: ${err.message}`);
+		}
+		rebuildingStreaks = false;
 	}
 </script>
 
@@ -49,7 +104,7 @@
 
 	<div class="header">
 		<h1>🏁 Pipeline Step 2 — Finalize Season</h1>
-		<p class="subtitle">Write the final end-of-season record once step 1 has loaded the regular season and playoffs.</p>
+		<p class="subtitle">Review the final rankings, then write them to <code>historical_rankings</code>.</p>
 	</div>
 
 	{#if data.error}<div class="alert alert-error">❌ {data.error}</div>{/if}
@@ -68,37 +123,145 @@
 					{/each}
 				</select>
 			</div>
+			{#if selectedSeason}
+				<button class="btn btn-ghost" on:click={loadPreview} disabled={loadingPreview}>
+					{loadingPreview ? '⏳…' : '↻ Refresh preview'}
+				</button>
+			{/if}
 		</div>
 
-		{#if selectedSeason}
-			<h2>Historical Rankings</h2>
-			<p class="muted">Writes the final <code>historical_rankings</code> record for
-				{selectedSeason.season_year}: regular-season rank from <code>team_rankings</code> (last regular
-				week), and final rank + status from the playoff bracket — Championship 1st/2nd, 3rd Place
-				3rd/4th, Consolation 5th–8th; teams with no playoff game rank after that by regular-season
-				rank. Safe to re-run — it replaces the season's rows.</p>
+		{#if !selectedSeason}
+			<p class="hint">Select a season to preview its final rankings.</p>
+		{:else if loadingPreview}
+			<p class="hint">Building preview…</p>
+		{:else if preview}
+			<p class="muted">
+				Regular-season rank read from <code>team_rankings</code> (week {preview.regularSeasonWeek}) ·
+				{preview.placementGames} playoff placement game{preview.placementGames === 1 ? '' : 's'} found.
+			</p>
 
-			<div class="row-actions">
-				<button class="btn btn-push" on:click={populateRankings} disabled={populatingRankings}>
-					{populatingRankings ? '⏳ Writing…' : `🏁 Populate historical_rankings for ${selectedSeason.season_year}`}
+			<!-- Preview -->
+			<h2>Preview <span class="tag tag-amber">to be written</span></h2>
+			<table class="data-table">
+				<thead>
+					<tr><th>Final Rank</th><th>Manager</th><th>Reg. Rank</th><th>Status</th><th>W-L-T</th><th>Points For</th></tr>
+				</thead>
+				<tbody>
+					{#each preview.rows as r}
+						<tr>
+							<td class="rank">{r.final_rank}</td>
+							<td>{r.manager_name}</td>
+							<td>{r.regular_season_rank}</td>
+							<td><span class="tag tag-{statusTag(r.playoff_status)}">{r.playoff_status}</span></td>
+							<td>{r.wins}-{r.losses}-{r.ties}</td>
+							<td>{r.points_for}</td>
+						</tr>
+					{/each}
+				</tbody>
+			</table>
+
+			<div class="push-bar">
+				<button class="btn btn-push" on:click={pushRankings} disabled={pushing}>
+					{pushing ? '⏳ Writing…' : `⬆ Push ${preview.rows.length} rankings to historical_rankings`}
 				</button>
+				<span class="hint">Replaces any existing rows for {preview.seasonYear}.</span>
 			</div>
 
-			{#if rankingsResult}
+			<!-- Currently stored -->
+			<h2>Currently stored <span class="tag tag-green">historical_rankings</span></h2>
+			{#if preview.current.length}
 				<table class="data-table">
-					<thead><tr><th>Season</th><th>Managers</th><th>Reg-season week used</th><th>Placement games</th></tr></thead>
+					<thead><tr><th>Final Rank</th><th>Manager</th><th>Reg. Rank</th><th>Status</th></tr></thead>
 					<tbody>
-						<tr>
-							<td>{rankingsResult.seasonYear}</td>
-							<td>{rankingsResult.managers}</td>
-							<td>W{rankingsResult.regularSeasonWeek}</td>
-							<td>{rankingsResult.placementGames}</td>
-						</tr>
+						{#each preview.current as r}
+							<tr>
+								<td class="rank">{r.final_rank}</td>
+								<td>{r.manager_name}</td>
+								<td>{r.regular_season_rank}</td>
+								<td><span class="tag tag-{statusTag(r.playoff_status)}">{r.playoff_status}</span></td>
+							</tr>
+						{/each}
 					</tbody>
 				</table>
+			{:else}
+				<p class="hint">Nothing stored for {preview.seasonYear} yet — this season hasn't been finalized.</p>
 			{/if}
-		{:else}
-			<p class="hint">Select a season to finalize.</p>
+		{/if}
+	</div>
+
+	<!-- Career streaks -->
+	<div class="section">
+		<h2 class="section-lead">Career Streaks <span class="tag tag-blue">league-wide</span></h2>
+		<p class="muted"><code>manager_career_streaks</code> is a precomputed table (used by the Streaks page).
+			Rebuild it from full game history after loading a season. The preview runs the rebuild inside a
+			transaction and rolls it back, so nothing changes until you push.
+			{#if streaks?.lastUpdated}<br />Last rebuilt: <strong>{streaks.lastUpdated}</strong>{/if}</p>
+
+		<div class="row-actions">
+			<button class="btn btn-ghost" on:click={loadStreaksPreview} disabled={loadingStreaks}>
+				{loadingStreaks ? '⏳ Building preview…' : '🔍 Preview streak rebuild'}
+			</button>
+		</div>
+
+		{#if streaks}
+			{#if streakDelta !== 0}
+				<div class="alert alert-warning" style="margin-top:1rem;">
+					⚠️ A rebuild would change the number of managers from
+					<strong>{streaks.current.length}</strong> to <strong>{streaks.preview.length}</strong>
+					({streakDelta > 0 ? '+' : ''}{streakDelta}). Review the tables below before pushing.
+				</div>
+			{/if}
+
+			<h2>Preview <span class="tag tag-amber">to be written</span> ({streaks.preview.length} managers)</h2>
+			{#if streaks.preview.length}
+				<table class="data-table">
+					<thead>
+						<tr><th>Manager</th><th>W-L-T</th><th>Longest Win</th><th>Longest Loss</th><th>Current</th></tr>
+					</thead>
+					<tbody>
+						{#each streaks.preview as r}
+							<tr>
+								<td>{r.manager_name}</td>
+								<td>{r.career_total_wins}-{r.career_total_losses}-{r.career_total_ties}</td>
+								<td>{r.all_time_longest_win_streak}</td>
+								<td>{r.all_time_longest_lose_streak}</td>
+								<td>{r.all_time_current_streak_type ?? '—'} {r.all_time_current_streak_length ?? ''}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{:else}
+				<p class="hint">The rebuild would produce no rows.</p>
+			{/if}
+
+			<div class="push-bar">
+				<button class="btn btn-push" on:click={rebuildStreaks} disabled={rebuildingStreaks}>
+					{rebuildingStreaks ? '⏳ Rebuilding…' : '⬆ Rebuild career streaks'}
+				</button>
+				<span class="hint">Replaces every row in <code>manager_career_streaks</code>.</span>
+			</div>
+
+			<h2>Currently stored <span class="tag tag-green">manager_career_streaks</span> ({streaks.current.length} managers)</h2>
+			{#if streaks.current.length}
+				<table class="data-table">
+					<thead>
+						<tr><th>Manager</th><th>W-L-T</th><th>Longest Win</th><th>Longest Loss</th><th>Current</th></tr>
+					</thead>
+					<tbody>
+						{#each streaks.current as r}
+							<tr>
+								<td>{r.manager_name}</td>
+								<td>{r.career_total_wins}-{r.career_total_losses}-{r.career_total_ties}</td>
+								<td>{r.all_time_longest_win_streak}</td>
+								<td>{r.all_time_longest_lose_streak}</td>
+								<td>{r.all_time_current_streak_type ?? '—'} {r.all_time_current_streak_length ?? ''}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{:else}
+				<p class="hint">Nothing stored yet.</p>
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -110,8 +273,10 @@
 	.back-link:hover { text-decoration: underline; }
 	.header h1 { color: #00316b; margin: 0 0 0.25rem 0; font-size: 1.4rem; }
 	.subtitle { color: #666; margin: 0 0 1.5rem 0; font-size: 0.9rem; }
-	.section { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; }
-	.section h2 { color: #00316b; margin-top: 1rem; font-size: 1.1rem; }
+	.section { background: #fff; border: 1px solid #e0e0e0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+	.section h2 { color: #00316b; margin: 1.5rem 0 0.5rem; font-size: 1.1rem; }
+	.section h2.section-lead { margin-top: 0; }
+	.tag-blue { background: #d1ecf1; color: #0c5460; }
 	.muted { color: #666; font-size: 0.9rem; }
 	.hint { color: #666; font-size: 0.9rem; }
 	.alert { padding: 0.85rem 1rem; border-radius: 8px; margin-bottom: 1.25rem; }
@@ -121,12 +286,18 @@
 	.form-row { display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap; }
 	.form-group label { display: block; font-weight: 600; margin-bottom: 0.35rem; color: #333; }
 	.form-group select { padding: 0.6rem; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; min-width: 260px; }
-	.row-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; margin-top: 0.5rem; }
 	.btn { padding: 0.6rem 1rem; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.95rem; }
 	.btn:disabled { background: #ccc; cursor: not-allowed; }
 	.btn-push { background: #28a745; color: #fff; }
+	.btn-ghost { background: #eef1f6; color: #00316b; }
+	.push-bar { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #eee; }
 	code { font-family: monospace; background: #f0f0f0; padding: 0.1rem 0.35rem; border-radius: 3px; color: #00316b; }
-	.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-top: 1rem; }
+	.data-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
 	.data-table th, .data-table td { text-align: left; padding: 0.45rem 0.6rem; border-bottom: 1px solid #eee; }
 	.data-table th { color: #00316b; }
+	.rank { font-weight: 700; color: #00316b; }
+	.tag { font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 10px; }
+	.tag-green { background: #d4edda; color: #155724; }
+	.tag-amber { background: #fff3cd; color: #856404; }
+	.tag-grey { background: #eee; color: #666; }
 </style>

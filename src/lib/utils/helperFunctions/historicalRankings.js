@@ -1,13 +1,14 @@
 // src/lib/utils/helperFunctions/historicalRankings.js
 //
-// Populate historical_rankings (the FINAL, end-of-season record) for one season.
+// Build the FINAL, end-of-season historical_rankings record for one season.
 //
 //   regular_season_rank <- team_rankings.reg_season_rank at the last REGULAR week
 //   final_rank          <- derived from the playoffs bracket placement games
 //   playoff_status      <- championship | consolation | missed
 //
 // team_rankings is the live week-by-week table; historical_rankings is written once a
-// season is complete. Re-runnable: it replaces the season's rows.
+// season is complete. compute...() is a dry run (used for the preview); populate...()
+// writes and is re-runnable (it replaces the season's rows).
 import { query } from '$lib/db';
 
 // 'Championship' -> 1, '3rd Place' -> 3, '5th Place' -> 5 ...
@@ -19,7 +20,10 @@ function placementBase(roundName) {
 	return m ? parseInt(m[1], 10) : null;
 }
 
-export async function populateHistoricalRankings(season) {
+/**
+ * Dry run — compute what would be written, without touching the table.
+ */
+export async function computeHistoricalRankings(season) {
 	const s = await query(
 		`SELECT s.season_id, s.season_year, l.reg_season_length
 		 FROM seasons s JOIN leagues l ON s.league_id = l.league_id
@@ -31,17 +35,23 @@ export async function populateHistoricalRankings(season) {
 
 	// --- regular season rank: team_rankings at the last regular week ---
 	const tr = await query(
-		`SELECT tr.team_id AS manager_id, tr.reg_season_rank, tr.week
+		`SELECT tr.team_id AS manager_id, tr.reg_season_rank, tr.week,
+		        tr.wins, tr.losses, tr.ties, tr.points_for,
+		        COALESCE(mtn.team_name, m.username) AS manager_name
 		 FROM team_rankings tr
+		 JOIN managers m ON m.manager_id = tr.team_id
+		 LEFT JOIN manager_team_names mtn
+		        ON mtn.manager_id = tr.team_id AND mtn.season_year = $3
 		 WHERE tr.season_id = $1
 		   AND tr.week = (SELECT MAX(week) FROM team_rankings WHERE season_id = $1 AND week <= $2)`,
-		[seasonId, regLen]
+		[seasonId, regLen, seasonYear]
 	);
 	if (!tr.rows.length) {
 		throw new Error(`No team_rankings found for ${seasonYear} — push the regular season weeks first`);
 	}
 	const regWeek = tr.rows[0].week;
 	const regRank = new Map(tr.rows.map((r) => [r.manager_id, r.reg_season_rank]));
+	const info = new Map(tr.rows.map((r) => [r.manager_id, r]));
 
 	// --- final rank + bracket from the playoffs ---
 	const pf = await query(
@@ -69,7 +79,7 @@ export async function populateHistoricalRankings(season) {
 		finalRank.set(loser, base + 1);
 	}
 
-	const placementGames = [...finalRank.keys()].length / 2;
+	const placementGames = finalRank.size / 2;
 
 	// --- teams with no placement game rank after the bracket, by regular season rank ---
 	const maxAssigned = finalRank.size ? Math.max(...finalRank.values()) : 0;
@@ -79,34 +89,73 @@ export async function populateHistoricalRankings(season) {
 	let next = maxAssigned + 1;
 	for (const m of leftover) finalRank.set(m, next++);
 
-	// --- write (replace the season's rows so this is re-runnable) ---
-	await query(`DELETE FROM historical_rankings WHERE season_year = $1`, [seasonYear]);
-
-	let written = 0;
-	for (const [managerId, rsRank] of regRank) {
+	const rows = [...regRank.keys()].map((managerId) => {
 		const bracket = bracketOf.get(managerId);
-		const status = bracket
-			? bracket === 'Championship'
-				? 'championship'
-				: 'consolation'
-			: 'missed';
-
-		await query(
-			`INSERT INTO historical_rankings (manager_id, season_year, regular_season_rank, final_rank, playoff_status)
-			 VALUES ($1, $2, $3, $4, $5)`,
-			[managerId, seasonYear, rsRank, finalRank.get(managerId) ?? null, status]
-		);
-		written++;
-	}
+		const i = info.get(managerId);
+		return {
+			manager_id: managerId,
+			manager_name: i?.manager_name ?? `Manager ${managerId}`,
+			regular_season_rank: regRank.get(managerId),
+			final_rank: finalRank.get(managerId) ?? null,
+			playoff_status: bracket
+				? bracket === 'Championship'
+					? 'championship'
+					: 'consolation'
+				: 'missed',
+			wins: i?.wins,
+			losses: i?.losses,
+			ties: i?.ties,
+			points_for: i?.points_for
+		};
+	});
+	rows.sort((a, b) => (a.final_rank ?? 999) - (b.final_rank ?? 999));
 
 	return {
 		seasonYear,
-		managers: written,
 		regularSeasonWeek: regWeek,
 		placementGames,
+		rows,
 		warning:
 			placementGames === 0
-				? 'No playoff placement games found — final_rank fell back to regular-season order and everyone is marked "missed". Push the playoff weeks first.'
+				? 'No playoff placement games found — final_rank falls back to regular-season order and everyone is marked "missed". Push the playoff weeks first.'
 				: null
 	};
+}
+
+/**
+ * What's currently stored for the season (so the preview can show before/after).
+ */
+export async function getCurrentHistoricalRankings(seasonYear) {
+	const r = await query(
+		`SELECT hr.manager_id,
+		        COALESCE(mtn.team_name, m.username) AS manager_name,
+		        hr.regular_season_rank, hr.final_rank, hr.playoff_status
+		 FROM historical_rankings hr
+		 JOIN managers m ON m.manager_id = hr.manager_id
+		 LEFT JOIN manager_team_names mtn
+		        ON mtn.manager_id = hr.manager_id AND mtn.season_year = hr.season_year
+		 WHERE hr.season_year = $1
+		 ORDER BY hr.final_rank NULLS LAST, hr.regular_season_rank`,
+		[seasonYear]
+	);
+	return r.rows;
+}
+
+/**
+ * Write the season's rows. Re-runnable: replaces what's there.
+ */
+export async function populateHistoricalRankings(season) {
+	const computed = await computeHistoricalRankings(season);
+
+	await query(`DELETE FROM historical_rankings WHERE season_year = $1`, [computed.seasonYear]);
+
+	for (const r of computed.rows) {
+		await query(
+			`INSERT INTO historical_rankings (manager_id, season_year, regular_season_rank, final_rank, playoff_status)
+			 VALUES ($1, $2, $3, $4, $5)`,
+			[r.manager_id, computed.seasonYear, r.regular_season_rank, r.final_rank, r.playoff_status]
+		);
+	}
+
+	return { ...computed, managers: computed.rows.length };
 }

@@ -88,6 +88,20 @@ export async function query(text, params) {
   }
 }
 
+/**
+ * Run work against a single pooled client (the plain query() helper grabs a different
+ * client per call, so BEGIN/ROLLBACK can't span separate query() calls).
+ * Used to preview a destructive rebuild: BEGIN -> rebuild -> read -> ROLLBACK.
+ */
+export async function withClient(fn) {
+  const client = await pool.connect();
+  try {
+    return await fn(client);
+  } finally {
+    client.release();
+  }
+}
+
 // Test connection function
 export async function testConnection() {
   try {
