@@ -29,9 +29,14 @@ export async function load({ url }) {
           hr.manager_id, 
           COUNT(*) AS championships
         FROM historical_rankings hr
-        JOIN seasons s ON hr.season_year = s.season_year
-        WHERE hr.final_rank = 1 
-          AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+        WHERE hr.final_rank = 1
+          -- NOT EXISTS, not a join: season_year is not unique in seasons (2023 has
+          -- two rows), and joining on it duplicates the championship.
+          AND NOT EXISTS (
+            SELECT 1 FROM seasons s
+            WHERE s.season_year = hr.season_year
+              AND s.disputed_championship IS TRUE
+          )
         GROUP BY hr.manager_id
       ) champ_count ON champ_count.manager_id = m.manager_id
       ORDER BY m.username
@@ -335,25 +340,20 @@ export async function load({ url }) {
 
         // Trophy counts - EXCLUDING DISPUTED CHAMPIONSHIPS
         query(`
-          SELECT 
-            SUM(CASE 
-              WHEN hr.final_rank = 1 
-                AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
-              THEN 1 ELSE 0 
-            END) as championships,
-            SUM(CASE 
-              WHEN hr.final_rank = 2 
-                AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
-              THEN 1 ELSE 0 
-            END) as runner_ups,
-            SUM(CASE 
-              WHEN hr.final_rank = 3 
-                AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
-              THEN 1 ELSE 0 
-            END) as third_place
-          FROM historical_rankings hr
-          JOIN seasons s ON hr.season_year = s.season_year
-          WHERE hr.manager_id = $1
+          SELECT
+            COUNT(*) FILTER (WHERE hr.final_rank = 1 AND NOT disputed) as championships,
+            COUNT(*) FILTER (WHERE hr.final_rank = 2 AND NOT disputed) as runner_ups,
+            COUNT(*) FILTER (WHERE hr.final_rank = 3 AND NOT disputed) as third_place
+          FROM (
+            -- LATERAL, not a join on season_year: that key is not unique in seasons
+            -- (2023 has two rows) and a join double-counts every trophy.
+            SELECT hr.final_rank, COALESCE((
+              SELECT bool_or(s.disputed_championship) FROM seasons s
+              WHERE s.season_year = hr.season_year
+            ), false) AS disputed
+            FROM historical_rankings hr
+            WHERE hr.manager_id = $1
+          ) hr
         `, [managerId])
       ]);
 

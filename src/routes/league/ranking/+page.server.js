@@ -60,9 +60,14 @@ export async function load() {
       array_agg(hr.season_year ORDER BY hr.season_year) as championship_years
     FROM historical_rankings hr
     JOIN managers m ON hr.manager_id = m.manager_id
-    JOIN seasons s ON hr.season_year = s.season_year
     WHERE hr.final_rank = 1
-      AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+      -- NOT EXISTS, not a join: season_year is not unique in seasons (2023 has two
+      -- rows), and a join on it double-counts the title.
+      AND NOT EXISTS (
+        SELECT 1 FROM seasons s
+        WHERE s.season_year = hr.season_year
+          AND s.disputed_championship IS TRUE
+      )
     GROUP BY hr.manager_id, m.username, m.logo_url
     ORDER BY championships DESC
   `)).rows;

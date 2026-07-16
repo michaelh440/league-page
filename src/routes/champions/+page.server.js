@@ -16,15 +16,23 @@ export async function load() {
         m.real_name,
         m.logo_url,
         m.team_alias,
-        COALESCE(s.disputed_championship, false) as disputed_championship,
+        -- Scalar subquery, not a join: season_year is not unique in seasons (2023 has
+        -- two rows), and joining on it duplicates the championship.
+        COALESCE((
+          SELECT bool_or(s.disputed_championship) FROM seasons s
+          WHERE s.season_year = hr.season_year
+        ), false) as disputed_championship,
         -- Championship count excludes disputed
         (
-          SELECT COUNT(*) 
-          FROM historical_rankings hr_count 
-          JOIN seasons s_count ON hr_count.season_year = s_count.season_year
-          WHERE hr_count.manager_id = hr.manager_id 
+          SELECT COUNT(*)
+          FROM historical_rankings hr_count
+          WHERE hr_count.manager_id = hr.manager_id
             AND hr_count.final_rank = 1
-            AND (s_count.disputed_championship IS NULL OR s_count.disputed_championship = false)
+            AND NOT EXISTS (
+              SELECT 1 FROM seasons s_count
+              WHERE s_count.season_year = hr_count.season_year
+                AND s_count.disputed_championship IS TRUE
+            )
         ) as championship_count,
         -- Get their total seasons played
         (SELECT COUNT(*) FROM historical_rankings hr2 WHERE hr2.manager_id = hr.manager_id) as total_seasons,
@@ -32,7 +40,6 @@ export async function load() {
         (SELECT COUNT(*) FROM historical_rankings hr3 WHERE hr3.manager_id = hr.manager_id AND hr3.playoff_status IN ('championship', 'consolation')) as playoff_appearances
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
-      JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
       ORDER BY hr.season_year DESC, hr.manager_id
     `)).rows;
@@ -53,9 +60,12 @@ export async function load() {
         MAX(hr.season_year) as latest_season
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
-      JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
-        AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+        AND NOT EXISTS (
+          SELECT 1 FROM seasons s
+          WHERE s.season_year = hr.season_year
+            AND s.disputed_championship IS TRUE
+        )
     `);
     
     const stats = statsQuery.rows[0] || {
@@ -72,9 +82,12 @@ export async function load() {
         SELECT COUNT(*) as count
         FROM historical_rankings hr
         JOIN managers m ON hr.manager_id = m.manager_id
-        JOIN seasons s ON hr.season_year = s.season_year
-        WHERE hr.final_rank = 1 
-          AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+        WHERE hr.final_rank = 1
+          AND NOT EXISTS (
+            SELECT 1 FROM seasons s
+            WHERE s.season_year = hr.season_year
+              AND s.disputed_championship IS TRUE
+          )
         GROUP BY hr.manager_id
         ORDER BY count DESC
         LIMIT 1
@@ -94,9 +107,12 @@ export async function load() {
         ARRAY_AGG(hr.season_year ORDER BY hr.season_year DESC) as championship_years
       FROM historical_rankings hr
       JOIN managers m ON hr.manager_id = m.manager_id
-      JOIN seasons s ON hr.season_year = s.season_year
       WHERE hr.final_rank = 1
-        AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+        AND NOT EXISTS (
+          SELECT 1 FROM seasons s
+          WHERE s.season_year = hr.season_year
+            AND s.disputed_championship IS TRUE
+        )
       GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url, m.team_alias
       ORDER BY championship_count DESC, MIN(hr.season_year) ASC
     `)).rows;

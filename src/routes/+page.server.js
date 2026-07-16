@@ -31,9 +31,14 @@ export async function load() {
 				m.logo_url
 			FROM public.historical_rankings hr
 			JOIN public.managers m ON hr.manager_id = m.manager_id
-			JOIN public.seasons s ON hr.season_year = s.season_year
 			WHERE hr.final_rank = 1
-			  AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+			  -- NOT EXISTS, not a join: season_year is not unique in seasons (2023 has
+			  -- two rows), and joining on it duplicates the championship.
+			  AND NOT EXISTS (
+			    SELECT 1 FROM public.seasons s
+			    WHERE s.season_year = hr.season_year
+			      AND s.disputed_championship IS TRUE
+			  )
 			ORDER BY hr.season_year DESC
 		`)).rows;
 		
@@ -50,9 +55,12 @@ export async function load() {
 				ARRAY_AGG(hr.season_year ORDER BY hr.season_year DESC) as championship_years
 			FROM public.historical_rankings hr
 			JOIN public.managers m ON hr.manager_id = m.manager_id
-			JOIN public.seasons s ON hr.season_year = s.season_year
 			WHERE hr.final_rank = 1
-			  AND (s.disputed_championship IS NULL OR s.disputed_championship = false)
+			  AND NOT EXISTS (
+			    SELECT 1 FROM public.seasons s
+			    WHERE s.season_year = hr.season_year
+			      AND s.disputed_championship IS TRUE
+			  )
 			GROUP BY hr.manager_id, m.username, m.real_name, m.logo_url
 			ORDER BY championship_count DESC, MIN(hr.season_year) ASC
 		`)).rows;
