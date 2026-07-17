@@ -41,13 +41,16 @@
         return Array.from(allWeeks).sort((a, b) => a - b);
     })();
     
-    // Helper to get week data for a specific table
-    function getWeekData(tableName, week) {
-        if (!data || !selectedSeason || !data.weekLevel[selectedSeason]) return null;
-        
-        const seasonData = data.weekLevel[selectedSeason];
+    // Helper to get week data for a specific table. `season` is passed in (not read from
+    // the closure) so that the {@const} calls in the grid list it as a dependency --
+    // otherwise Svelte only tracks `week`, and switching seasons that share week numbers
+    // (e.g. 2024 <-> 2025) leaves the cells showing the previous season's counts.
+    function getWeekData(tableName, week, season) {
+        if (!data || !season || !data.weekLevel[season]) return null;
+
+        const seasonData = data.weekLevel[season];
         const tableData = seasonData[tableName];
-        
+
         return tableData?.find(r => r.week === week) || null;
     }
 </script>
@@ -499,9 +502,9 @@
                             </div>
                             
                             {#each selectedSeasonWeeks as week}
-                                {@const rosterData = getWeekData('weeklyRosters', week)}
-                                {@const statsData = getWeekData('playerStats', week)}
-                                {@const matchupData = getWeekData('matchups', week)}
+                                {@const rosterData = getWeekData('weeklyRosters', week, selectedSeason)}
+                                {@const statsData = getWeekData('playerStats', week, selectedSeason)}
+                                {@const matchupData = getWeekData('matchups', week, selectedSeason)}
                                 <div class="grid-row">
                                     <div class="cell week-col">
                                         <span class="week-number">{week}</span>
@@ -1208,13 +1211,16 @@
         return Array.from(allWeeks).sort((a, b) => a - b);
     })();
     
-    // Helper to get week data for a specific table
-    function getWeekData(tableName, week) {
-        if (!data || !selectedSeason || !data.weekLevel[selectedSeason]) return null;
-        
-        const seasonData = data.weekLevel[selectedSeason];
+    // Helper to get week data for a specific table. `season` is passed in (not read from
+    // the closure) so that the {@const} calls in the grid list it as a dependency --
+    // otherwise Svelte only tracks `week`, and switching seasons that share week numbers
+    // (e.g. 2024 <-> 2025) leaves the cells showing the previous season's counts.
+    function getWeekData(tableName, week, season) {
+        if (!data || !season || !data.weekLevel[season]) return null;
+
+        const seasonData = data.weekLevel[season];
         const tableData = seasonData[tableName];
-        
+
         return tableData?.find(r => r.week === week) || null;
     }
 </script>
@@ -1604,9 +1610,9 @@
                             </div>
                             
                             {#each selectedSeasonWeeks as week}
-                                {@const rosterData = getWeekData('weeklyRosters', week)}
-                                {@const statsData = getWeekData('playerStats', week)}
-                                {@const matchupData = getWeekData('matchups', week)}
+                                {@const rosterData = getWeekData('weeklyRosters', week, selectedSeason)}
+                                {@const statsData = getWeekData('playerStats', week, selectedSeason)}
+                                {@const matchupData = getWeekData('matchups', week, selectedSeason)}
                                 <div class="grid-row">
                                     <div class="cell week-col">
                                         <span class="week-number">{week}</span>
@@ -2303,8 +2309,10 @@
     import { enhance } from '$app/forms';
     
     export let data;
-    
-    let selectedSeason = data.seasons?.length > 0 ? data.seasons[0] : null;
+
+    // Default to the active season (e.g. 2026) so the weekly view opens on the current
+    // season rather than whatever staging happens to hold. Falls back to the newest year.
+    let selectedSeason = data.activeSeasonYear ?? (data.seasons?.length > 0 ? data.seasons[0] : null);
     let activeTab = 'production'; // 'production', 'season', or 'weekly'
     let refreshing = false;
     let fetchingDraftPicks = null; // Track which season is being fetched
@@ -2356,13 +2364,16 @@
         return Array.from(allWeeks).sort((a, b) => a - b);
     })();
     
-    // Helper to get week data for a specific table
-    function getWeekData(tableName, week) {
-        if (!data || !selectedSeason || !data.weekLevel[selectedSeason]) return null;
-        
-        const seasonData = data.weekLevel[selectedSeason];
+    // Helper to get week data for a specific table. `season` is passed in (not read from
+    // the closure) so that the {@const} calls in the grid list it as a dependency --
+    // otherwise Svelte only tracks `week`, and switching seasons that share week numbers
+    // (e.g. 2024 <-> 2025) leaves the cells showing the previous season's counts.
+    function getWeekData(tableName, week, season) {
+        if (!data || !season || !data.weekLevel[season]) return null;
+
+        const seasonData = data.weekLevel[season];
         const tableData = seasonData[tableName];
-        
+
         return tableData?.find(r => r.week === week) || null;
     }
 </script>
@@ -2994,8 +3005,8 @@
                         {/each}
                     </select>
                 </div>
-                
-                {#if selectedSeason && data.weekLevel[selectedSeason]}
+
+                {#if selectedSeason}
                     <!-- Weekly Grid View -->
                     <div class="weekly-grid-container">
                         <div class="weekly-grid">
@@ -3016,9 +3027,9 @@
                             </div>
                             
                             {#each selectedSeasonWeeks as week}
-                                {@const rosterData = getWeekData('weeklyRosters', week)}
-                                {@const statsData = getWeekData('playerStats', week)}
-                                {@const matchupData = getWeekData('matchups', week)}
+                                {@const rosterData = getWeekData('weeklyRosters', week, selectedSeason)}
+                                {@const statsData = getWeekData('playerStats', week, selectedSeason)}
+                                {@const matchupData = getWeekData('matchups', week, selectedSeason)}
                                 <div class="grid-row">
                                     <div class="cell week-col">
                                         <span class="week-number">{week}</span>

@@ -363,6 +363,16 @@
 	};
 	$: hasStagedForWeek = currentStaging.matchups + currentStaging.rosters + currentStaging.stats > 0;
 
+	// Playoff equivalent of hasStagedForWeek: any unprocessed staged matchups, rosters, or
+	// stats for the selected playoff week. Mirrors the regular-season push gating so the
+	// button stays visible and enabled whenever there is anything to push (not just rosters).
+	$: hasStagedPlayoffForWeek = playoff
+		? (playoff.staging.matchups?.length ?? 0) +
+				(playoff.staging.rosters?.length ?? 0) +
+				(playoff.staging.playerStats?.count ?? 0) >
+			0
+		: false;
+
 	// Overview grid rows — also reference `status` directly so the grid reacts to refreshes.
 	$: weekRows = REG_WEEKS.map((w) => {
 		const s = {
@@ -818,14 +828,17 @@
 						<thead><tr><th>Player</th><th>Pos</th><th>Team</th><th>½-PPR</th></tr></thead>
 						<tbody>{#each playoff.staging.playerStats.top as ps}<tr><td>{ps.player_name}</td><td>{ps.position}</td><td>{ps.team}</td><td>{ps.fantasy_points_half_ppr}</td></tr>{/each}</tbody>
 					</table>
-					<div class="push-bar">
-						<button class="btn btn-push" on:click={pushPlayoffWeek} disabled={pushingPlayoff}>
-							{pushingPlayoff ? '⏳ Pushing…' : `⬆ Push week ${playoffWeek} to production`}
-						</button>
-					</div>
 				{:else}
-					<p class="hint">No staged playoff rosters for week {playoffWeek}. Fetch it first.</p>
+					<p class="hint">No staged playoff rosters for week {playoffWeek}.</p>
 				{/if}
+
+				<!-- Push (mirrors the regular-season button: always shown, disabled when nothing is staged) -->
+				<div class="push-bar">
+					<button class="btn btn-push" on:click={pushPlayoffWeek} disabled={pushingPlayoff || !hasStagedPlayoffForWeek} title={hasStagedPlayoffForWeek ? '' : 'Nothing staged for this week'}>
+						{pushingPlayoff ? '⏳ Pushing…' : `⬆ Push week ${playoffWeek} to production`}
+					</button>
+					{#if !hasStagedPlayoffForWeek}<span class="hint">Nothing staged for this week yet.</span>{/if}
+				</div>
 
 				{#if playoffPushSteps}
 					<table class="data-table push-results">

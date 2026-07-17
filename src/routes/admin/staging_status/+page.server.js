@@ -314,7 +314,15 @@ export async function load() {
                 draftPicks: draftPicksStaging.rows
             },
             weekLevel: weeklyDataBySeason,
-            seasons: allSeasons.rows.map(r => r.season_year)
+            // Season list for the weekly dropdown: every Sleeper season the league knows
+            // about (so a newly-activated season with no staging data yet still appears),
+            // unioned with any years that have staging rows. Sourcing this only from the
+            // staging tables hid the active 2026 season until data had been fetched.
+            seasons: [...new Set([
+                ...sleeperSeasons.rows.map(r => r.season_year),
+                ...allSeasons.rows.map(r => r.season_year)
+            ])].sort((a, b) => b - a),
+            activeSeasonYear: sleeperSeasons.rows.find(s => s.is_active)?.season_year ?? null
         };
         
     } catch (error) {
@@ -341,7 +349,8 @@ export async function load() {
                 draftPicks: []
             },
             weekLevel: {},
-            seasons: []
+            seasons: [],
+            activeSeasonYear: null
         };
     }
 }
