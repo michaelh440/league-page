@@ -68,5 +68,70 @@ export async function handle({ event, resolve }) {
 		}
 	}
 
+	// Gate the admin API surface. hooks only guards /admin page routes above; API routes
+	// live under /api and were previously unauthenticated, so any anonymous caller could
+	// hit production-mutating endpoints (process_staging_week, process_playoff_week,
+	// populate_historical_rankings, rebuild_streaks, admin/seasons, ...). Require an admin
+	// session for those. Public read endpoints (blog, version, player/news fetches, and the
+	// GET side of weekly_summary_text used by the public matchups page) are excluded.
+	if (isAdminOnlyApi(event.url.pathname, event.request.method)) {
+		if (!event.locals.user?.is_admin) {
+			return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+				status: 401,
+				headers: { 'content-type': 'application/json' }
+			});
+		}
+	}
+
 	return resolve(event);
+}
+
+// Endpoints not under /api/admin/ that still perform admin reads, pipeline work, staging,
+// content generation, or mutations. Verified against every /api caller in the app: none of
+// these are hit from public pages.
+const ADMIN_API_PATHS = [
+	'/api/ai_prompts',
+	'/api/archive_playoff',
+	'/api/archive_rosters_stats',
+	'/api/check_archived_data',
+	'/api/draft_status',
+	'/api/generate_summary',
+	'/api/generate_weekly_summary_video',
+	'/api/heygen_avatars',
+	'/api/heygen_voices',
+	'/api/import_sleeper_week',
+	'/api/playoff_status',
+	'/api/populate_historical_rankings',
+	'/api/process_playoff_week',
+	'/api/process_staging_draft',
+	'/api/process_staging_week',
+	'/api/production_week',
+	'/api/rebuild_streaks',
+	'/api/sleeper-status',
+	'/api/stage_draft',
+	'/api/stage_playoff_matchups',
+	'/api/staging_preview',
+	'/api/test_archive',
+	'/api/test_combined',
+	'/api/test_db'
+];
+
+function isAdminOnlyApi(pathname, method) {
+	// The whole /api/admin/* namespace, except the auth endpoints needed to log in/out/check.
+	if (pathname.startsWith('/api/admin/')) {
+		return !pathname.startsWith('/api/admin/auth/');
+	}
+	if (ADMIN_API_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))) {
+		return true;
+	}
+	// Mixed endpoints: the GET is public, only the mutating methods are admin.
+	// weekly_summary_text GET feeds the public matchups page; POST upserts summary text.
+	// weekly_summary_video GET is unused publicly; DELETE removes a video.
+	if (
+		(pathname === '/api/weekly_summary_text' || pathname === '/api/weekly_summary_video') &&
+		method !== 'GET'
+	) {
+		return true;
+	}
+	return false;
 }

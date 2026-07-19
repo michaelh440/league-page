@@ -161,16 +161,9 @@ export async function getHeyGenVideoStatus(videoId) {
  */
 export async function listHeyGenAvatars() {
 	try {
-		console.log('=== LIST HEYGEN AVATARS ===');
-		console.log('API Key exists:', !!HEYGEN_API_KEY);
-		console.log('API Key length:', HEYGEN_API_KEY ? HEYGEN_API_KEY.length : 0);
-		console.log('API Key first 20 chars:', HEYGEN_API_KEY ? HEYGEN_API_KEY.substring(0, 20) : 'NONE');
-
 		if (!HEYGEN_API_KEY) {
 			throw new Error('HEYGEN_API_KEY is not configured');
 		}
-
-		console.log('Fetching HeyGen avatars...');
 
 		const response = await fetch(`${HEYGEN_API_BASE}/v2/avatars`, {
 			method: 'GET',
