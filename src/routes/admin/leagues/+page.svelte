@@ -48,7 +48,10 @@
 		formPlatformId = league.platform_id;
 		formPlatform = league.platform;
 		formLeagueName = league.league_name;
-		formCommissionerId = league.commissioner_id?.toString() || '';
+		// Keep the raw number so it matches the numeric <option value={manager.manager_id}>;
+		// null/undefined -> '' to match the "None" option. (.toString() made "12" never
+		// match 12, so the dropdown rendered blank/None on edit.)
+		formCommissionerId = league.commissioner_id ?? '';
 		formMaxTeams = league.max_teams;
 		formRegSeasonLength = league.reg_season_length;
 		formScoringType = league.scoring_type;

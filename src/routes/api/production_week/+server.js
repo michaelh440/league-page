@@ -17,8 +17,8 @@ export async function GET({ url }) {
 		const matchups = await query(
 			`SELECT
 			   m.team1_id, m.team2_id, m.team1_score, m.team2_score,
-			   COALESCE(NULLIF(m.team1_name,''), t1.team_name, mg1.real_name, mg1.username, 'Team ' || m.team1_id) AS team1,
-			   COALESCE(NULLIF(m.team2_name,''), t2.team_name, mg2.real_name, mg2.username, 'Team ' || m.team2_id) AS team2
+			   COALESCE(NULLIF(m.team1_name,''), t1.team_name, mg1.username, 'Team ' || m.team1_id) AS team1,
+			   COALESCE(NULLIF(m.team2_name,''), t2.team_name, mg2.username, 'Team ' || m.team2_id) AS team2
 			 FROM matchups m
 			 LEFT JOIN teams t1 ON t1.team_id = m.team1_id
 			 LEFT JOIN managers mg1 ON mg1.manager_id = t1.manager_id
@@ -33,7 +33,7 @@ export async function GET({ url }) {
 		const weeklyScoring = await query(
 			`SELECT
 			   ws.team_id, ws.team_score,
-			   COALESCE(t.team_name, mg.real_name, mg.username, 'Team ' || ws.team_id) AS team
+			   COALESCE(t.team_name, mg.username, 'Team ' || ws.team_id) AS team
 			 FROM weekly_scoring ws
 			 LEFT JOIN teams t ON t.team_id = ws.team_id
 			 LEFT JOIN managers mg ON mg.manager_id = t.manager_id
@@ -47,7 +47,7 @@ export async function GET({ url }) {
 		const roster = await query(
 			`SELECT
 			   wr.team_id, wr.player_name, wr.position, wr.lineup_slot, wr.is_starter,
-			   COALESCE(tt.team_name, tm.team_name, mg.real_name, mg.username, 'Team ' || wr.team_id) AS team_label
+			   COALESCE(tt.team_name, tm.team_name, mg.username, 'Team ' || wr.team_id) AS team_label
 			 FROM weekly_roster wr
 			 LEFT JOIN teams tt ON tt.team_id = wr.team_id
 			 LEFT JOIN teams tm ON tm.manager_id = wr.team_id AND tm.season_id = wr.season_id

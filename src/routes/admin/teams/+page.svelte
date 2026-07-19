@@ -59,9 +59,12 @@
 	function startEdit(team) {
 		editingTeam = team.team_id;
 		showAddForm = true;
-		formLeagueId = team.league_id.toString();
-		formSeasonId = team.season_id.toString();
-		formManagerId = team.manager_id.toString();
+		// Not .toString(): the <option value={x.id}> bindings hold raw numbers, and
+		// bind:value matches by identity, so a string id never matches and the League /
+		// Season / Manager selects render blank on edit (all three are required).
+		formLeagueId = team.league_id;
+		formSeasonId = team.season_id;
+		formManagerId = team.manager_id;
 		formTeamName = team.team_name;
 		formPlatformTeamId = team.platform_team_id || '';
 	}
@@ -88,7 +91,7 @@
 	
 	// Get manager display name
 	function getManagerName(team) {
-		return team.manager_real_name || team.manager_username || 'Unknown';
+		return team.manager_username || team.manager_real_name || 'Unknown';
 	}
 	
 	// Clear filters
@@ -236,7 +239,7 @@
 							<option value="">Select Manager</option>
 							{#each managers as manager}
 								<option value={manager.manager_id}>
-									{manager.real_name || manager.username}
+									{manager.username || manager.real_name}
 								</option>
 							{/each}
 						</select>
@@ -300,7 +303,7 @@
 					<option value="">All Managers</option>
 					{#each managers as manager}
 						<option value={manager.manager_id}>
-							{manager.real_name || manager.username}
+							{manager.username || manager.real_name}
 						</option>
 					{/each}
 				</select>

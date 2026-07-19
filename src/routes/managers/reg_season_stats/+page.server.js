@@ -139,13 +139,13 @@ export async function load({ url }) {
           COALESCE(
             (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
             (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
-            COALESCE(m2.real_name, m2.username)
+            m2.username
           )
         ELSE 
           COALESCE(
             (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
             (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
-            COALESCE(m1.real_name, m1.username)
+            m1.username
           )
       END as team2_name,
       CASE 
@@ -196,13 +196,13 @@ export async function load({ url }) {
           COALESCE(
             (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
             (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
-            COALESCE(m2.real_name, m2.username)
+            m2.username
           )
         ELSE 
           COALESCE(
             (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
             (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
-            COALESCE(m1.real_name, m1.username)
+            m1.username
           )
       END as team2_name,
       CASE 
@@ -250,8 +250,8 @@ export async function load({ url }) {
     )
     SELECT 
       mgr.manager_id,
-      COALESCE(mgr.real_name, mgr.username) as manager_name,
-      COALESCE(mgr.real_name, mgr.username) as team_name,
+      mgr.username as manager_name,
+      mgr.username as team_name,
       mgr.logo_url as team_logo,
       SUM(mg.wins) as wins,
       SUM(mg.losses) as losses,

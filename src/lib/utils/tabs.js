@@ -1,6 +1,6 @@
 /*import {leagueID} from '$lib/utils/leagueInfo';
 
-const seasons = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022]; // add/remove as needed
+const seasons = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]; // add/remove as needed
 
 
 export const tabs = [

@@ -42,7 +42,7 @@ export async function load() {
   const teamManagersData = (await query(`
     SELECT
       manager_id,
-      COALESCE(team_alias, real_name, username) AS manager_name,
+      COALESCE(team_alias, username) AS manager_name,
       logo_url,
       team_name_2015, team_name_2016, team_name_2017, team_name_2018, team_name_2019,
       team_name_2020, team_name_2021, team_name_2022, team_name_2023, team_name_2024,

@@ -55,7 +55,7 @@ export async function GET({ url }) {
 
 		// team labels
 		const teamRows = await query(
-			`SELECT t.platform_team_id, COALESCE(t.team_name, mg.real_name, mg.username) AS team
+			`SELECT t.platform_team_id, COALESCE(t.team_name, mg.username) AS team
 			 FROM teams t LEFT JOIN managers mg ON mg.manager_id = t.manager_id WHERE t.season_id = $1`,
 			[seasonId]
 		);
@@ -96,7 +96,7 @@ export async function GET({ url }) {
 		// --- production playoff_roster ---
 		const pr = await query(
 			`SELECT wr.team_id, wr.player_name, wr.position, wr.lineup_slot, wr.is_starter,
-			        COALESCE(tt.team_name, tm.team_name, mg.real_name, mg.username, 'Team ' || wr.team_id) AS team_label
+			        COALESCE(tt.team_name, tm.team_name, mg.username, 'Team ' || wr.team_id) AS team_label
 			 FROM playoff_roster wr
 			 LEFT JOIN teams tt ON tt.team_id = wr.team_id
 			 LEFT JOIN teams tm ON tm.manager_id = wr.team_id AND tm.season_id = wr.season_id

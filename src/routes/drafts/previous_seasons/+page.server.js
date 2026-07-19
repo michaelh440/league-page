@@ -78,24 +78,6 @@ export async function load({ url }) {
   `, [draftInfo.draft_id])).rows;
 
   // Get all draft picks for the grid
-  /*const draftPicks = (await query(`
-    SELECT 
-      dp.pick_number,
-      dp.round_number,
-      dp.pick_in_round,
-      dp.manager_id,
-      p.player_name,
-      p.position,
-      dp.player_nfl_team,
-      pc.background_color,
-      pc.color_hex
-    FROM draft_picks dp
-    JOIN nfl_players p ON dp.player_id = p.player_id
-    JOIN position_colors pc ON p.position = pc.position
-    WHERE dp.draft_id = $1
-    ORDER BY dp.pick_number
-  `, [draftInfo.draft_id])).rows;*/
-
 const draftPicks = (await query(`
   SELECT 
     pick_number, round_number, pick_in_round, manager_id,

@@ -37,7 +37,7 @@
     let testMode = true;
     
     // Constants
-    const seasons = Array.from({ length: 11 }, (_, i) => 2025 - i);
+    const seasons = Array.from({ length: 12 }, (_, i) => 2026 - i);
     const weeks = Array.from({ length: 18 }, (_, i) => i + 1);
     
     onMount(() => {

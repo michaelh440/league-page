@@ -76,7 +76,7 @@
             
             <div class="info">
               <h2>{m.username || 'Unknown Manager'}</h2>
-              {#if m.real_name && m.real_name !== m.username}
+              {#if m.real_name && m.real_name !== m.username && m.real_name !== '?'}
                 <p class="real-name">{m.real_name}</p>
               {/if}
               

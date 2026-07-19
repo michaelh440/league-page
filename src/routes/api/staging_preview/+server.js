@@ -64,7 +64,7 @@ export async function GET({ url }) {
 	try {
 		// roster_id -> team name for this season (teams.platform_team_id is the Sleeper roster id)
 		const teamRows = await query(
-			`SELECT t.platform_team_id, COALESCE(t.team_name, mg.real_name, mg.username) AS team
+			`SELECT t.platform_team_id, COALESCE(t.team_name, mg.username) AS team
 			 FROM teams t LEFT JOIN managers mg ON mg.manager_id = t.manager_id
 			 WHERE t.season_id = $1`,
 			[seasonId]

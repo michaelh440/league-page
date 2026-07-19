@@ -8,7 +8,7 @@ export async function load({ url }) {
   const managersRes = await query(`
     SELECT 
       m.manager_id,
-      COALESCE(m.real_name, m.username) as name,
+      m.username as name,
       m.logo_url
     FROM managers m
     ORDER BY name

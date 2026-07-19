@@ -216,13 +216,13 @@ export async function load({ url }) {
           COALESCE(
             (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
             (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
-            COALESCE(m2.real_name, m2.username)
+            m2.username
           )
         ELSE 
           COALESCE(
             (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
             (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
-            COALESCE(m1.real_name, m1.username)
+            m1.username
           )
       END as team2_name,
       CASE 
@@ -274,13 +274,13 @@ export async function load({ url }) {
           COALESCE(
             (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
             (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
-            COALESCE(m2.real_name, m2.username)
+            m2.username
           )
         ELSE 
           COALESCE(
             (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
             (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
-            COALESCE(m1.real_name, m1.username)
+            m1.username
           )
       END as team2_name,
       CASE 
@@ -336,13 +336,13 @@ export async function load({ url }) {
           COALESCE(
             (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
             (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
-            COALESCE(m2.real_name, m2.username)
+            m2.username
           )
         ELSE 
           COALESCE(
             (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
             (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
-            COALESCE(m1.real_name, m1.username)
+            m1.username
           )
       END as team2_name,
       CASE 
@@ -394,13 +394,13 @@ export async function load({ url }) {
           COALESCE(
             (SELECT mtn2.team_name FROM manager_team_names mtn2 WHERE mtn2.manager_id = m2.manager_id AND mtn2.season_year = s.season_year),
             (SELECT t2.team_name FROM teams t2 WHERE t2.manager_id = m2.manager_id AND t2.season_id = s.season_id LIMIT 1),
-            COALESCE(m2.real_name, m2.username)
+            m2.username
           )
         ELSE 
           COALESCE(
             (SELECT mtn1.team_name FROM manager_team_names mtn1 WHERE mtn1.manager_id = m1.manager_id AND mtn1.season_year = s.season_year),
             (SELECT t1.team_name FROM teams t1 WHERE t1.manager_id = m1.manager_id AND t1.season_id = s.season_id LIMIT 1),
-            COALESCE(m1.real_name, m1.username)
+            m1.username
           )
       END as team2_name,
       CASE 
@@ -458,8 +458,8 @@ export async function load({ url }) {
     )
     SELECT 
       m.manager_id,
-      COALESCE(m.real_name, m.username) as manager_name,
-      COALESCE(m.real_name, m.username) as team_name,
+      m.username as manager_name,
+      m.username as team_name,
       m.logo_url as team_logo,
       COUNT(ag.result) as games_played,
       SUM(CASE WHEN ag.result = 1 THEN 1 ELSE 0 END) as wins,

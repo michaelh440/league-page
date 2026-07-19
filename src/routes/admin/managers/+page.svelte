@@ -92,7 +92,7 @@
 	
 	// Get display name
 	function getDisplayName(manager) {
-		return manager.real_name || manager.username;
+		return manager.username || manager.real_name;
 	}
 </script>
 

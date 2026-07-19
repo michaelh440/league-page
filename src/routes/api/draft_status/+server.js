@@ -28,7 +28,7 @@ export async function GET({ url }) {
 			             COALESCE(dp.player_metadata->>'last_name','')) AS player_name,
 			        dp.player_metadata->>'position' AS position,
 			        dp.player_metadata->>'team' AS nfl_team,
-			        COALESCE(t.team_name, mg.real_name, mg.username, 'Roster ' || dp.sleeper_roster_id) AS team
+			        COALESCE(t.team_name, mg.username, 'Roster ' || dp.sleeper_roster_id) AS team
 			 FROM staging_sleeper_draft_picks dp
 			 LEFT JOIN teams t ON t.platform_team_id = dp.sleeper_roster_id::text AND t.season_id = $2
 			 LEFT JOIN managers mg ON mg.manager_id = t.manager_id

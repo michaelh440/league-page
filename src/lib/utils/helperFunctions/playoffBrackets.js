@@ -72,7 +72,7 @@ export async function getPlayoffMatchups(leagueId, seasonId, week) {
 
 	// team resolution — playoffs (like matchups) key team1_id/team2_id on manager_id
 	const teamRows = await query(
-		`SELECT t.platform_team_id, t.manager_id, COALESCE(t.team_name, mg.real_name, mg.username) AS team_name
+		`SELECT t.platform_team_id, t.manager_id, COALESCE(t.team_name, mg.username) AS team_name
 		 FROM teams t LEFT JOIN managers mg ON mg.manager_id = t.manager_id WHERE t.season_id = $1`,
 		[seasonId]
 	);
