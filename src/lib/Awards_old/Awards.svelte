@@ -41,9 +41,12 @@
 	.champ {
 		position: absolute;
 		width: 20%;
+		aspect-ratio: 1 / 1; /* force a square box so every avatar is the same circle size */
 		height: auto;
+		object-fit: cover;   /* crop non-square source images instead of stretching them into ovals */
+		object-position: center top;
 		transform: translate(-50%, -50%);
-		border-radius: 100%;
+		border-radius: 50%;
 		border: 1px solid var(--bbb);
 		background-color: var(--fff);
 	}

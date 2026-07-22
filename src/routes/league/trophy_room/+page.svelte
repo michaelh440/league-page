@@ -1,6 +1,6 @@
 <script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
-  import { Awards } from '$lib/components';
+  import Awards from '$lib/Awards_old/Awards.svelte';
   import { waitForAll } from '$lib/utils/helper';
   import LinearProgress from '@smui/linear-progress';
 

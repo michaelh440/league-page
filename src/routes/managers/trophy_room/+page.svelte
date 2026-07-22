@@ -1,6 +1,6 @@
 <script>
   import StatsLayout from '$lib/components/StatsLayout.svelte';
-  import { Awards } from '$lib/components';
+  import Awards from '$lib/Awards_old/Awards.svelte';
   import { waitForAll } from '$lib/utils/helper';
   import LinearProgress from '@smui/linear-progress';
 
@@ -9,7 +9,7 @@
   const { awardsData, teamManagersData } = data;
 
   const navItems = [
-    { label: "Manager Bio", href: withMgr("/managers/bio")},
+    { label: "Manager Bio", href: "/managers/bio"},
     { label: "All Time Scoring", href: "/league/all_time_stats" },
     { label: "Regular Season Scoring", href: "/league/reg_season_stats" },
     { label: "Playoff Scoring", href: "/league/playoff_stats" },
