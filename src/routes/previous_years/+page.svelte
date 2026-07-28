@@ -1,9 +1,7 @@
 <script>
-  // Update this list as new years get added
-  const seasons = [
-    2015, 2016, 2017, 2018, 2019,
-    2020, 2021, 2022, 2023, 2024, 2025, 2026,
-  ];
+  export let data;
+  // Completed seasons (excludes the current/active season), newest first — from the DB.
+  $: seasons = data.seasons ?? [];
 </script>
 
 <h2 class="page-title">Previous Seasons</h2>
