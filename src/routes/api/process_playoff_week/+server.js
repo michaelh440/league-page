@@ -25,17 +25,25 @@ export async function POST({ request }) {
 		const wk = parseInt(week);
 
 		// Promote staged playoff matchups -> playoffs (idempotent: replace the week)
+		// Select ALL staged rows for the week, not just unprocessed ones. The push replaces
+		// the week (DELETE + re-insert), so it must be idempotent: a re-run has to rebuild
+		// from the full staged set. Filtering on processed=false made a second push find
+		// nothing, so it would DELETE the week and re-insert zero rows — silently wiping it.
 		const staged = await query(
 			`SELECT id, sleeper_matchup_id, team1_manager_id, team1_name, team2_manager_id, team2_name,
 			        team1_score, team2_score, bracket, round_name
 			 FROM staging_sleeper_playoffs
-			 WHERE season_year = $1 AND week = $2 AND processed = false`,
+			 WHERE season_year = $1 AND week = $2
+			 ORDER BY id`,
 			[seasonYear, wk]
 		);
 
-		await query(`DELETE FROM playoffs WHERE season_id = $1 AND week = $2`, [seasonId, wk]);
-
+		// Only clear the production week when there is staged data to replace it with, so a
+		// push for a week that was never staged can't wipe existing playoffs.
 		let matchupsPushed = 0;
+		if (staged.rows.length > 0) {
+			await query(`DELETE FROM playoffs WHERE season_id = $1 AND week = $2`, [seasonId, wk]);
+		}
 		for (const p of staged.rows) {
 			const ins = await query(
 				`INSERT INTO playoffs (
