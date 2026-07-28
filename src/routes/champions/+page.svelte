@@ -16,16 +16,16 @@
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
     { label: "Trophy Room", href: "/league/trophy_room" },
-    { label: "Draft Room", href: "/league/drafts" },
+    { label: "Draft Room", href: "/drafts/previous_seasons" },
     { label: "Champions", href: "/champions", active: true }
   ];
 
   function handleManagerClick(managerId) {
-    goto(`/manager/${managerId}`);
+    goto(`/managers/bio?manager_id=${managerId}`);
   }
 
   function handleChampionshipClick(champion) {
-    goto(`/season/${champion.season_year}`);
+    goto(`/seasons/${champion.season_year}`);
   }
 </script>
 
@@ -507,16 +507,16 @@
     { label: "Ranking", href: "/league/ranking" },
     { label: "Rivalries", href: "/league/rivalries" },
     { label: "Trophy Room", href: "/league/trophy_room" },
-    { label: "Draft Room", href: "/league/drafts" },
+    { label: "Draft Room", href: "/drafts/previous_seasons" },
     { label: "Champions", href: "/champions", active: true }
   ];
 
   function handleManagerClick(managerId) {
-    goto(`/manager/${managerId}`);
+    goto(`/managers/bio?manager_id=${managerId}`);
   }
 
   function handleChampionshipClick(champion) {
-    goto(`/season/${champion.season_year}`);
+    goto(`/seasons/${champion.season_year}`);
   }
 </script>
 

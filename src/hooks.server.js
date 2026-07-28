@@ -113,7 +113,11 @@ const ADMIN_API_PATHS = [
 	'/api/staging_preview',
 	'/api/test_archive',
 	'/api/test_combined',
-	'/api/test_db'
+	'/api/test_db',
+	// Admin-only summary read (only the admin weekly-summary page calls it). Note: the
+	// exact-match/`+ '/'` rule below means this does NOT accidentally gate the public
+	// /api/weekly_summary_text GET.
+	'/api/weekly_summary'
 ];
 
 function isAdminOnlyApi(pathname, method) {

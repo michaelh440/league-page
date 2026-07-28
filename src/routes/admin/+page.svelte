@@ -280,7 +280,9 @@
 				<span class="card-label">SQL Pages</span>
 			</div>
 			<div class="card-actions">
-				<a href="/admin/sql" class="disabled">SQL Insertion</a>
+				<!-- No /admin/sql route exists; keep it visibly disabled but non-navigable (an
+				     href-less anchor doesn't navigate) instead of 404-ing. -->
+				<a class="disabled">SQL Insertion</a>
 			</div>
 		</div>
 		

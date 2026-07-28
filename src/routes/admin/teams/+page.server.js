@@ -235,14 +235,28 @@ export const actions = {
 		try {
 			const data = await request.formData();
 			const teamId = data.get('team_id');
-			
+
+			// weekly_roster.team_id and matchups.team1_id/team2_id hold MANAGER_id, not
+			// team_id. Counting by the raw team_id returns 0 for any real team (manager_ids
+			// are 1-23, team_ids run much higher), so the guard would wave through a delete
+			// that orphans the team's matchups and roster. Resolve the team's manager_id and
+			// season, then count by those.
+			const teamRow = await query(
+				'SELECT manager_id, season_id FROM teams WHERE team_id = $1',
+				[teamId]
+			);
+			if (teamRow.rows.length === 0) {
+				return fail(400, { success: false, error: 'Team not found' });
+			}
+			const { manager_id, season_id } = teamRow.rows[0];
+
 			// Check if team has associated data
 			const checkQuery = `
-				SELECT 
-					(SELECT COUNT(*) FROM weekly_roster WHERE team_id = $1) as roster_count,
-					(SELECT COUNT(*) FROM matchups WHERE team1_id = $1 OR team2_id = $1) as matchup_count
+				SELECT
+					(SELECT COUNT(*) FROM weekly_roster WHERE team_id = $1 AND season_id = $2) as roster_count,
+					(SELECT COUNT(*) FROM matchups WHERE (team1_id = $1 OR team2_id = $1) AND season_id = $2) as matchup_count
 			`;
-			const checkResult = await query(checkQuery, [teamId]);
+			const checkResult = await query(checkQuery, [manager_id, season_id]);
 			const counts = checkResult.rows[0];
 			
 			if (counts.roster_count > 0 || counts.matchup_count > 0) {

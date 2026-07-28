@@ -71,18 +71,29 @@ export async function getTrophyRoomData() {
 	const awardsData = [];
 	for (const [year, ranks] of [...byYear.entries()].sort((a, b) => b[0] - a[0])) {
 		const managerAtRank = (rank) => ranks.find((x) => x.final_rank === rank)?.manager_id ?? null;
-		const worstRank = Math.max(...ranks.map((x) => x.final_rank));
+		const champion = managerAtRank(1);
+		const second = managerAtRank(2);
+		const third = managerAtRank(3);
+
+		// Skip a season whose podium isn't decided yet. The Awards component renders the
+		// champion/2nd/3rd slots unconditionally, and its name lookup throws on a null id —
+		// so an in-progress season (final_rank still NULL before playoffs finish) would 500
+		// the whole trophy room. Only completed seasons have a full 1/2/3.
+		if (champion == null || second == null || third == null) continue;
+
+		const finalRanks = ranks.map((x) => x.final_rank).filter((r) => r != null);
+		const worstRank = finalRanks.length ? Math.max(...finalRanks) : null;
 		const regSeasonChamp = ranks.find((x) => x.regular_season_rank === 1);
 
 		awardsData.push({
 			year,
-			champion: managerAtRank(1),
-			second: managerAtRank(2),
-			third: managerAtRank(3),
+			champion,
+			second,
+			third,
 			// The league has no divisions; surface the regular-season champion in that slot
 			// (Awards.svelte labels a division with no `name` as "Regular Season Champion").
 			divisions: regSeasonChamp ? [{ name: null, rosterID: regSeasonChamp.manager_id }] : [],
-			toilet: managerAtRank(worstRank)
+			toilet: worstRank != null ? managerAtRank(worstRank) : null
 		});
 	}
 

@@ -140,10 +140,7 @@ export const actions = {
           message: 'API key not configured. Check server environment variables.'
         });
       }
-      console.log('API key found, length:', ANTHROPIC_API_KEY.length);
-
       // Initialize Anthropic client
-      console.log('Initializing Anthropic client...');
       const anthropic = new Anthropic({
         apiKey: ANTHROPIC_API_KEY
       });

@@ -56,13 +56,15 @@ export async function DELETE({ request }) {
 			return json({ success: false, error: 'season and week required' }, { status: 400 });
 		}
 
-		// Get season_id - try 'year' column first
+		// Resolve by season_year (the column is season_year, not `year` — the old query
+		// threw "column year does not exist", which propagated to the catch and made every
+		// delete 500 before the season_id fallback could run).
 		let seasonResult = await sql`
-			SELECT season_id FROM seasons WHERE year = ${parseInt(season)}
+			SELECT season_id FROM seasons WHERE season_year = ${parseInt(season)}
 		`;
-		
+
 		if (seasonResult.length === 0) {
-			// Try using season_id directly as fallback
+			// Fall back to treating the value as a season_id directly.
 			seasonResult = await sql`
 				SELECT season_id FROM seasons WHERE season_id = ${parseInt(season)}
 			`;

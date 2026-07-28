@@ -45,8 +45,10 @@
     // Main navigation items
     const mainNavItems = [
         { label: "Home", dest: "/" },
-        { label: "Current Season", dest: "/current" },
-        { label: "League All Time Stats", dest: "/league" },
+        // /current and /league have no index page (only children), so those 404. Point at
+        // the real landing pages that match each label.
+        { label: "Current Season", dest: "/current_season/standings" },
+        { label: "League All Time Stats", dest: "/league/all_time_stats" },
         { label: "Manager All Time Stats", dest: "/managers" }
     ];
 

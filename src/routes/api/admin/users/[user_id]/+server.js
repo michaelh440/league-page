@@ -72,8 +72,9 @@ export async function PUT({ params, request, locals }) {
 			return json({ error: 'User not found' }, { status: 404 });
 		}
 
-		// Prevent admin from deactivating themselves
-		if (params.user_id === locals.user.user_id && is_active === false) {
+		// Prevent admin from deactivating themselves. params.user_id is a string (route
+		// param); user_id is an integer, so a raw === never matches and the guard was dead.
+		if (Number(params.user_id) === locals.user.user_id && is_active === false) {
 			return json({ error: 'Cannot deactivate your own account' }, { status: 400 });
 		}
 
@@ -154,8 +155,8 @@ export async function DELETE({ params, locals }) {
 	}
 
 	try {
-		// Prevent admin from deleting themselves
-		if (params.user_id === locals.user.user_id) {
+		// Prevent admin from deleting themselves (string route param vs integer user_id).
+		if (Number(params.user_id) === locals.user.user_id) {
 			return json({ error: 'Cannot delete your own account' }, { status: 400 });
 		}
 
