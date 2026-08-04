@@ -291,9 +291,17 @@
 			<!-- Intentionally blank -->
 		</div>
 
-		<!-- Blank Placeholder Card (completely empty) for alignment -->
-		<div class="card card-placeholder">
-			<!-- Intentionally blank -->
+		<!-- Draft Positions Card -->
+		<div class="card card-blue">
+			<div class="card-header">
+				<span class="card-label">Draft Positions</span>
+			</div>
+			<div class="card-stats">
+				<span class="card-number">🎨</span>
+			</div>
+			<div class="card-actions">
+				<a href="/admin/draft_positions">Fix Uncolored Picks</a>
+			</div>
 		</div>
 
 		<!-- Fourth Row-->
