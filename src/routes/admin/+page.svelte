@@ -225,11 +225,12 @@
 			</div>
 		</div>
 		
-		<!-- Yahoo Stats Card-->
+		<!-- Player Stats Card-->
 		<div class="card card-purple">
-			<div class="card-title">Yahoo Stats</div>
+			<div class="card-title">Player Stats</div>
 			<div class="card-actions">
 				<a href="/admin/confirm_yahoo_points_staging">Confirm Yahoo Positions</a>
+				<a href="/admin/draft_positions">Fix Uncolored Picks</a>
 			</div>
 		</div>
 
@@ -289,19 +290,6 @@
 		<!-- Blank Placeholder Card (completely empty) for alignment -->
 		<div class="card card-placeholder">
 			<!-- Intentionally blank -->
-		</div>
-
-		<!-- Draft Positions Card -->
-		<div class="card card-blue">
-			<div class="card-header">
-				<span class="card-label">Draft Positions</span>
-			</div>
-			<div class="card-stats">
-				<span class="card-number">🎨</span>
-			</div>
-			<div class="card-actions">
-				<a href="/admin/draft_positions">Fix Uncolored Picks</a>
-			</div>
 		</div>
 
 		<!-- Fourth Row-->
